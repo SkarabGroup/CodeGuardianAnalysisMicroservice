@@ -33,7 +33,7 @@ accetta la PR).
 Tassativa la corrispondenza biunivoca tra logica e test: ogni file in `src/` deve
 avere un suo corrispondente in `test/`.
 ```bash
-docker compose -f infra/docker/docker-compose.yml exec app node scripts/check-test-simmetry.js
+docker compose -f infra/docker/docker-compose.yml exec app node scripts/check-test-symmetry.js
 ```
 
 ## 5. Validazione Logica e Coverage
