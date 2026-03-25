@@ -3,7 +3,7 @@ services:
     build:
       context: ../../
       dockerfile: infra/docker/Dockerfile.dev
-    container_name: analysis_dev
+    container_name: analysis
     ports:
       - "3000:3000"
     volumes:
