@@ -14,7 +14,7 @@ nomenclatura
 Al fine di garantire che il diff di git sia pulito e privo di variazioni di 
 spaziature o stile non necessario (o non richiesto).
 ```bash
-docker compose exec app npm run format
+docker compose -f infra/docker/docker-compose.yml exec app npm run format
 ```
 Questo comando modifica i file localmente applicando le regole di `.prettierrc`.
 
@@ -33,13 +33,13 @@ accetta la PR).
 Tassativa la corrispondenza biunivoca tra logica e test: ogni file in `src/` deve
 avere un suo corrispondente in `test/`.
 ```bash
-docker compose node scripts/check-test-simmetry.js
+docker compose -f infra/docker/docker-compose.yml exec app node scripts/check-test-simmetry.js
 ```
 
 ## 5. Validazione Logica e Coverage
 Esecuzione della suite di test unitari con vincolo di copertura >= 90%.
 ```bash
-docker compose exec npm run test:cov
+docker compose -f infra/docker/docker-compose.yml exec app npm run test:cov
 ```
 
 ## 6. Invio
@@ -56,7 +56,7 @@ il rigetto della PR.
 Qualora il Push risultasse essere positivo, è possibile richiedere una PR 
 al branch più importante in quel momento. 
 
-ASSOLUTAMENTE VIETATO NON RISPETTARE UNO DEI SEGUENTI PASSAGGI. 
+ASSOLUTAMENTE VIETATO NON RISPETTARE UNO DEI SEGUENTI PASSAGGI.
 ASSOLUTAMENTE VIETATO PUBBLICARE CODICE NON CONFORME.
 ASSOLUTAMENTE VIETATO SUPERARE IL CONTROLLO DELLA PR IN AUTOMATICO (richiesta
 revisione).
