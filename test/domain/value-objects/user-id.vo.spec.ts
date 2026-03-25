@@ -1,4 +1,4 @@
-import { UserId } from '../../../src/domain/value-objects/user-id-vo';
+import { UserId } from '../../../src/domain/value-objects/user-id.vo';
 import { v4 as uuidv4 } from 'uuid';
 
 describe('UserId Value Object', () => {
