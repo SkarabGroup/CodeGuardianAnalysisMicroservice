@@ -1,0 +1,3 @@
+This folder will contains all the requestDTO, whom are all the information
+given from the outside and that will be mapped in Command or Query to be 
+passed to the Application Layer
