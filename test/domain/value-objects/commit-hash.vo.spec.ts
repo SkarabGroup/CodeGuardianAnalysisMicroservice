@@ -34,4 +34,17 @@ describe('CommitHash', () => {
     expect(() => hash.equals(null)).toThrow('Invalid argument');
     expect(() => hash.equals({})).toThrow('Invalid argument');
   });
+
+  it('should return the correct value', () => {
+    const validHash = 'a'.repeat(40);
+    const commitHash = CommitHash.create(validHash);
+    expect(commitHash.getValue()).toBe(validHash);
+  });
+
+  it('should return the wrong value', () => {
+    const validHash = 'a'.repeat(40);
+    const invalidHash = 'b'.repeat(40);
+    const commitHash = CommitHash.create(validHash);
+    expect(commitHash.getValue()).not.toBe(invalidHash);
+  });
 });
