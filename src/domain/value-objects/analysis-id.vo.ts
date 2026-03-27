@@ -1,24 +1,14 @@
-import { validate as uuidValidate } from 'uuid';
+import { v4 as uuid } from 'uuid';
 
 export class AnalysisId {
   private readonly _value: string;
 
   private constructor(value: string) {
-    this.validate(value);
     this._value = value;
   }
 
-  public static create(value: string): AnalysisId {
-    if (typeof value !== 'string') {
-      throw new Error('AnalysisId must be a string');
-    }
-    return new AnalysisId(value);
-  }
-
-  private validate(value: string): void {
-    if (!uuidValidate(value)) {
-      throw new Error('Invalid UUID format for AnalysisId : ' + value);
-    }
+  public static create(): AnalysisId {
+    return new AnalysisId(uuid());
   }
 
   public equals(other: AnalysisId): boolean {
