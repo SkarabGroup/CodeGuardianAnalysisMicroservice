@@ -5,7 +5,7 @@ describe('UserId Value Object', () => {
   it('should create a UserId with a valid UUID', () => {
     const validUuid = uuidv4();
     const userId = UserId.create(validUuid);
-    expect(userId.value).toBe(validUuid);
+    expect(userId.getValue()).toBe(validUuid);
   });
 
   it('should throw an error for an invalid UUID', () => {
@@ -31,14 +31,14 @@ describe('UserId Value Object', () => {
   it('should return the correct value', () => {
     const uuid = uuidv4();
     const userId = UserId.create(uuid);
-    expect(userId.value).toBe(uuid);
+    expect(userId.getValue()).toBe(uuid);
   });
 
   it('should return the wrong value', () => {
     const uuid = uuidv4();
     const uuid2 = uuidv4();
     const userId = UserId.create(uuid);
-    expect(userId.value).not.toBe(uuid2);
+    expect(userId.getValue()).not.toBe(uuid2);
   });
 
   it('should return false when comparing with a different type', () => {

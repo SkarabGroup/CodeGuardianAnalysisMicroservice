@@ -25,4 +25,8 @@ export class AnalisysId {
     if (!(other instanceof AnalisysId) || other === null) return false;
     return this._value === other._value;
   }
+
+  public getValue(): string {
+    return this._value;
+  }
 }

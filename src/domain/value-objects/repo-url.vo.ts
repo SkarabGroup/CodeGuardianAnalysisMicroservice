@@ -26,7 +26,7 @@ export class RepoURL {
     return other instanceof RepoURL && this._value === other._value;
   }
 
-  public get value(): string {
+  public getValue(): string {
     return this._value;
   }
 

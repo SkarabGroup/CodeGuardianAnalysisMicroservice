@@ -23,7 +23,7 @@ export class BranchName {
     return other instanceof BranchName && other._value === this._value;
   }
 
-  public get value(): string {
+  public getValue(): string {
     return this._value;
   }
 

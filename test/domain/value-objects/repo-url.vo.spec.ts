@@ -6,12 +6,12 @@ describe('RepoURL Value Object', () => {
   describe('Success Cases', () => {
     it('should create a valid RepoURL instance', () => {
       const repo = RepoURL.create(VALID_URL);
-      expect(repo.value).toBe(VALID_URL);
+      expect(repo.getValue()).toBe(VALID_URL);
     });
 
     it('should trim whitespace from the input', () => {
       const repo = RepoURL.create('   ' + VALID_URL + '   ');
-      expect(repo.value).toBe(VALID_URL);
+      expect(repo.getValue()).toBe(VALID_URL);
     });
   });
 

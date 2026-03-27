@@ -23,7 +23,7 @@ export class UserId {
     return this._value === other._value;
   }
 
-  public get value(): string {
+  public getValue(): string {
     return this._value;
   }
 }

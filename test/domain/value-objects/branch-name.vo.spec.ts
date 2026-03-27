@@ -3,12 +3,12 @@ import { BranchName } from '../../../src/domain/value-objects/branch-name.vo';
 describe('BranchName Value Objects', () => {
   describe('Success Cases', () => {
     it('Should create a valid BranchName instance', () => {
-      expect(BranchName.create('develop').value).toBe('develop');
-      expect(BranchName.create('feature/feature-name').value).toBe('feature/feature-name');
+      expect(BranchName.create('develop').getValue()).toBe('develop');
+      expect(BranchName.create('feature/feature-name').getValue()).toBe('feature/feature-name');
     });
 
     it('Should trim whitespaces from the input', () => {
-      expect(BranchName.create('     ' + 'feature/fixing/v1/final' + '     ').value).toBe(
+      expect(BranchName.create('     ' + 'feature/fixing/v1/final' + '     ').getValue()).toBe(
         'feature/fixing/v1/final',
       );
     });

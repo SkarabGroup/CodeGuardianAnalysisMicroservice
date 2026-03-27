@@ -73,7 +73,11 @@
       "**/*.ts",
       "!**/main.(t|j)s",
       "!**/*.module.(t|j)s",
+<<<<<<< Updated upstream
       "!**/*.entity.(t|j)s",
+=======
+      "!**/*.model.(t|j)s",
+>>>>>>> Stashed changes
       "!**/*.dto.(t|j)s",
       "!**/check-test-symmetry.js"
     ],

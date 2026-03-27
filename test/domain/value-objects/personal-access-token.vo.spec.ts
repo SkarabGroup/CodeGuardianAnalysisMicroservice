@@ -55,4 +55,14 @@ describe('PersonalAccessToken', () => {
       'PAT has an invalid format',
     );
   });
+
+  it('should return the correct value', () => {
+    const token = PersonalAccessToken.create(VALID_PAT);
+    expect(token.getValue()).toBe(VALID_PAT);
+  });
+
+  it('should return the wrong value', () => {
+    const token = PersonalAccessToken.create(VALID_PAT);
+    expect(token.getValue()).not.toBe(VALID_PAT_2);
+  });
 });

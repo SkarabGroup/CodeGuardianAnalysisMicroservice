@@ -29,4 +29,8 @@ export class CommitHash {
     }
     return this._value === other._value;
   }
+
+  public getValue(): string {
+    return this._value;
+  }
 }
