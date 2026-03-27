@@ -10,45 +10,24 @@ export enum AnalysisStatus {
 
 export abstract class Analysis {
   private readonly analysisId: AnalysisId;
-  private status: AnalysisStatus;
   private readonly userId: UserId;
+  private status: AnalysisStatus;
 
-  protected constructor(id: AnalysisId, userId: UserId, status: AnalysisStatus) {
-    this.validateAnalysisId(id);
-    this.validateUserId(userId);
-    this.validateStatus(status);
-    this.analysisId = id;
-    this.userId = userId;
-    this.status = status;
-  }
-
-  private validateStatus(status: AnalysisStatus): void {
-    if (!Object.values(AnalysisStatus).includes(status)) {
-      throw new Error('Invalid status value');
-    }
-  }
-
-  private validateUserId(userId: UserId): void {
-    if (!(userId instanceof UserId)) {
-      throw new Error('Invalid userId value');
-    }
-  }
-
-  private validateAnalysisId(analysisId: AnalysisId): void {
-    if (!(analysisId instanceof AnalysisId)) {
-      throw new Error('Invalid analysisId value');
-    }
+  protected constructor(user: UserId) {
+    this.analysisId = AnalysisId.create();
+    this.userId = user;
+    this.status = AnalysisStatus.PENDING;
   }
 
   public complete() {
     if (this.status === AnalysisStatus.IN_PROGRESS) {
       this.status = AnalysisStatus.COMPLETED;
     } else {
-      throw new Error('Analysis can only be completed if it is in progress or pending');
+      throw new Error('Analysis can only be completed if it is in progress');
     }
   }
 
-  public in_progress() {
+  public inProgress() {
     if (this.status === AnalysisStatus.PENDING) {
       this.status = AnalysisStatus.IN_PROGRESS;
     } else {
