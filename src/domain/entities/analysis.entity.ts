@@ -41,15 +41,27 @@ export abstract class Analysis {
   }
 
   public complete() {
-    this.status = AnalysisStatus.COMPLETED;
+    if (this.status === AnalysisStatus.IN_PROGRESS) {
+      this.status = AnalysisStatus.COMPLETED;
+    } else {
+      throw new Error('Analysis can only be completed if it is in progress or pending');
+    }
   }
 
   public in_progress() {
-    this.status = AnalysisStatus.IN_PROGRESS;
+    if (this.status === AnalysisStatus.PENDING) {
+      this.status = AnalysisStatus.IN_PROGRESS;
+    } else {
+      throw new Error('Analysis can only be set to in progress if it is pending');
+    }
   }
 
   public failed() {
-    this.status = AnalysisStatus.FAILED;
+    if (this.status === AnalysisStatus.IN_PROGRESS) {
+      this.status = AnalysisStatus.FAILED;
+    } else {
+      throw new Error('Analysis can only be failed if it is in progress');
+    }
   }
 
   public pending() {
