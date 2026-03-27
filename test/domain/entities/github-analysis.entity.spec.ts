@@ -175,18 +175,27 @@ describe('GitHubAnalysis Entity', () => {
       const analysis = makeValidAnalysis();
       analysis.in_progress();
       expect(analysis.getStatus()).toBe(AnalysisStatus.IN_PROGRESS);
+      expect(() => analysis.in_progress()).toThrow(
+        'Analysis can only be set to in progress if it is pending',
+      );
     });
 
     it('should transition to COMPLETED', () => {
       const analysis = makeValidAnalysis();
+      analysis.in_progress(); // ← mancava questo
       analysis.complete();
       expect(analysis.getStatus()).toBe(AnalysisStatus.COMPLETED);
+      expect(() => analysis.complete()).toThrow(
+        'Analysis can only be completed if it is in progress or pending',
+      );
     });
 
     it('should transition to FAILED', () => {
       const analysis = makeValidAnalysis();
+      analysis.in_progress(); // ← mancava questo
       analysis.failed();
       expect(analysis.getStatus()).toBe(AnalysisStatus.FAILED);
+      expect(() => analysis.failed()).toThrow('Analysis can only be failed if it is in progress');
     });
 
     it('should transition back to PENDING', () => {
