@@ -7,8 +7,8 @@ const mockEntity = (withCommit: boolean): GitHubAnalysis =>
     getAnalysisId: () => ({ value: 'analysis-123' }),
     getUserId: () => ({ value: 'user-456' }),
     getStatus: () => 'PENDING',
-    getBranch: () => ({ value: 'main' }),
     getRepoURL: () => ({ value: 'https://github.com/org/repo' }),
+    getBranch: () => ({ value: 'main' }),
     getCommit: () => (withCommit ? { value: 'abc123' } : null),
   }) as unknown as GitHubAnalysis;
 
