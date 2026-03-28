@@ -55,4 +55,9 @@ describe('PersonalAccessToken', () => {
       'PAT has an invalid format',
     );
   });
+
+  it('should return the correct value', () => {
+    const token = PersonalAccessToken.create(VALID_GHP);
+    expect(token.value).toBe(VALID_GHP);
+  });
 });
