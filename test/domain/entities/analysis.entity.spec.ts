@@ -3,10 +3,11 @@ import { AnalysisId } from '../../../src/domain/value-objects/analysis-id.vo';
 import { Analysis } from '../../../src/domain/entities/analysis.entity';
 import { AnalysisStatus } from '../../../src/domain/enums/analysis-status.enum';
 import { v4 as uuid } from 'uuid';
+import { AnalysisType } from '../../../src/domain/enums/analysis-type.enum';
 
 class TestAnalysis extends Analysis {
   constructor(user: UserId) {
-    super(user);
+    super(user, AnalysisType.GITHUB);
   }
 }
 

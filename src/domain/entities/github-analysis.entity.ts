@@ -3,6 +3,7 @@ import { UserId } from '../value-objects/user-id.vo';
 import { RepoURL } from '../value-objects/repo-url.vo';
 import { BranchName } from '../value-objects/branch-name.vo';
 import { CommitHash } from '../value-objects/commit-hash.vo';
+import { AnalysisType } from '../enums/analysis-type.enum';
 
 export class GitHubAnalysis extends Analysis {
   private readonly repoURL: RepoURL;
@@ -11,11 +12,12 @@ export class GitHubAnalysis extends Analysis {
 
   private constructor(
     userId: UserId,
+    type: AnalysisType,
     repoURL: RepoURL,
     branch: BranchName,
     commit: CommitHash | null,
   ) {
-    super(userId);
+    super(userId, type);
     this.repoURL = repoURL;
     this.branch = branch;
     this.commit = commit;
@@ -27,7 +29,7 @@ export class GitHubAnalysis extends Analysis {
     branch: BranchName,
     commit?: CommitHash,
   ): GitHubAnalysis {
-    return new GitHubAnalysis(userId, repoURL, branch, commit ?? null);
+    return new GitHubAnalysis(userId, AnalysisType.GITHUB, repoURL, branch, commit ?? null);
   }
 
   public getRepoURL(): RepoURL {
