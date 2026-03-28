@@ -73,6 +73,7 @@
       "**/*.ts",
       "!**/main.(t|j)s",
       "!**/.enum.(t|j)s",
+      "!**/.model.(t|j)s",
       "!**/.interface.ts",
       "!**/*.module.(t|j)s",
       "!**/*.dto.(t|j)s",
