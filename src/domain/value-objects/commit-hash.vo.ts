@@ -23,6 +23,10 @@ export class CommitHash {
     }
   }
 
+  public get value(): string {
+    return this._value;
+  }
+
   public equals(other: CommitHash): boolean {
     if (!(other instanceof CommitHash) || other === null) {
       throw new Error('Invalid argument');

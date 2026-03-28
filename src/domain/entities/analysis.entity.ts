@@ -1,12 +1,6 @@
 import { AnalysisId } from '../value-objects/analysis-id.vo';
 import { UserId } from '../value-objects/user-id.vo';
-
-export enum AnalysisStatus {
-  PENDING = 'PENDING',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
-}
+import { AnalysisStatus } from '../enums/analysis-status.enum';
 
 export abstract class Analysis {
   private readonly analysisId: AnalysisId;

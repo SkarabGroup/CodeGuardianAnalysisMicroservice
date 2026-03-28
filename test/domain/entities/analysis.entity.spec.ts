@@ -1,6 +1,7 @@
 import { UserId } from '../../../src/domain/value-objects/user-id.vo';
 import { AnalysisId } from '../../../src/domain/value-objects/analysis-id.vo';
-import { Analysis, AnalysisStatus } from '../../../src/domain/entities/analysis.entity';
+import { Analysis } from '../../../src/domain/entities/analysis.entity';
+import { AnalysisStatus } from '../../../src/domain/enums/analysis-status.enum';
 import { v4 as uuid } from 'uuid';
 
 class TestAnalysis extends Analysis {

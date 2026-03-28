@@ -72,6 +72,8 @@
     "collectCoverageFrom": [
       "**/*.ts",
       "!**/main.(t|j)s",
+      "!**/.enum.(t|j)s",
+      "!**/.interface.ts",
       "!**/*.module.(t|j)s",
       "!**/*.dto.(t|j)s",
       "!**/check-test-symmetry.js"
