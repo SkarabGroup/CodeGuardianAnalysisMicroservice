@@ -23,4 +23,11 @@ describe('AnalysisId Value Object', () => {
     expect(analysisId.equals(fakeObject)).toBe(false);
     expect(analysisId.equals(null as unknown as AnalysisId)).toBe(false);
   });
+
+  it('should return the correct value', () => {
+    const analysisId = AnalysisId.create();
+    expect(analysisId.value).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
 });
