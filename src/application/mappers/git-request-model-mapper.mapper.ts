@@ -4,7 +4,7 @@ import { CommitHash } from 'src/domain/value-objects/commit-hash.vo';
 import { PersonalAccessToken } from 'src/domain/value-objects/personal-access-token.vo';
 import { RepoURL } from 'src/domain/value-objects/repo-url.vo';
 
-export class GitRequestMapper {
+export class GitRequestModelMapper {
   public static toModel(
     branch: BranchName,
     repoUrl: RepoURL,

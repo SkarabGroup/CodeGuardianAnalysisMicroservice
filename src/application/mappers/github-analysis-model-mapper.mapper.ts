@@ -8,8 +8,8 @@ export class GithubAnalysisMapper {
       entity.getAnalysisId().value,
       entity.getUserId().value,
       entity.getStatus(),
-      entity.getBranch().value,
       entity.getRepoURL().value,
+      entity.getBranch().value,
       entity.getCommit() ? entity.getCommit()!.value : null,
     );
   }
