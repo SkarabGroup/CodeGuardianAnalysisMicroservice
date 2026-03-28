@@ -11,6 +11,10 @@ export class AnalysisId {
     return new AnalysisId(uuid());
   }
 
+  public get value(): string {
+    return this._value;
+  }
+
   public equals(other: AnalysisId): boolean {
     if (!(other instanceof AnalysisId) || other === null) return false;
     return this._value === other._value;
