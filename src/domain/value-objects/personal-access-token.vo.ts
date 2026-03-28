@@ -25,4 +25,8 @@ export class PersonalAccessToken {
   public equals(other: PersonalAccessToken): boolean {
     return other instanceof PersonalAccessToken && this._value === other._value;
   }
+
+  public get value(): string {
+    return this._value;
+  }
 }
