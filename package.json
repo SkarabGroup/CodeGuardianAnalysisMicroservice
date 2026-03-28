@@ -77,7 +77,8 @@
       "!**/.interface.ts",
       "!**/*.module.(t|j)s",
       "!**/*.dto.(t|j)s",
-      "!**/check-test-symmetry.js"
+      "!**/check-test-symmetry.js",
+      "!**/*.mock.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
