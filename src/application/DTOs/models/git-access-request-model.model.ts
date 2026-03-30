@@ -1,8 +1,8 @@
-export class GitAccessRequestModel {
+export class GitRequestModel {
   constructor(
     public readonly repositoryUrl: string,
     public readonly branchName: string,
-    public readonly commitHash: string,
-    public readonly personalAccessToken: string,
+    public readonly commitHash: string | null,
+    public readonly personalAccessToken: string | null,
   ) {}
 }

@@ -1,16 +1,21 @@
-import { RepoURL } from 'src/domain/value-objects/repo-url.vo';
-import { GitAccessRequestModel } from '../DTOs/models/git-access-request-model.model';
-import { PersonalAccessToken } from 'src/domain/value-objects/personal-access-token.vo';
+import { GitRequestModel } from '../DTOs/models/git-access-request-model.model';
 import { BranchName } from 'src/domain/value-objects/branch-name.vo';
 import { CommitHash } from 'src/domain/value-objects/commit-hash.vo';
+import { PersonalAccessToken } from 'src/domain/value-objects/personal-access-token.vo';
+import { RepoURL } from 'src/domain/value-objects/repo-url.vo';
 
-export class GitAccessRequestModelMapper {
+export class GitRequestModelMapper {
   public static toModel(
-    repoURL: RepoURL,
-    pat: PersonalAccessToken,
     branch: BranchName,
-    commit: CommitHash,
-  ): GitAccessRequestModel {
-    return new GitAccessRequestModel(repoURL.value, branch.value, commit.value, pat.value);
+    repoUrl: RepoURL,
+    commitHash?: CommitHash,
+    personalAccessToken?: PersonalAccessToken,
+  ): GitRequestModel {
+    return new GitRequestModel(
+      repoUrl.value,
+      branch.value,
+      commitHash ? commitHash.value : null,
+      personalAccessToken ? personalAccessToken.value : null,
+    );
   }
 }
