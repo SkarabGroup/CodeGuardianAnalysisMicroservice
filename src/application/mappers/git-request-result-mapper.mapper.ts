@@ -1,8 +1,8 @@
 import { GitRequestDomainResult } from '../../domain/enums/git-request-result.enum';
-import { GitRequestResult, GitRequestStatus } from '../DTOs/results/git-request-result.result';
+import { GitAccessRequestResult } from '../DTOs/results/git-access-request-result.result';
 
 export class GitRequestResultMapper {
-  public static toDomain(result: GitRequestResult): GitRequestStatus {
+  public static toDomain(result: GitAccessRequestResult): GitRequestDomainResult {
     return GitRequestDomainResult[result.status as keyof typeof GitRequestDomainResult];
   }
 }
