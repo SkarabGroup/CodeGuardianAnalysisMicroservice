@@ -3,11 +3,13 @@ import { UserId } from '../../../src/domain/value-objects/user-id.vo';
 import { RepoURL } from '../../../src/domain/value-objects/repo-url.vo';
 import { BranchName } from '../../../src/domain/value-objects/branch-name.vo';
 import { CommitHash } from '../../../src/domain/value-objects/commit-hash.vo';
-import { v4 as uuid } from 'uuid';
+import { v7 as uuid } from 'uuid';
+import { AnalysisId } from '../../../src/domain/value-objects/analysis-id.vo';
 
 describe('GitHubAnalysis Entity', () => {
   const makeValidAnalysis = (commit?: CommitHash) => {
     return GitHubAnalysis.create(
+      AnalysisId.create(uuid()),
       UserId.create(uuid()),
       RepoURL.create('https://github.com/Suerto/QtLibrary.git'),
       BranchName.create('develop'),
@@ -33,6 +35,7 @@ describe('GitHubAnalysis Entity', () => {
     it('should return the correct repoURL', () => {
       const repoUrl = RepoURL.create('https://github.com/org/repo');
       const analysis = GitHubAnalysis.create(
+        AnalysisId.create(uuid()),
         UserId.create(uuid()),
         repoUrl,
         BranchName.create('main'),
@@ -43,6 +46,7 @@ describe('GitHubAnalysis Entity', () => {
     it('should return the correct branch', () => {
       const branch = BranchName.create('main');
       const analysis = GitHubAnalysis.create(
+        AnalysisId.create(uuid()),
         UserId.create(uuid()),
         RepoURL.create('https://github.com/org/repo'),
         branch,

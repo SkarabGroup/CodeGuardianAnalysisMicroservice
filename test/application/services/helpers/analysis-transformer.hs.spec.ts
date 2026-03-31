@@ -47,14 +47,11 @@ describe('AnalysisTransformer', () => {
   it('should throw an error if the analysis type is not supported', () => {
     class UnknownAnalysis extends Analysis {
       constructor() {
-        super(UserId.create(uuid()), 'UNKNOWN' as unknown as AnalysisType);
+        super(UserId.create(uuid()));
       }
     }
 
     const unknownEntity = new UnknownAnalysis();
-
-    expect(() => transformer.toAnalysisModel(unknownEntity as Analysis)).toThrow(
-      'Analysis type not supported',
-    );
+    expect(() => transformer.toAnalysisModel(unknownEntity)).toThrow('Analysis type not supported');
   });
 });

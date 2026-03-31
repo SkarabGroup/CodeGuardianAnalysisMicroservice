@@ -1,18 +1,15 @@
 import { AnalysisId } from '../value-objects/analysis-id.vo';
 import { UserId } from '../value-objects/user-id.vo';
 import { AnalysisStatus } from '../enums/analysis-status.enum';
-import { AnalysisType } from '../enums/analysis-type.enum';
 
 export abstract class Analysis {
   private readonly analysisId: AnalysisId;
   private readonly userId: UserId;
-  private readonly type: AnalysisType;
   private status: AnalysisStatus;
 
-  protected constructor(user: UserId, type: AnalysisType) {
-    this.analysisId = AnalysisId.create();
+  protected constructor(id: AnalysisId, user: UserId) {
+    this.analysisId = id;
     this.userId = user;
-    this.type = type;
     this.status = AnalysisStatus.PENDING;
   }
 
@@ -54,10 +51,6 @@ export abstract class Analysis {
 
   public getStatus(): AnalysisStatus {
     return this.status;
-  }
-
-  public getType(): AnalysisType {
-    return this.type;
   }
 
   public equals(other: Analysis): boolean {

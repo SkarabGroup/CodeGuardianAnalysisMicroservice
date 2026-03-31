@@ -1,14 +1,20 @@
-import { v4 as uuid } from 'uuid';
-
 export class AnalysisId {
   private readonly _value: string;
 
   private constructor(value: string) {
+    this.validate(value);
     this._value = value;
   }
 
-  public static create(): AnalysisId {
-    return new AnalysisId(uuid());
+  private validate(value: string): void {
+    const UUID_V7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!UUID_V7_REGEX.test(value)) {
+      throw new Error('Must be passed a valid UUID');
+    }
+  }
+
+  public static create(value: string): AnalysisId {
+    return new AnalysisId(value);
   }
 
   public get value(): string {
