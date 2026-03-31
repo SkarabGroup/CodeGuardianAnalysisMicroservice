@@ -54,6 +54,7 @@ export class GitHubAdapter implements IGitValidatorPort {
     parts.push(`-H "Accept: ${acceptHeader}"`);
     parts.push(this.buildUrl(request));
 
+    console.debug(`Executing curl command: ${parts.join(' ')}`);
     return parts.join(' ');
   }
 
