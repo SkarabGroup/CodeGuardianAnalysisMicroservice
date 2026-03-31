@@ -5,10 +5,12 @@ import { Analysis } from '../entities/analysis.entity';
 import { AnalysisType } from '../enums/analysis-type.enum';
 import { GitHubAnalysis } from '../entities/github-analysis.entity';
 import { GitHubAnalysisCommand } from '../../application/commands/github-analysis-factory-command.command';
+import { AnalysisId } from '../value-objects/analysis-id.vo';
 import { UserId } from '../value-objects/user-id.vo';
 import { RepoURL } from '../value-objects/repo-url.vo';
 import { BranchName } from '../value-objects/branch-name.vo';
 import { CommitHash } from '../value-objects/commit-hash.vo';
+import { v7 as uuid } from 'uuid';
 
 @Injectable()
 export class GitHubAnalysisFactory implements AnalysisFactory {
@@ -17,12 +19,13 @@ export class GitHubAnalysisFactory implements AnalysisFactory {
       throw new Error('GitHubAnalysisFactory must receive a GitHubAnalysisCommand');
     }
 
+    const id = AnalysisId.create(uuid());
     const user = UserId.create(command.userId);
     const url = RepoURL.create(command.repoURL);
     const branch = BranchName.create(command.branch);
     const commit = command.commit ? CommitHash.create(command.commit) : null;
 
-    return GitHubAnalysis.create(user, url, branch, commit ?? undefined);
+    return GitHubAnalysis.create(id, user, url, branch, commit ?? undefined);
   }
 
   public supports(type: AnalysisType): boolean {

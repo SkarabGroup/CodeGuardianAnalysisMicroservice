@@ -1,9 +1,9 @@
 import { Analysis } from './analysis.entity';
+import { AnalysisId } from '../value-objects/analysis-id.vo';
 import { UserId } from '../value-objects/user-id.vo';
 import { RepoURL } from '../value-objects/repo-url.vo';
 import { BranchName } from '../value-objects/branch-name.vo';
 import { CommitHash } from '../value-objects/commit-hash.vo';
-import { AnalysisType } from '../enums/analysis-type.enum';
 
 export class GitHubAnalysis extends Analysis {
   private readonly repoURL: RepoURL;
@@ -11,25 +11,26 @@ export class GitHubAnalysis extends Analysis {
   private readonly commit: CommitHash | null;
 
   private constructor(
+    analysisId: AnalysisId,
     userId: UserId,
-    type: AnalysisType,
     repoURL: RepoURL,
     branch: BranchName,
     commit: CommitHash | null,
   ) {
-    super(userId, type);
+    super(analysisId, userId);
     this.repoURL = repoURL;
     this.branch = branch;
     this.commit = commit;
   }
 
   public static create(
+    analysisId: AnalysisId,
     userId: UserId,
     repoURL: RepoURL,
     branch: BranchName,
     commit?: CommitHash,
   ): GitHubAnalysis {
-    return new GitHubAnalysis(userId, AnalysisType.GITHUB, repoURL, branch, commit ?? null);
+    return new GitHubAnalysis(analysisId, userId, repoURL, branch, commit ?? null);
   }
 
   public getRepoURL(): RepoURL {
