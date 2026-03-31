@@ -1,5 +1,5 @@
-import { GitRequestModelMapper } from '../../../src/application/mappers/git-request-model-mapper.mapper';
-import { GitRequestModel } from '../../../src/application/DTOs/models/git-request-model.model';
+import { GitRequestModelMapper } from '../../../src/application/mappers/git-access-request-model-mapper.mapper';
+import { GitRequestModel } from '../../../src/application/DTOs/models/git-access-request-model.model';
 import { BranchName } from '../../../src/domain/value-objects/branch-name.vo';
 import { CommitHash } from '../../../src/domain/value-objects/commit-hash.vo';
 import { PersonalAccessToken } from '../../../src/domain/value-objects/personal-access-token.vo';
@@ -7,8 +7,8 @@ import { RepoURL } from '../../../src/domain/value-objects/repo-url.vo';
 
 const mockBranch = { value: 'main' } as BranchName;
 const mockRepoUrl = { value: 'https://github.com/org/repo' } as RepoURL;
-const mockCommitHash = { value: 'abc123' } as CommitHash;
-const mockToken = { value: 'ghp_token123' } as PersonalAccessToken;
+const mockCommitHash = CommitHash.create('a'.repeat(40));
+const mockToken = PersonalAccessToken.create('ghp_' + 'a'.repeat(36));
 
 describe('GitRequestModelMapper', () => {
   describe('toModel', () => {
@@ -23,8 +23,8 @@ describe('GitRequestModelMapper', () => {
       expect(result).toBeInstanceOf(GitRequestModel);
       expect(result.repositoryUrl).toBe('https://github.com/org/repo');
       expect(result.branchName).toBe('main');
-      expect(result.commitHash).toBe('abc123');
-      expect(result.personalAccessToken).toBe('ghp_token123');
+      expect(result.commitHash).toBe('a'.repeat(40));
+      expect(result.personalAccessToken).toBe('ghp_' + 'a'.repeat(36));
     });
 
     it('should set commitHash to null when commitHash is omitted', () => {

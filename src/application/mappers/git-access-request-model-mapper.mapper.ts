@@ -1,4 +1,4 @@
-import { GitRequestModel } from '../DTOs/models/git-request-model.model';
+import { GitRequestModel } from '../DTOs/models/git-access-request-model.model';
 import { BranchName } from 'src/domain/value-objects/branch-name.vo';
 import { CommitHash } from 'src/domain/value-objects/commit-hash.vo';
 import { PersonalAccessToken } from 'src/domain/value-objects/personal-access-token.vo';
