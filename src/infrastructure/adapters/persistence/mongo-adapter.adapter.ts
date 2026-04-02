@@ -5,9 +5,12 @@ import { GetGitCredentialRequest } from '../../../application/DTOs/models/reques
 import { IGitCredentialReadPort } from '../../../application/ports/repositories/git-credential-read-port.repository';
 import { GitCredential, GitCredentialDocument } from './schema/github-repo-credentials.schema';
 import { GetGitCredentialResponse } from '../../../application/DTOs/models/responses/get-git-credential-response.model';
+import { IGitCredentialWritePort } from '../../../application/ports/repositories/post-credential-write-port.repository';
+import { PostGitCredentialRequest } from '../../../application/DTOs/models/requests/post-git-credential-request.model';
+import { PostGitCredentialResponse } from '../../../application/DTOs/models/responses/post-git-credential-result.model';
 
 @Injectable() // Fondamentale per NestJS
-export class MongoDBAdapter implements IGitCredentialReadPort {
+export class MongoDBAdapter implements IGitCredentialReadPort, IGitCredentialWritePort {
   public constructor(
     @InjectModel(GitCredential.name)
     private readonly credentialModel: Model<GitCredentialDocument>,
@@ -38,6 +41,27 @@ export class MongoDBAdapter implements IGitCredentialReadPort {
         false,
         `Errore di connessione al database: ${(error as Error).message}`,
       );
+    }
+  }
+
+  async save(model: PostGitCredentialRequest): Promise<PostGitCredentialResponse> {
+    try {
+      await this.credentialModel.create({
+        repoUrl: model.repoUrl,
+        password: model.password,
+        patToken: model.pat,
+      });
+
+      return PostGitCredentialResponse.success();
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
+        return PostGitCredentialResponse.failure(
+          `Le credenziali per la repository ${model.repoUrl} sono già esistenti.`,
+        );
+      }
+
+      const message = error instanceof Error ? error.message : 'Errore sconosciuto';
+      return PostGitCredentialResponse.failure(`Errore durante il salvataggio: ${message}`);
     }
   }
 }
