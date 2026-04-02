@@ -85,6 +85,8 @@
       "!src/**/*.response.ts",
       "!src/**/index.ts",
       "!**/node_modules/**",
+      "!src/**/*.di.ts",
+      "!src/**/*.ai.ts",
       "!**/test/**"
     ],
     "coverageDirectory": "../coverage",

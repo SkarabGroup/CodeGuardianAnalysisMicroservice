@@ -228,3 +228,6 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
     ); // Returning a success message for better clarity in the response, even though the presence of localFolderPath already indicates success.
   }
 }
+
+export const GITHUB_AVAILABILITY_PORT = Symbol('IGitHubAvailabilityPort');
+export const GITHUB_CLONE_PORT = Symbol('IGitClonePort');

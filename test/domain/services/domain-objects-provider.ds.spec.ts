@@ -1,13 +1,15 @@
 import { v7 as uuid } from 'uuid';
-import { AnalysisProvider } from '../../../src/domain/services/analysis-provider.ds';
+import { DomainObjectsProvider } from '../../../src/domain/services/domain-objects-provider.ds';
 import { StartAnalysisCommand } from '../../../src/application/commands/start-analysis-command.command';
 import { GitHubAnalysis } from '../../../src/domain/entities/github-analysis.entity';
 import { AnalysisId } from '../../../src/domain/value-objects/analysis-id.vo';
 import { UserId } from '../../../src/domain/value-objects/user-id.vo';
 import { RepoURL } from '../../../src/domain/value-objects/repo-url.vo';
 import { CommitHash } from '../../../src/domain/value-objects/commit-hash.vo';
+import { PATPassword } from '../../../src/domain/value-objects/pat-password.vo';
+import { PersonalAccessToken } from '../../../src/domain/value-objects/personal-access-token.vo';
 
-describe('AnalysisProvider', () => {
+describe('DomainObjectsProvider', () => {
   const commandPublic = new StartAnalysisCommand(uuid(), 'https://github.com/Suerto/Albar.git');
 
   const commandPrivate = new StartAnalysisCommand(
@@ -31,7 +33,7 @@ describe('AnalysisProvider', () => {
     'a'.repeat(40),
   );
 
-  const provider = new AnalysisProvider();
+  const provider = new DomainObjectsProvider();
 
   it('should create an instance of GitHubAnalysis', () => {
     const CommandPublic: GitHubAnalysis = provider.createGitHubAnalysisEntity(commandPublic);
@@ -65,5 +67,23 @@ describe('AnalysisProvider', () => {
     expect(CommandCommit.getRepoURL()).toBeInstanceOf(RepoURL);
     expect(CommandCommit.getBranch()?.value).toBeUndefined();
     expect(CommandCommit.getCommit()).toBeInstanceOf(CommitHash);
+  });
+
+  describe('Secret Value Objects Generation', () => {
+    it('should create a valid PATPassword VO', () => {
+      const rawPassword = 'a'.repeat(64);
+      const vo = provider.createPATPasswordVO(rawPassword);
+
+      expect(vo).toBeInstanceOf(PATPassword);
+      expect(vo.value).toBe(rawPassword);
+    });
+
+    it('should create a valid PersonalAccessToken VO', () => {
+      const rawToken = 'ghp_' + 'a'.repeat(36);
+      const vo = provider.createPersonalAccessTokenVO(rawToken);
+
+      expect(vo).toBeInstanceOf(PersonalAccessToken);
+      expect(vo.value).toBe(rawToken);
+    });
   });
 });

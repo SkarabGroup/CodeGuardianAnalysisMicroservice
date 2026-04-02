@@ -41,3 +41,5 @@ export class MongoDBAdapter implements IGitCredentialReadPort {
     }
   }
 }
+
+export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');

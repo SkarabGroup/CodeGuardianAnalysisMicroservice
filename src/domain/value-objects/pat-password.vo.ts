@@ -1,4 +1,4 @@
-export class PatPassword {
+export class PATPassword {
   private readonly _value: string;
 
   private constructor(value: string) {
@@ -17,7 +17,7 @@ export class PatPassword {
     return this._value;
   }
 
-  public static create(value: string): PatPassword {
-    return new PatPassword(value);
+  public static create(value: string): PATPassword {
+    return new PATPassword(value);
   }
 }

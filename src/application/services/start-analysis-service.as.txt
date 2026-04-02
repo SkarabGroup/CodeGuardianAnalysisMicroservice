@@ -80,7 +80,6 @@ export class CloneRepoResponseModel {
 
 // --- 4. Storage (S3) Models ---
 export class UploadToStorageRequestModel {
-    constructor(
         public readonly localFolderPath: string,
         public readonly destinationKey: string // es. "analyses/user123/repo-xyz.zip"
     ) {}
@@ -116,6 +115,7 @@ export interface IGitClonePort {
 export interface IStoragePort {
     upload(model: UploadToStorageRequestModel): Promise<UploadToStorageResponseModel>
 }
+    constructor(
 
 export interface IOrchestratorPort {
     analyze(model: AnalyzeRequestModel): Promise<AnalyzeResponseModel>
