@@ -5,6 +5,7 @@ describe('CommitHash', () => {
     const validHash = 'a'.repeat(40);
     const commitHash = CommitHash.create(validHash);
     expect(commitHash).toBeInstanceOf(CommitHash);
+    expect(commitHash.value).toBe('a'.repeat(40));
   });
 
   it('should throw an error for invalid commit hash format', () => {
