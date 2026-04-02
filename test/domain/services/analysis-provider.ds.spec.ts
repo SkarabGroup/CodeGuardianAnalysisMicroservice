@@ -1,48 +1,69 @@
-import { GitHubAnalysisCommand } from '../../../src/application/commands/github-analysis-factory-command.command';
+import { v7 as uuid } from 'uuid';
 import { AnalysisProvider } from '../../../src/domain/services/analysis-provider.ds';
-import { v4 as uuid } from 'uuid';
+import { StartAnalysisCommand } from '../../../src/application/commands/start-analysis-command.command';
 import { GitHubAnalysis } from '../../../src/domain/entities/github-analysis.entity';
+import { AnalysisId } from '../../../src/domain/value-objects/analysis-id.vo';
+import { UserId } from '../../../src/domain/value-objects/user-id.vo';
+import { RepoURL } from '../../../src/domain/value-objects/repo-url.vo';
+import { CommitHash } from '../../../src/domain/value-objects/commit-hash.vo';
 
 describe('AnalysisProvider', () => {
-  describe('Success Cases', () => {
-    it('Should create a AnalysisProvider', () => {
-      expect(new AnalysisProvider()).toBeInstanceOf(AnalysisProvider);
-    });
+  const commandPublic = new StartAnalysisCommand(uuid(), 'https://github.com/Suerto/Albar.git');
 
-    it('Should create a GitHubAnalysis without commit', () => {
-      const command = new GitHubAnalysisCommand(
-        uuid(),
-        'https://github.com/Suerto/Albar.git',
-        'develop',
-      );
+  const commandPrivate = new StartAnalysisCommand(
+    uuid(),
+    'https://github.com/Suerto/Albar.git',
+    'fotonico',
+  );
 
-      expect(new AnalysisProvider().create(command)).toBeInstanceOf(GitHubAnalysis);
-    });
+  const commandBranch = new StartAnalysisCommand(
+    uuid(),
+    'https://github.com/Suerto/Albar.git',
+    undefined,
+    'develop',
+  );
 
-    it('Should create a GitHubAnalysis with commit', () => {
-      const command = new GitHubAnalysisCommand(
-        uuid(),
-        'https://github.com/Suerto/Albar.git',
-        'main',
-        'a'.repeat(40),
-      );
+  const commandCommit = new StartAnalysisCommand(
+    uuid(),
+    'https://github.com/Suerto/Albar.git',
+    undefined,
+    undefined,
+    'a'.repeat(40),
+  );
 
-      expect(new AnalysisProvider().create(command)).toBeInstanceOf(GitHubAnalysis);
-    });
-  });
+  const provider = new AnalysisProvider();
 
-  describe('Failure Cases', () => {
-    it('Should not create a GitHubAnalysis', () => {
-      const fakeCommand = {
-        id: uuid(),
-        type: 'fake',
-        repoURL: 'https://github.com/Fake/Command.git',
-        branch: 'develop',
-      } as unknown as GitHubAnalysisCommand;
+  it('should create an instance of GitHubAnalysis', () => {
+    const CommandPublic: GitHubAnalysis = provider.createGitHubAnalysisEntity(commandPublic);
+    expect(CommandPublic).toBeInstanceOf(GitHubAnalysis);
+    expect(CommandPublic.getAnalysisId()).toBeInstanceOf(AnalysisId);
+    expect(CommandPublic.getUserId()).toBeInstanceOf(UserId);
+    expect(CommandPublic.getRepoURL()).toBeInstanceOf(RepoURL);
+    expect(CommandPublic.getBranch()?.value).toBe('main');
+    expect(CommandPublic.getCommit()).toBeNull();
 
-      expect(() => new AnalysisProvider().create(fakeCommand)).toThrow(
-        'Analysis type not supported',
-      );
-    });
+    const CommandPrivate: GitHubAnalysis = provider.createGitHubAnalysisEntity(commandPrivate);
+    expect(CommandPrivate).toBeInstanceOf(GitHubAnalysis);
+    expect(CommandPrivate.getAnalysisId()).toBeInstanceOf(AnalysisId);
+    expect(CommandPrivate.getUserId()).toBeInstanceOf(UserId);
+    expect(CommandPrivate.getRepoURL()).toBeInstanceOf(RepoURL);
+    expect(CommandPrivate.getBranch()?.value).toBe('main');
+    expect(CommandPrivate.getCommit()).toBeNull();
+
+    const CommandBranch: GitHubAnalysis = provider.createGitHubAnalysisEntity(commandBranch);
+    expect(CommandBranch).toBeInstanceOf(GitHubAnalysis);
+    expect(CommandBranch.getAnalysisId()).toBeInstanceOf(AnalysisId);
+    expect(CommandBranch.getUserId()).toBeInstanceOf(UserId);
+    expect(CommandBranch.getRepoURL()).toBeInstanceOf(RepoURL);
+    expect(CommandBranch.getBranch()?.value).toBe('develop');
+    expect(CommandBranch.getCommit()).toBeNull();
+
+    const CommandCommit: GitHubAnalysis = provider.createGitHubAnalysisEntity(commandCommit);
+    expect(CommandCommit).toBeInstanceOf(GitHubAnalysis);
+    expect(CommandCommit.getAnalysisId()).toBeInstanceOf(AnalysisId);
+    expect(CommandCommit.getUserId()).toBeInstanceOf(UserId);
+    expect(CommandCommit.getRepoURL()).toBeInstanceOf(RepoURL);
+    expect(CommandCommit.getBranch()?.value).toBeUndefined();
+    expect(CommandCommit.getCommit()).toBeInstanceOf(CommitHash);
   });
 });

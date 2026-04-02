@@ -1,6 +1,0 @@
-export enum GitRequestDomainResult {
-  EXIST = 'EXIST',
-  NOT_FOUND = 'NOT_FOUND',
-  UNAUTHORIZED = 'UNAUTHORIZED',
-  UNAVAILABLE = 'UNAVAILABLE',
-}

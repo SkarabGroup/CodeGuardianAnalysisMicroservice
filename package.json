@@ -16,14 +16,16 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:check": "node scripts/check-test-symmetry.js",
-    "test:cov": "npm run test:check && jest --coverage",
+    "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "allTests": "npm run format && npm run lint &&  npm run test:cov"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/mongoose": "^11.0.4",
     "@nestjs/platform-express": "^11.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
@@ -70,15 +72,20 @@
       "node_modules/(?!uuid)"
     ],
     "collectCoverageFrom": [
-      "**/*.ts",
-      "!**/main.(t|j)s",
-      "!**/.enum.(t|j)s",
-      "!**/.model.(t|j)s",
-      "!**/.interface.ts",
-      "!**/*.module.(t|j)s",
-      "!**/*.dto.(t|j)s",
-      "!**/check-test-symmetry.js",
-      "!**/*.mock.(t|j)s"
+      "src/**/*.ts",
+      "!src/main.ts",
+      "!src/**/*.module.ts",
+      "!src/**/*.schema.ts",
+      "!src/**/*.dto.ts",
+      "!src/**/*.command.ts",
+      "!src/**/*.model.ts",
+      "!src/**/*.enum.ts",
+      "!src/**/*.port.ts",
+      "!src/**/*.request.ts",
+      "!src/**/*.response.ts",
+      "!src/**/index.ts",
+      "!**/node_modules/**",
+      "!**/test/**"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",

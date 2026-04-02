@@ -1,23 +1,42 @@
 import { Injectable } from '@nestjs/common';
-import { AnalysisFactory } from '../factories/analysis-factory.factory.interface';
-import { GitHubAnalysisFactory } from '../factories/github-analysis-factory.factory';
-import { AnalysisFactoryCommand } from 'src/application/commands/analysis-factory-command.command';
-import { Analysis } from '../entities/analysis.entity';
+import { v7 as uuid } from 'uuid';
+import { StartAnalysisCommand } from '../../application/commands/start-analysis-command.command';
+import { GitHubAnalysis } from '../entities/github-analysis.entity';
+import { UserId } from '../value-objects/user-id.vo';
+import { RepoURL } from '../value-objects/repo-url.vo';
+import { BranchName } from '../value-objects/branch-name.vo';
+import { CommitHash } from '../value-objects/commit-hash.vo';
+import { AnalysisId } from '../value-objects/analysis-id.vo';
 
 @Injectable()
 export class AnalysisProvider {
-  private readonly factories: AnalysisFactory[] = [];
+  createGitHubAnalysisEntity(command: StartAnalysisCommand): GitHubAnalysis {
+    if (!command.commitHash) {
+      if (!command.branch) {
+        return GitHubAnalysis.create(
+          AnalysisId.create(uuid()),
+          UserId.create(command.userId),
+          RepoURL.create(command.repositoryUrl),
+          BranchName.create('main'),
+          null,
+        );
+      }
 
-  constructor() {
-    this.factories.push(new GitHubAnalysisFactory());
-  }
-
-  public create(command: AnalysisFactoryCommand): Analysis {
-    const factory = this.factories.find((f) => f.supports(command.type));
-    if (!factory) {
-      throw new Error('Analysis type not supported');
+      return GitHubAnalysis.create(
+        AnalysisId.create(uuid()),
+        UserId.create(command.userId),
+        RepoURL.create(command.repositoryUrl),
+        BranchName.create(command.branch),
+        null,
+      );
     }
 
-    return factory.create(command);
+    return GitHubAnalysis.create(
+      AnalysisId.create(uuid()),
+      UserId.create(command.userId),
+      RepoURL.create(command.repositoryUrl),
+      null,
+      CommitHash.create(command.commitHash),
+    );
   }
 }
