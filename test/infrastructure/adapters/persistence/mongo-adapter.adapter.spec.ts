@@ -51,6 +51,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
   describe('istantiation', () => {
     it('should be defined', () => {
       expect(adapter).toBeDefined();
+      expect(adapter).toBeInstanceOf(MongoDBAdapter);
     });
   });
 
