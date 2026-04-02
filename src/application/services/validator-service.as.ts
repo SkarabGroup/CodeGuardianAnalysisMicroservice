@@ -55,8 +55,8 @@ export class ValidatorService implements IValidatorServiceInterface {
           response.errorMessage || 'Unauthorized access to the repository.',
         );
       }
-
-      patToken = this.personalAccessTokenGenerator.createPersonalAccessTokenVO(patPassword);
+      if (response.patToken)
+        patToken = this.personalAccessTokenGenerator.createPersonalAccessTokenVO(response.patToken);
     }
 
     const availabilityRequest = new CheckAvailabilityRequestModel(
