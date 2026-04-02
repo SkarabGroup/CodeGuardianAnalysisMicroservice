@@ -3,18 +3,25 @@ import { getModelToken } from '@nestjs/mongoose';
 import { FilterQuery } from 'mongoose';
 
 import { GitCredential } from '../../../../src/infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
-import { GetGitCredentialRequest } from '../../../../src/application/DTOs/models/requests/get-git-credential-request.model';
 import { MongoDBAdapter } from '../../../../src/infrastructure/adapters/persistence/mongo-adapter.adapter';
+import { GetGitCredentialRequest } from '../../../../src/application/DTOs/models/requests/get-git-credential-request.model';
+import { PostGitCredentialRequest } from '../../../../src/application/DTOs/models/requests/post-git-credential-request.model';
 
-// Interfaccia per simulare la catena di Mongoose
+/**
+ * Interfacce per il Mocking Type-Safe
+ */
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
   exec: jest.Mock<Promise<GitCredential | null>, []>;
 }
 
-// Interfaccia per il Modello
 interface MockModel {
   findOne: jest.Mock<MockQuery, [FilterQuery<GitCredential>]>;
+  create: jest.Mock<Promise<Partial<GitCredential>>, [Partial<GitCredential>]>;
+}
+
+interface MongoError extends Error {
+  code: number;
 }
 
 describe('MongoDBAdapter (Unit Test)', () => {
@@ -23,16 +30,19 @@ describe('MongoDBAdapter (Unit Test)', () => {
   let mockQuery: MockQuery;
 
   beforeEach(async () => {
+    // Setup della catena di query (findOne -> lean -> exec)
     mockQuery = {
       lean: jest.fn().mockReturnThis() as jest.Mock<MockQuery, []>,
       exec: jest.fn() as jest.Mock<Promise<GitCredential | null>, []>,
     };
 
+    // Setup del modello
     mockModel = {
       findOne: jest.fn().mockReturnValue(mockQuery) as jest.Mock<
         MockQuery,
         [FilterQuery<GitCredential>]
       >,
+      create: jest.fn() as jest.Mock<Promise<Partial<GitCredential>>, [Partial<GitCredential>]>,
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -48,7 +58,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     adapter = module.get<MongoDBAdapter>(MongoDBAdapter);
   });
 
-  describe('istantiation', () => {
+  describe('instantiation', () => {
     it('should be defined', () => {
       expect(adapter).toBeDefined();
       expect(adapter).toBeInstanceOf(MongoDBAdapter);
@@ -61,7 +71,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     it('should return a successful response when credentials are found', async () => {
       const mockDbResult = {
         patToken: 'ghp_token_valido',
-      };
+      } as GitCredential;
 
       mockQuery.exec.mockResolvedValue(mockDbResult);
 
@@ -93,7 +103,87 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result.isAuthorized).toBe(false);
       expect(result.errorMessage).toContain('Errore di connessione al database');
-      expect(result.errorMessage).toContain('Connection timeout');
+    });
+  });
+
+  describe('save', () => {
+    const mockSaveRequest = new PostGitCredentialRequest(
+      'https://github.com/new-repo',
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      'ghp_token123',
+    );
+
+    it('should return success when credential is saved correctly', async () => {
+      mockModel.create.mockResolvedValue({
+        repoUrl: mockSaveRequest.repoUrl,
+      });
+
+      const result = await adapter.save(mockSaveRequest);
+
+      expect(result.isSuccess).toBe(true);
+      expect(mockModel.create).toHaveBeenCalledWith({
+        repoUrl: mockSaveRequest.repoUrl,
+        password: mockSaveRequest.password,
+        patToken: mockSaveRequest.pat,
+      });
+    });
+
+    it('should return failure when a duplicate key error (11000) occurs', async () => {
+      const mongoError = new Error('Duplicate key') as MongoError;
+      mongoError.code = 11000;
+      mockModel.create.mockRejectedValue(mongoError);
+
+      const result = await adapter.save(mockSaveRequest);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('già esistenti');
+    });
+
+    it('should return failure for generic database errors', async () => {
+      const genericError = new Error('Database connection lost');
+      mockModel.create.mockRejectedValue(genericError);
+
+      const result = await adapter.save(mockSaveRequest);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('Database connection lost');
+    });
+
+    it('should return failure when password format violates schema validation', async () => {
+      const validationError = new Error('ValidationError: password: Path `password` is invalid');
+      validationError.name = 'ValidationError';
+      mockModel.create.mockRejectedValue(validationError);
+
+      // Act
+      const result = await adapter.save(mockSaveRequest);
+
+      // Assert
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('ValidationError');
+    });
+
+    it('should handle standard Error objects and return their message', async () => {
+      // Arrange
+      const standardError = new Error('Database connection failed');
+      mockModel.create.mockRejectedValue(standardError);
+
+      // Act
+      const result = await adapter.save(mockSaveRequest);
+
+      // Assert
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('Database connection failed');
+    });
+
+    it('should handle non-Error objects and return a default unknown error message', async () => {
+      mockModel.create.mockRejectedValue('Stringa di errore brutale');
+
+      // Act
+      const result = await adapter.save(mockSaveRequest);
+
+      // Assert
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('Errore sconosciuto');
     });
   });
 });

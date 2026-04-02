@@ -11,7 +11,7 @@ export class GitCredential {
   @Prop({ required: true, unique: true, index: true })
   repoUrl: string = '';
 
-  @Prop({ required: true })
+  @Prop({ required: true, match: /^[a-f0-9]{64}$/i })
   password: string = '';
 
   @Prop({ required: true })
