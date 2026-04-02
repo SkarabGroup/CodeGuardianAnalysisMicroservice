@@ -16,10 +16,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:check": "node scripts/check-test-symmetry.js",
-    "test:cov": "jest --coverage",
+    "test:cov": "npm run test:check && jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "allTests": "npm run format && npm run lint &&  npm run test:cov"
+    "allTests": "npm run format && npm run lint && npm run test:cov"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

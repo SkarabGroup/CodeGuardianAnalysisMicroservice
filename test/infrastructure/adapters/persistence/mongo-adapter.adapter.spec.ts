@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { FilterQuery } from 'mongoose';
 
-import { GitCredential } from '../../../src/infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
-import { GetGitCredentialRequest } from '../../../src/application/DTOs/models/requests/get-git-credential-request.model';
-import { MongoDBAdapter } from '../../../src/infrastructure/adapters/persistence/mongo-adapter.adapter';
+import { GitCredential } from '../../../../src/infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
+import { GetGitCredentialRequest } from '../../../../src/application/DTOs/models/requests/get-git-credential-request.model';
+import { MongoDBAdapter } from '../../../../src/infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 // Interfaccia per simulare la catena di Mongoose
 interface MockQuery {
