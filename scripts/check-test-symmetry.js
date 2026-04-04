@@ -4,7 +4,7 @@ const path = require('path');
 const srcDir = path.join(__dirname, '../src');
 const testDir = path.join(__dirname, '../test');
 
-const ignoreExtensions = ['.enum.ts', '.model.ts', '.command.ts', '.schema.ts', '.port.ts', 'repository.ts', 'result.ts', '.module.ts', 'main.ts'];
+const ignoreExtensions = ['.enum.ts', '.model.ts', '.command.ts', '.schema.ts', '.port.ts', '.uc.ts', '.interface.ts', 'repository.ts', 'result.ts', '.module.ts', 'main.ts'];
 
 function getFiles(dir, allFiles = []) {
   const files = fs.readdirSync(dir);

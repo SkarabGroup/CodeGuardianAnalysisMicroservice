@@ -1,4 +1,0 @@
-RequestDTO -> Command 
-RequestDTO -> Query
-
-Result -> ResponseDTO
