@@ -14,9 +14,9 @@ export default tseslint.config(
   eslintPluginPrettierRecommended,
   {
     languageOptions: {
-      globals: { 
-        ...globals.node, 
-        ...globals.jest 
+      globals: {
+        ...globals.node,
+        ...globals.jest,
       },
       parserOptions: {
         projectService: true,
@@ -25,26 +25,26 @@ export default tseslint.config(
     },
   },
   {
-    plugins: { 
-      jest: jestPlugin 
+    plugins: {
+      jest: jestPlugin,
     },
     rules: {
       ...jestPlugin.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { "argsIgnorePattern": "^_" }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-unsafe-assignment': 'error',
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-call': 'error',
       '@typescript-eslint/restrict-template-expressions': 'error',
       '@typescript-eslint/unbound-method': 'error',
-      "prettier/prettier": ["error", { "endOfLine": "lf" }],
-      "jest/no-disabled-tests": "error",
-      "jest/no-focused-tests": "error",
-      "jest/no-identical-title": "error",
-      "jest/valid-expect": "error",
-      "jest/expect-expect": "error",
-      "jest/no-standalone-expect": "error"
+      'prettier/prettier': ['error', { endOfLine: 'lf' }],
+      'jest/no-disabled-tests': 'error',
+      'jest/no-focused-tests': 'error',
+      'jest/no-identical-title': 'error',
+      'jest/valid-expect': 'error',
+      'jest/expect-expect': 'error',
+      'jest/no-standalone-expect': 'error',
     },
   },
 );

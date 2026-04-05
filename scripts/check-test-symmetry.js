@@ -4,11 +4,23 @@ const path = require('path');
 const srcDir = path.join(__dirname, '../src');
 const testDir = path.join(__dirname, '../test');
 
-const ignoreExtensions = ['.enum.ts', '.dto.ts', '.model.ts', '.command.ts', '.schema.ts', '.port.ts', '.uc.ts', '.interface.ts', 'repository.ts', 'result.ts', '.module.ts', 'main.ts'];
+const ignoreExtensions = [
+  '.enum.ts',
+  '.model.ts',
+  '.command.ts',
+  '.schema.ts',
+  '.port.ts',
+  '.uc.ts',
+  '.interface.ts',
+  'repository.ts',
+  'result.ts',
+  '.module.ts',
+  'main.ts',
+];
 
 function getFiles(dir, allFiles = []) {
   const files = fs.readdirSync(dir);
-  files.forEach(file => {
+  files.forEach((file) => {
     const name = path.join(dir, file);
     if (fs.statSync(name).isDirectory()) {
       getFiles(name, allFiles);
@@ -20,12 +32,12 @@ function getFiles(dir, allFiles = []) {
 }
 
 const srcFiles = getFiles(srcDir)
-  .filter(f => f.endsWith('.ts'))
-  .filter(f => !ignoreExtensions.some(ext => f.endsWith(ext)));
+  .filter((f) => f.endsWith('.ts'))
+  .filter((f) => !ignoreExtensions.some((ext) => f.endsWith(ext)));
 
 let missingTests = [];
 
-srcFiles.forEach(srcFile => {
+srcFiles.forEach((srcFile) => {
   const relativePath = path.relative(srcDir, srcFile);
   const testFile = path.join(testDir, relativePath.replace('.ts', '.spec.ts'));
 
@@ -36,7 +48,11 @@ srcFiles.forEach(srcFile => {
 
 if (missingTests.length > 0) {
   console.error('\x1b[31m%s\x1b[0m', 'ERRORE SIMMETRIA TEST FALLITA:');
-  missingTests.forEach(file => console.error(` - Manca il test per: src/${file} (Atteso in: test/${file.replace('.ts', '.spec.ts')})`));
+  missingTests.forEach((file) =>
+    console.error(
+      ` - Manca il test per: src/${file} (Atteso in: test/${file.replace('.ts', '.spec.ts')})`,
+    ),
+  );
   process.exit(1);
 } else {
   console.log('\x1b[32m%s\x1b[0m', 'Simmetria test verificata con successo.');
