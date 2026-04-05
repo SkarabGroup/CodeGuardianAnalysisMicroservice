@@ -12,7 +12,7 @@ import { PostGitCredentialResponse } from '../../../application/DTOs/models/resp
 @Injectable() // Fondamentale per NestJS
 export class MongoDBAdapter implements IGitCredentialReadPort, IGitCredentialWritePort {
   public constructor(
-    @InjectModel(GitCredential.name)
+    @InjectModel(GitCredential.name, 'DatabaseConnection')
     private readonly credentialModel: Model<GitCredentialDocument>,
   ) {}
 
@@ -61,3 +61,4 @@ export class MongoDBAdapter implements IGitCredentialReadPort, IGitCredentialWri
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
+export const GIT_CREDENTIAL_WRITE_PORT = Symbol('IGitCredentialWritePort');

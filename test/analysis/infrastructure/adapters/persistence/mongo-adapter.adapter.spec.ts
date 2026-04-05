@@ -49,7 +49,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
       providers: [
         MongoDBAdapter,
         {
-          provide: getModelToken(GitCredential.name),
+          provide: getModelToken(GitCredential.name, 'DatabaseConnection'),
           useValue: mockModel,
         },
       ],

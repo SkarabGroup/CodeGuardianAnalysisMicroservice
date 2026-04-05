@@ -1,11 +1,40 @@
 services:
+  # Il tuo applicativo NestJS
   app:
     build:
       context: ../../
       dockerfile: infra/docker/Dockerfile.dev
     container_name: analysis
+    restart: always
+    depends_on:
+      - mongodb
     ports:
       - "3000:3000"
     volumes:
       - ../../:/app
       - /app/node_modules
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/analysis_db
+      - NODE_ENV=development
+    networks:
+      - analysis_network
+
+  mongodb:
+    image: mongo:latest
+    container_name: analysis_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=analysis_db
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - analysis_network
+
+volumes:
+  mongo_data:
+
+networks:
+  analysis_network:
+    driver: bridge

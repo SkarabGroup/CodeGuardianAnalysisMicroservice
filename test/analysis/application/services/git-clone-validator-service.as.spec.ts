@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AvailabilityChecker } from '../../../../src/analysis/domain/services/availability-checker.ds';
-import { GITHUB_AVAILABILITY_PORT } from '../../../../src/analysis/infrastructure/adapters/externals/github-adapter.adapter';
+import { GitCloneValidatorService } from '../../../../src/analysis/application/services/git-clone-validator-service.as';
+import { AVAILABILITY_PORT } from '../../../../src/analysis/infrastructure/adapters/externals/github-adapter.adapter';
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { CommitHash } from '../../../../src/analysis/domain/value-objects/commit-hash.vo';
 
@@ -8,18 +8,18 @@ const mockAvailabilityPort = {
   check: jest.fn(),
 };
 
-describe('AvailabilityChecker Domain Service', () => {
-  let service: AvailabilityChecker;
+describe('GitCloneValidatorService Application Service', () => {
+  let service: GitCloneValidatorService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        AvailabilityChecker,
-        { provide: GITHUB_AVAILABILITY_PORT, useValue: mockAvailabilityPort },
+        GitCloneValidatorService,
+        { provide: AVAILABILITY_PORT, useValue: mockAvailabilityPort },
       ],
     }).compile();
 
-    service = module.get<AvailabilityChecker>(AvailabilityChecker);
+    service = module.get<GitCloneValidatorService>(GitCloneValidatorService);
     jest.clearAllMocks();
   });
 

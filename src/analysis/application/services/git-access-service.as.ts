@@ -1,17 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { PATPassword } from '../value-objects/pat-password.vo';
-import { PersonalAccessToken } from '../value-objects/personal-access-token.vo';
-import { RepoURL } from '../value-objects/repo-url.vo';
-import { IGitCredentialProvider } from './git-credential-provider.ds.interface';
-import { GetGitCredentialRequest } from '../../application/DTOs/models/requests/get-git-credential-request.model';
+import { PATPassword } from '../../domain/value-objects/pat-password.vo';
+import { PersonalAccessToken } from '../../domain/value-objects/personal-access-token.vo';
+import { RepoURL } from '../../domain/value-objects/repo-url.vo';
 
-import type { IGitCredentialReadPort } from '../../application/ports/repositories/git-credential-read-port.repository';
+import { IRepositoryAuthorizer } from './interfaces/repository-authorizer.as.interface';
+
+import { GetGitCredentialRequest } from '../DTOs/models/requests/get-git-credential-request.model';
+import { GetGitCredentialResponse } from '../DTOs/models/responses/get-git-credential-response.model';
+
+import type { IGitCredentialReadPort } from '../ports/repositories/git-credential-read-port.repository';
 import { GIT_CREDENTIAL_READ_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
-import { GetGitCredentialResponse } from '../../application/DTOs/models/responses/get-git-credential-response.model';
 
 @Injectable()
-export class GitCredentialManager implements IGitCredentialProvider {
+export class GitAccessService implements IRepositoryAuthorizer {
   constructor(
     @Inject(GIT_CREDENTIAL_READ_PORT)
     private readonly credentialPort: IGitCredentialReadPort,
@@ -35,4 +37,4 @@ export class GitCredentialManager implements IGitCredentialProvider {
   }
 }
 
-export const GIT_CREDENTIAL_PROVIDER = Symbol('IGitCredentialProvider');
+export const ACCESS_AUTHORIZER = Symbol('IRepositoryAuthorizer');

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { GitCredentialManager } from '../../../../src/analysis/domain/services/git-credential-manager.ds';
+import { GitAccessService } from '../../../../src/analysis/application/services/git-access-service.as';
 import { GIT_CREDENTIAL_READ_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../../../src/analysis/domain/value-objects/pat-password.vo';
@@ -8,18 +8,18 @@ const mockCredentialPort = {
   authorize: jest.fn(),
 };
 
-describe('GitCredentialManager Domain Service', () => {
-  let service: GitCredentialManager;
+describe('GitAccessService Application Service', () => {
+  let service: GitAccessService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        GitCredentialManager,
+        GitAccessService,
         { provide: GIT_CREDENTIAL_READ_PORT, useValue: mockCredentialPort },
       ],
     }).compile();
 
-    service = module.get<GitCredentialManager>(GitCredentialManager);
+    service = module.get<GitAccessService>(GitAccessService);
     jest.clearAllMocks();
   });
 
@@ -54,8 +54,8 @@ describe('GitCredentialManager Domain Service', () => {
 
   it('should throw an error if an errorMessage is provided', async () => {
     mockCredentialPort.authorize.mockResolvedValue({
-      isAuthorized: true,
-      patToken: 'token',
+      isAuthorized: false,
+      patToken: null,
       errorMessage: 'Service Unavailable',
     });
 

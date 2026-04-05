@@ -82,6 +82,7 @@
       "!src/**/*.command.ts",
       "!src/**/*.model.ts",
       "!src/**/*.enum.ts",
+      "!src/**/*.result.ts",
       "!src/**/*.port.ts",
       "!src/**/*.request.ts",
       "!src/**/*.response.ts",

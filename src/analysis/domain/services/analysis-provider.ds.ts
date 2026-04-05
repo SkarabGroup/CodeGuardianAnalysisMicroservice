@@ -16,7 +16,6 @@ export class AnalysisProvider implements IAnalysisFactory {
     const userId = UserId.create(command.userId);
     const repoUrl = RepoURL.create(command.repositoryUrl);
 
-    // Logica originale: se non c'è il commitHash, crea con il Branch
     if (!command.commitHash) {
       return GitHubAnalysis.create(
         analysisId,
@@ -27,7 +26,6 @@ export class AnalysisProvider implements IAnalysisFactory {
       );
     }
 
-    // Altrimenti crea con il CommitHash (e branch a null)
     return GitHubAnalysis.create(
       analysisId,
       userId,

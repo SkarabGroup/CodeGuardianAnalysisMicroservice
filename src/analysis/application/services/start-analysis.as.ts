@@ -2,96 +2,65 @@ import { Inject, Injectable } from '@nestjs/common';
 import { StartAnalysisUseCase } from '../use-case/start-analysis.uc';
 import { StartAnalysisCommand } from '../commands/start-analysis-command.command';
 import { StartAnalysisResult } from '../results/start-analysis-result.result';
-import { GitHubAnalysis } from '../../domain/entities/github-analysis.entity';
 import { PATPassword } from '../../domain/value-objects/pat-password.vo';
-import { PersonalAccessToken } from '../../domain/value-objects/personal-access-token.vo';
-import { GetGitCredentialRequest } from '../DTOs/models/requests/get-git-credential-request.model';
 
 import type { IAnalysisFactory } from '../../domain/services/analysis-factory.ds.interface';
-import type { IGitCredentialReadPort } from '../ports/repositories/git-credential-read-port.repository';
-import type { IGitHubAvailabilityPort } from '../ports/externals/github-availability-port.port';
+import type { IRepositoryAuthorizer } from './interfaces/repository-authorizer.as.interface';
+import type { IRepositoryCloneValidator } from './interfaces/source-validator.ds.interface';
+import type { IRepositoryCloner } from './interfaces/repository-cloner.as.interface';
 
-import { GIT_CREDENTIAL_READ_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { ANALYSIS_PROVIDER } from '../../domain/services/analysis-provider.ds';
-import { GITHUB_AVAILABILITY_PORT } from '../../infrastructure/adapters/externals/github-adapter.adapter';
-
-import { CheckAvailabilityRequest } from '../DTOs/models/requests/check-availability-request-model.model';
-import { CheckAvailabilityResponse } from '../DTOs/models/responses/check-availability-response-model.model';
+import { ACCESS_AUTHORIZER } from './git-access-service.as';
+import { CLONE_VALIDATOR } from './git-clone-validator-service.as';
+import { REPOSITORY_CLONER } from './git-cloner-service.as';
 
 @Injectable()
-export class StartAnalysis implements StartAnalysisUseCase {
+export class StartAnalysisService implements StartAnalysisUseCase {
   public constructor(
-    @Inject(ANALYSIS_PROVIDER) private readonly analysisProvider: IAnalysisFactory,
-    @Inject(GIT_CREDENTIAL_READ_PORT) private readonly credentialPort: IGitCredentialReadPort,
-    @Inject(GITHUB_AVAILABILITY_PORT) private readonly availabilityPort: IGitHubAvailabilityPort,
+    @Inject(ANALYSIS_PROVIDER)
+    private readonly analysisProvider: IAnalysisFactory,
+    @Inject(ACCESS_AUTHORIZER)
+    private readonly authorizer: IRepositoryAuthorizer,
+    @Inject(CLONE_VALIDATOR)
+    private readonly validator: IRepositoryCloneValidator,
+    @Inject(REPOSITORY_CLONER)
+    private readonly cloner: IRepositoryCloner,
   ) {}
 
   public async execute(command: StartAnalysisCommand): Promise<StartAnalysisResult> {
-    let analysis: GitHubAnalysis;
-
     try {
-      analysis = this.analysisProvider.createGitHubAnalysisEntity(command);
-    } catch (error) {
-      return StartAnalysisResult.failure(
-        error instanceof Error ? error.message : 'Invalid analysis data',
-      );
-    }
+      const analysis = this.analysisProvider.createGitHubAnalysisEntity(command);
 
-    let pat: PersonalAccessToken | null = null;
+      const pat = command.patPassword
+        ? await this.authorizer.authorize(
+            analysis.getRepoURL(),
+            PATPassword.create(command.patPassword),
+          )
+        : null;
 
-    if (command.patPassword) {
-      try {
-        const credentialRequest = new GetGitCredentialRequest(
-          analysis.getRepoURL(),
-          PATPassword.create(command.patPassword),
-        );
-
-        const credentialResponse = await this.credentialPort.authorize(credentialRequest);
-
-        if (
-          credentialResponse.errorMessage ||
-          !credentialResponse.isAuthorized ||
-          !credentialResponse.patToken
-        ) {
-          return StartAnalysisResult.failure('Authorization not granted');
-        }
-
-        pat = PersonalAccessToken.create(credentialResponse.patToken);
-      } catch (error) {
-        return StartAnalysisResult.failure(
-          error instanceof Error ? error.message : 'Credential error',
-        );
-      }
-    }
-
-    let accessibilityResponse: CheckAvailabilityResponse;
-
-    try {
-      const accessibilityRequest = new CheckAvailabilityRequest(
+      const resolvedCommit = await this.validator.check(
         analysis.getRepoURL(),
         pat,
         analysis.getBranch(),
         analysis.getCommit(),
       );
 
-      accessibilityResponse = await this.availabilityPort.check(accessibilityRequest);
+      const path = await this.cloner.clone(
+        analysis.getRepoURL(),
+        analysis.getAnalysisId(),
+        pat,
+        analysis.getBranch(),
+        resolvedCommit,
+      );
 
-      if (!accessibilityResponse.isAccessible) {
-        return StartAnalysisResult.failure(
-          accessibilityResponse.errorMessage || 'GitHub repository not accessible',
-        );
-      }
+      //emit analyzeRepository(path)
+
+      return StartAnalysisResult.success(path);
     } catch (error) {
       return StartAnalysisResult.failure(
-        error instanceof Error ? error.message : 'Error during the analysis',
+        error instanceof Error ? error.message : 'Analysis initiation failed',
       );
     }
-
-    const resultData = accessibilityResponse.commit
-      ? accessibilityResponse.commit
-      : analysis.getAnalysisId().value;
-
-    return StartAnalysisResult.success(resultData);
   }
 }
 

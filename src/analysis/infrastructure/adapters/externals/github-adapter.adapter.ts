@@ -149,27 +149,25 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
 
   public async clone(request: CloneRepoRequest): Promise<CloneRepoResponse> {
     const { stderr: availabilityStderr } = await this.execAsync(
-      `rm -rf /tmp/${request.analysisId}`,
+      `rm -rf /tmp/${request.analysisId.value}`,
     );
-    const { stderr: mkdirStderr } = await this.execAsync(`mkdir /tmp/${request.analysisId}`); // Ensure the target directory exists before cloning
+    const { stderr: mkdirStderr } = await this.execAsync(`mkdir /tmp/${request.analysisId.value}`); // Ensure the target directory exists before cloning
 
     if (mkdirStderr || availabilityStderr) {
       console.error(`Failed to create directory: ${mkdirStderr || availabilityStderr}`);
-      return new CloneRepoResponse(
-        false,
-        undefined,
-        'Failed to create target directory for cloning.',
-      ); // This should be a rare case, but it's good to handle it explicitly to avoid confusion and provide a clearer error message.
+      return CloneRepoResponse.failure('Failed to create target directory for cloning.'); // This should be a rare case, but it's good to handle it explicitly to avoid confusion and provide a clearer error message.
     }
 
     const authPart = request.patToken
-      ? `https://${request.patToken}@`
+      ? `https://${request.patToken.value}@`
       : `https://${process.env.CODE_GUARDIAN_TOKEN}@`;
-    const repoPath = request.repoUrl.replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '');
+    const repoPath = request.repoUrl.value
+      .replace(/^https:\/\/github\.com\//, '')
+      .replace(/\.git$/, '');
     const repoUrlWithAuth = `${authPart}github.com/${repoPath}`;
 
-    const branchPart = request.branch ? `--branch ${request.branch}` : '';
-    const command = `git clone --quiet ${branchPart} ${repoUrlWithAuth} /tmp/${request.analysisId}`;
+    const branchPart = request.branch ? `--branch ${request.branch.value}` : '';
+    const command = `git clone --quiet ${branchPart} ${repoUrlWithAuth} /tmp/${request.analysisId.value}`;
 
     debug(`Executing git clone command: ${command}`);
     try {
@@ -177,12 +175,12 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`Error executing git clone: ${message}`);
-      await this.execAsync(`rm -rf /tmp/${request.analysisId}`); //clean up
-      return new CloneRepoResponse(false, undefined, 'Failed to clone repository.'); // This should be a rare case, but it's good to handle it explicitly to avoid confusion and provide a clearer error message.
+      await this.execAsync(`rm -rf /tmp/${request.analysisId.value}`); //clean up
+      return CloneRepoResponse.failure('Failed to clone repository.'); // This should be a rare case, but it's good to handle it explicitly to avoid confusion and provide a clearer error message.
     }
 
     if (request.commit) {
-      const checkoutCommand = `git -C /tmp/${request.analysisId} checkout --quiet ${request.commit}`;
+      const checkoutCommand = `git -C /tmp/${request.analysisId.value} checkout --quiet ${request.commit.value}`;
 
       try {
         await this.execAsync(checkoutCommand);
@@ -195,16 +193,13 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
           console.error(`Unknown error during checkout: ${message}`);
         }
 
-        await this.execAsync(`rm -rf /tmp/${request.analysisId}`);
-        return new CloneRepoResponse(false, undefined, 'Failed to checkout commit.');
+        await this.execAsync(`rm -rf /tmp/${request.analysisId.value}`);
+        return CloneRepoResponse.failure('Failed to checkout commit.');
       }
     }
-    return new CloneRepoResponse(
-      true,
-      `/tmp/${request.analysisId}`,
-      'Repository cloned successfully.',
-    ); // Returning a success message for better clarity in the response, even though the presence of localFolderPath already indicates success.
+    return CloneRepoResponse.success(`/tmp/${request.analysisId.value}`);
   }
 }
 
-export const GITHUB_AVAILABILITY_PORT = Symbol('IGitHubAvailabilityPort');
+export const AVAILABILITY_PORT = Symbol('IGitHubAvailabilityPort');
+export const CLONING_PORT = Symbol('IGitClonePort');
