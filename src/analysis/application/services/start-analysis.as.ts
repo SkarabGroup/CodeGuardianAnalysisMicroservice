@@ -2,38 +2,29 @@ import { Inject, Injectable } from '@nestjs/common';
 import { StartAnalysisUseCase } from '../use-case/start-analysis.uc';
 import { StartAnalysisCommand } from '../commands/start-analysis-command.command';
 import { StartAnalysisResult } from '../results/start-analysis-result.result';
-import { PATPassword } from '../../domain/value-objects/pat-password.vo';
-
-import type { IAnalysisFactory } from '../../domain/services/analysis-factory.ds.interface';
 import type { IRepositoryAuthorizer } from './interfaces/repository-authorizer.as.interface';
-import type { IRepositoryCloneValidator } from './interfaces/source-validator.ds.interface';
-import type { IRepositoryCloner } from './interfaces/repository-cloner.as.interface';
 
-import { ANALYSIS_PROVIDER } from '../../domain/services/analysis-provider.ds';
-import { ACCESS_AUTHORIZER } from './git-access-service.as';
-import { CLONE_VALIDATOR } from './git-clone-validator-service.as';
-import { REPOSITORY_CLONER } from './git-cloner-service.as';
+import { ACCESS_AUTHORIZER } from './github-authorizer-service.as';
 
-import { createHash } from 'crypto';
+import { RepoURL } from '../../domain/value-objects/repo-url.vo';
+import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 
 @Injectable()
 export class StartAnalysisService implements StartAnalysisUseCase {
   public constructor(
-    @Inject(ANALYSIS_PROVIDER)
-    private readonly analysisProvider: IAnalysisFactory,
     @Inject(ACCESS_AUTHORIZER)
-    private readonly authorizer: IRepositoryAuthorizer,
-    @Inject(CLONE_VALIDATOR)
-    private readonly validator: IRepositoryCloneValidator,
-    @Inject(REPOSITORY_CLONER)
-    private readonly cloner: IRepositoryCloner,
+    private readonly authorizationService: IRepositoryAuthorizer
   ) {}
 
   public async execute(command: StartAnalysisCommand): Promise<StartAnalysisResult> {
-    const SHA256_REGEX = /^[a-f0-9]{64}$/i;
-    try {
-      const analysis = this.analysisProvider.createGitHubAnalysisEntity(command);
+    const repoURL : RepoURL = RepoURL.create(command.repoURL);
 
+    const pat = await this.authorizationService.authorize(
+      repoURL, 
+      command.patPassword ? PATPassword.create(command.patPassword) : undefined
+    );
+    /*
+    try {
       const pat = command.patPassword
         ? await this.authorizer.authorize(
             analysis.getRepoURL(),
@@ -64,6 +55,7 @@ export class StartAnalysisService implements StartAnalysisUseCase {
         error instanceof Error ? error.message : 'Analysis initiation failed',
       );
     }
+    */
   }
 }
 

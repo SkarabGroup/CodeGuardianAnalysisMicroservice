@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { GitAccessService } from '../../../../src/analysis/application/services/git-access-service.as';
+import { GitAccessService } from '../../../../src/analysis/application/services/github-authorizer-service.as';
 import { GIT_CREDENTIAL_READ_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../../../src/analysis/domain/value-objects/pat-password.vo';

@@ -19,7 +19,7 @@ import {
   GitCredentialSchema,
 } from './infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
 import { AnalysisController } from './presentation/controllers/analysis-controller.controller';
-import { ACCESS_AUTHORIZER, GitAccessService } from './application/services/git-access-service.as';
+import { ACCESS_AUTHORIZER, GitAccessService } from './application/services/github-authorizer-service.as';
 import {
   CLONE_VALIDATOR,
   GitCloneValidatorService,

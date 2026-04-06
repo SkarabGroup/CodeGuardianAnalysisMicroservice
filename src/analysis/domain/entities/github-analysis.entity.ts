@@ -5,37 +5,44 @@ import { BranchName } from '../value-objects/branch-name.vo';
 import { CommitHash } from '../value-objects/commit-hash.vo';
 import { AnalysisStatus } from '../enums/analysis-status.enum';
 
+// Properties
+export type GitHubAnalysisProps = {
+  id: AnalysisId,
+  user: UserId,
+  url: RepoURL,
+  branch: BranchName,
+  commit: CommitHash,
+}
+
 export class GitHubAnalysis {
   private constructor(
     private readonly analysisId: AnalysisId,
     private readonly userId: UserId,
     private readonly repoURL: RepoURL,
-    private readonly branch: BranchName | null,
-    private readonly commit: CommitHash | null,
+    private readonly branch: BranchName,
+    private readonly commit: CommitHash,
     private status = AnalysisStatus.PENDING,
-  ) {
-    if (commit === null && branch === null) this.branch = BranchName.create('main');
-  }
+  ) {}
 
-  public static create(
-    analysisId: AnalysisId,
-    userId: UserId,
-    repoURL: RepoURL,
-    branch: BranchName | null,
-    commit: CommitHash | null,
-  ): GitHubAnalysis {
-    return new GitHubAnalysis(analysisId, userId, repoURL, branch, commit);
+  public static create(properties: GitHubAnalysisProps): GitHubAnalysis {
+    return new GitHubAnalysis(
+      properties.id, 
+      properties.user,
+      properties.url, 
+      properties.branch, 
+      properties.commit
+    );
   }
 
   public getRepoURL(): RepoURL {
     return this.repoURL;
   }
 
-  public getBranch(): BranchName | null {
+  public getBranch(): BranchName {
     return this.branch;
   }
 
-  public getCommit(): CommitHash | null {
+  public getCommit(): CommitHash {
     return this.commit;
   }
 

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StartAnalysisService } from '../../../../src/analysis/application/services/start-analysis.as';
 import { ANALYSIS_PROVIDER } from '../../../../src/analysis/domain/services/analysis-provider.ds';
-import { ACCESS_AUTHORIZER } from '../../../../src/analysis/application/services/git-access-service.as';
+import { ACCESS_AUTHORIZER } from '../../../../src/analysis/application/services/github-authorizer-service.as';
 import { CLONE_VALIDATOR } from '../../../../src/analysis/application/services/git-clone-validator-service.as';
 import { StartAnalysisCommand } from '../../../../src/analysis/application/commands/start-analysis-command.command';
 import { GitHubAnalysis } from '../../../../src/analysis/domain/entities/github-analysis.entity';
