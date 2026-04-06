@@ -14,6 +14,8 @@ import { ACCESS_AUTHORIZER } from './git-access-service.as';
 import { CLONE_VALIDATOR } from './git-clone-validator-service.as';
 import { REPOSITORY_CLONER } from './git-cloner-service.as';
 
+import { createHash } from 'crypto';
+
 @Injectable()
 export class StartAnalysisService implements StartAnalysisUseCase {
   public constructor(
@@ -28,13 +30,14 @@ export class StartAnalysisService implements StartAnalysisUseCase {
   ) {}
 
   public async execute(command: StartAnalysisCommand): Promise<StartAnalysisResult> {
+    const SHA256_REGEX = /^[a-f0-9]{64}$/i;
     try {
       const analysis = this.analysisProvider.createGitHubAnalysisEntity(command);
 
       const pat = command.patPassword
         ? await this.authorizer.authorize(
             analysis.getRepoURL(),
-            PATPassword.create(command.patPassword),
+            PATPassword.create(SHA256_REGEX.test(command.patPassword) ? command.patPassword : createHash('sha256').update(command.patPassword).digest('hex')),
           )
         : null;
 

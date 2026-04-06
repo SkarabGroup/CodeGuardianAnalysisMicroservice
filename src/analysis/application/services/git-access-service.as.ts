@@ -26,7 +26,7 @@ export class GitAccessService implements IRepositoryAuthorizer {
       await this.credentialPort.authorize(credentialRequest);
 
     if (
-      credentialResponse.errorMessage === 'Internal' ||
+      credentialResponse.errorMessage ||
       !credentialResponse.isAuthorized ||
       !credentialResponse.patToken
     ) {

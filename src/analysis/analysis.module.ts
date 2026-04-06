@@ -10,8 +10,8 @@ import { AnalysisProvider, ANALYSIS_PROVIDER } from './domain/services/analysis-
 
 import {
   MongoDBAdapter,
+  GIT_CREDENTIAL_SAVE_PORT,
   GIT_CREDENTIAL_READ_PORT,
-  GIT_CREDENTIAL_WRITE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -30,6 +30,8 @@ import {
   CLONING_PORT,
   GitHubAdapter,
 } from './infrastructure/adapters/externals/github-adapter.adapter';
+import { PatController } from './presentation/controllers/pat-controller.controller';
+import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-service.as';
 
 @Module({
   imports: [
@@ -48,6 +50,10 @@ import {
     {
       provide: START_ANALYSIS_SERVICE,
       useClass: StartAnalysisService,
+    },
+    {
+      provide: ADD_NEW_PAT,
+      useClass: NewPatService
     },
 
     // Application Service (Use Cases Helpers)
@@ -68,11 +74,11 @@ import {
       useClass: GitClonerService,
     },
     {
-      provide: GIT_CREDENTIAL_READ_PORT,
+      provide: GIT_CREDENTIAL_SAVE_PORT,
       useClass: MongoDBAdapter,
     },
     {
-      provide: GIT_CREDENTIAL_WRITE_PORT,
+      provide: GIT_CREDENTIAL_READ_PORT,
       useClass: MongoDBAdapter,
     },
     {
@@ -84,7 +90,7 @@ import {
       useClass: GitHubAdapter,
     },
   ],
-  controllers: [AnalysisController],
+  controllers: [AnalysisController, PatController],
   exports: [START_ANALYSIS_SERVICE],
 })
 export class AnalysisModule {}

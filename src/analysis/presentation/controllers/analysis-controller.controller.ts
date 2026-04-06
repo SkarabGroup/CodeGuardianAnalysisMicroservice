@@ -23,6 +23,7 @@ export class AnalysisController {
     const command = new StartAnalysisCommand({
       userId: uuid(),
       repositoryUrl: dto.repoUrl,
+      ...dto.password && { patPassword: dto.password }
     });
 
     try {

@@ -18,10 +18,10 @@ import { IGitCredentialUpdatePort } from '../../../application/ports/repositorie
 @Injectable()
 export class MongoDBAdapter
   implements
-    IGitCredentialReadPort,
-    IGitCredentialSavePort,
-    IGitCredentialDeletePort,
-    IGitCredentialUpdatePort
+    IGitCredentialReadPort,     //Get
+    IGitCredentialSavePort,     //Post 
+    IGitCredentialDeletePort,   // Delete
+    IGitCredentialUpdatePort    // Update
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
@@ -108,7 +108,6 @@ export class MongoDBAdapter
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
-export const GIT_CREDENTIAL_WRITE_PORT = Symbol('IGitCredentialWritePort');
 export const GIT_CREDENTIAL_SAVE_PORT = Symbol('IGitCredentialSavePort');
 export const GIT_CREDENTIAL_DELETE_PORT = Symbol('IGitCredentialDeletePort');
 export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
