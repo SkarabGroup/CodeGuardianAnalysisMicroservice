@@ -8,6 +8,7 @@ const ignoreExtensions = [
   '.enum.ts',
   '.model.ts',
   '.command.ts',
+  '.controller.ts',
   '.schema.ts',
   '.port.ts',
   '.dto.ts',

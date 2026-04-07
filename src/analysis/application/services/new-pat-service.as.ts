@@ -15,14 +15,19 @@ import { createHash } from 'crypto';
 export class NewPatService implements NewPatUseCase {
   constructor(
     @Inject(GIT_CREDENTIAL_SAVE_PORT)
-    private readonly gitSaveCredentialPort: IGitCredentialSavePort) {}
-  
+    private readonly gitSaveCredentialPort: IGitCredentialSavePort,
+  ) {}
+
   async execute(command: NewPatCommand): Promise<NewPatResult> {
     const SHA256_REGEX = /^[a-f0-9]{64}$/i;
-    
+
     const request = new PostGitCredentialRequest(
       RepoURL.create(command.repositoryUrl),
-      PATPassword.create(SHA256_REGEX.test(command.patPassword) ? command.patPassword : createHash('sha256').update(command.patPassword).digest('hex')),
+      PATPassword.create(
+        SHA256_REGEX.test(command.patPassword)
+          ? command.patPassword
+          : createHash('sha256').update(command.patPassword).digest('hex'),
+      ),
       PersonalAccessToken.create(command.personalAccessToken),
     );
     try {

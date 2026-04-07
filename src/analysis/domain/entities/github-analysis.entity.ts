@@ -7,12 +7,12 @@ import { AnalysisStatus } from '../enums/analysis-status.enum';
 
 // Properties
 export type GitHubAnalysisProps = {
-  id: AnalysisId,
-  user: UserId,
-  url: RepoURL,
-  branch: BranchName,
-  commit: CommitHash,
-}
+  id: AnalysisId;
+  user: UserId;
+  url: RepoURL;
+  branch: BranchName;
+  commit: CommitHash;
+};
 
 export class GitHubAnalysis {
   private constructor(
@@ -26,11 +26,11 @@ export class GitHubAnalysis {
 
   public static create(properties: GitHubAnalysisProps): GitHubAnalysis {
     return new GitHubAnalysis(
-      properties.id, 
+      properties.id,
       properties.user,
-      properties.url, 
-      properties.branch, 
-      properties.commit
+      properties.url,
+      properties.branch,
+      properties.commit,
     );
   }
 

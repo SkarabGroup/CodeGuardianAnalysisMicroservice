@@ -1,12 +1,13 @@
 export class CheckAvailabilityResponse {
   constructor(
     public readonly isAccessible: boolean,
+    public readonly branch: string | null,
     public readonly commit: string | null,
     public readonly errorMessage?: string,
   ) {}
 
-  public static success(sha: string): CheckAvailabilityResponse {
-    return new CheckAvailabilityResponse(true, sha);
+  public static success(branch: string, commit: string): CheckAvailabilityResponse {
+    return new CheckAvailabilityResponse(true, branch, commit);
   }
 
   public static failure(message: string): CheckAvailabilityResponse {

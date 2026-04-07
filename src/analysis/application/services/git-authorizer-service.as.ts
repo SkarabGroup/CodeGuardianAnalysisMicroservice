@@ -14,48 +14,41 @@ import { GIT_CREDENTIAL_READ_PORT } from '../../infrastructure/adapters/persiste
 import { ConfigService } from '@nestjs/config';
 
 interface AuthorizationStrategy {
-  getPersonalAccessToken(url?: RepoURL): Promise<string>
+  getPersonalAccessToken(url?: RepoURL): Promise<string>;
 }
 
 class PrivateAuthorizationStrategy implements AuthorizationStrategy {
   constructor(
-    private readonly credentialPort: IGitCredentialReadPort,
-    private readonly password: PATPassword
+    private readonly port: IGitCredentialReadPort,
+    private readonly password: PATPassword,
   ) {}
 
   async getPersonalAccessToken(url: RepoURL): Promise<string> {
     if (!url) {
-          throw new Error('URL is required for private repository authorization');
-        }
-    
-    const credentialRequest: GetGitCredentialRequest = new GetGitCredentialRequest(url, this.password);
-    const credentialResponse: GetGitCredentialResponse =
-      await this.credentialPort.authorize(credentialRequest);   
-      
-      if (
-      credentialResponse.errorMessage ||
-      !credentialResponse.isAuthorized ||
-      !credentialResponse.patToken
-    ) {
-      throw new Error(credentialResponse.errorMessage || 'Authorization not granted');
+      throw new Error('URL is required for private repository authorization');
     }
 
-    return credentialResponse.patToken;
+    const request: GetGitCredentialRequest = new GetGitCredentialRequest(url, this.password);
+    const response: GetGitCredentialResponse = await this.port.authorize(request);
+
+    if (response.errorMessage || !response.isAuthorized || !response.patToken) {
+      throw new Error(response.errorMessage || 'Authorization not granted');
+    }
+
+    return response.patToken;
   }
 }
 
 class PublicAuthorizationStrategy implements AuthorizationStrategy {
-  constructor(
-    private readonly configService: ConfigService
-  ) {}
+  constructor(private readonly configService: ConfigService) {}
 
-  async getPersonalAccessToken(): Promise<string> {
+  getPersonalAccessToken(): Promise<string> {
     const pat = this.configService.get<string>('CODE_GUARDIAN_TOKEN');
-    if(!pat) {
+    if (!pat) {
       throw new Error('Public analysis requested but GITHUB_PUBLIC_TOKEN is not configured');
     }
 
-    return pat;
+    return Promise.resolve(pat);
   }
 }
 

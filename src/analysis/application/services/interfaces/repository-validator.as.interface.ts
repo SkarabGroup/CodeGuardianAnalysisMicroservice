@@ -3,11 +3,11 @@ import { CommitHash } from '../../../domain/value-objects/commit-hash.vo';
 import { PersonalAccessToken } from '../../../domain/value-objects/personal-access-token.vo';
 import { RepoURL } from '../../../domain/value-objects/repo-url.vo';
 
-export interface IRepositoryCloneValidator {
+export interface IRepositoryValidator {
   check(
     url: RepoURL,
     pat: PersonalAccessToken | null,
     branch: BranchName | null,
     commit: CommitHash | null,
-  ): Promise<CommitHash>;
+  ): Promise<{ branch: BranchName; commit: CommitHash }>;
 }

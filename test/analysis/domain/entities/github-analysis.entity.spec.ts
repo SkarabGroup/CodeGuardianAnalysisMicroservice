@@ -1,4 +1,7 @@
-import { GitHubAnalysis, GitHubAnalysisProps } from '../../../../src/analysis/domain/entities/github-analysis.entity';
+import {
+  GitHubAnalysis,
+  GitHubAnalysisProps,
+} from '../../../../src/analysis/domain/entities/github-analysis.entity';
 import { UserId } from '../../../../src/analysis/domain/value-objects/user-id.vo';
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { BranchName } from '../../../../src/analysis/domain/value-objects/branch-name.vo';
@@ -8,15 +11,14 @@ import { AnalysisId } from '../../../../src/analysis/domain/value-objects/analys
 import { v7 as uuid } from 'uuid';
 
 describe('GitHubAnalysis Entity', () => {
-  const properties : GitHubAnalysisProps = {
+  const properties: GitHubAnalysisProps = {
     id: AnalysisId.create(uuid()),
     user: UserId.create(uuid()),
     url: RepoURL.create('https://github.com/valid-url/repo'),
     branch: BranchName.create('feature/github-analysis'),
-    commit: CommitHash.create('561104ff6dbfbb3ea2b7af30407403cc22c61325')
+    commit: CommitHash.create('561104ff6dbfbb3ea2b7af30407403cc22c61325'),
   };
 
-  
   describe('Creation', () => {
     it('should be created in PENDING status with the provided properties', () => {
       const analysis = GitHubAnalysis.create(properties);
@@ -34,7 +36,7 @@ describe('GitHubAnalysis Entity', () => {
       expect(analysis.getCommit().value).toBe(properties.commit.value);
 
       expect(analysis.getStatus()).toBe(AnalysisStatus.PENDING);
-      });
+    });
   });
 
   describe('StateMachine', () => {
@@ -68,7 +70,9 @@ describe('GitHubAnalysis Entity', () => {
 
     it('should throw error when completing directly from PENDING', () => {
       const analysis = GitHubAnalysis.create(properties);
-      expect(() => analysis.complete()).toThrow('Analysis can only be completed if it is in progress');
+      expect(() => analysis.complete()).toThrow(
+        'Analysis can only be completed if it is in progress',
+      );
     });
 
     it('should throw error when failing directly from PENDING', () => {
@@ -80,21 +84,26 @@ describe('GitHubAnalysis Entity', () => {
       const analysis = GitHubAnalysis.create(properties);
       analysis.inProgress();
       analysis.complete();
-      expect(() => analysis.inProgress()).toThrow('Analysis can only be set to in progress if it is pending');
+      expect(() => analysis.inProgress()).toThrow(
+        'Analysis can only be set to in progress if it is pending',
+      );
     });
 
     it('should throw error when setting IN_PROGRESS if already FAILED', () => {
       const analysis = GitHubAnalysis.create(properties);
       analysis.inProgress();
       analysis.failed();
-      expect(() => analysis.inProgress()).toThrow('Analysis can only be set to in progress if it is pending');
+      expect(() => analysis.inProgress()).toThrow(
+        'Analysis can only be set to in progress if it is pending',
+      );
     });
   });
 
   describe('Equality', () => {
-    it('should return true if entities are equals', () => {    
+    it('should return true if entities are equals', () => {
       const analysis = GitHubAnalysis.create(properties);
       const second = GitHubAnalysis.create(properties);
-      expect(analysis.equals(second)).toBe(true);})
+      expect(analysis.equals(second)).toBe(true);
+    });
   });
 });

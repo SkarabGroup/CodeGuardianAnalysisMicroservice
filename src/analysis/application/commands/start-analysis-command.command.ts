@@ -7,33 +7,33 @@ export class StartAnalysisCommand {
 
   @IsUrl()
   @IsNotEmpty()
-  public readonly repoURL: string;
+  public readonly url: string;
 
   @IsOptional()
   @IsString()
-  public readonly patPassword: string | undefined;
-
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  public readonly branch: string | undefined;
+  public readonly password?: string | undefined = undefined;
 
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  public readonly commitHash: string | undefined;
+  public readonly branch?: string | undefined = undefined;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  public readonly commit?: string | undefined = undefined;
 
   constructor(data: {
     user: string;
     url: string;
-    password?: string;
-    branch?: string;
-    commit?: string;
+    password?: string | undefined;
+    branch?: string | undefined;
+    commit?: string | undefined;
   }) {
     this.user = data.user;
-    this.repoURL = data.url;
-    this.patPassword = data.password;
+    this.url = data.url;
+    this.password = data.password;
     this.branch = data.branch;
-    this.commitHash = data.commit;
+    this.commit = data.commit;
   }
 }

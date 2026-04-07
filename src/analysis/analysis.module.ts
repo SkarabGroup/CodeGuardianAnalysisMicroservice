@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import {
   StartAnalysisService,
   START_ANALYSIS_SERVICE,
 } from './application/services/start-analysis.as';
-
-import { AnalysisProvider, ANALYSIS_PROVIDER } from './domain/services/analysis-provider.ds';
 
 import {
   MongoDBAdapter,
@@ -19,11 +18,14 @@ import {
   GitCredentialSchema,
 } from './infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
 import { AnalysisController } from './presentation/controllers/analysis-controller.controller';
-import { ACCESS_AUTHORIZER, GitAccessService } from './application/services/github-authorizer-service.as';
+import {
+  ACCESS_AUTHORIZER,
+  GitAuthorizerService,
+} from './application/services/git-authorizer-service.as';
 import {
   CLONE_VALIDATOR,
-  GitCloneValidatorService,
-} from './application/services/git-clone-validator-service.as';
+  GitValidatorService,
+} from './application/services/git-validator-service.as';
 import { GitClonerService, REPOSITORY_CLONER } from './application/services/git-cloner-service.as';
 import {
   AVAILABILITY_PORT,
@@ -35,6 +37,9 @@ import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-servi
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     MongooseModule.forFeature(
       [
         {
@@ -53,21 +58,17 @@ import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-servi
     },
     {
       provide: ADD_NEW_PAT,
-      useClass: NewPatService
+      useClass: NewPatService,
     },
 
     // Application Service (Use Cases Helpers)
     {
-      provide: ANALYSIS_PROVIDER,
-      useClass: AnalysisProvider,
-    },
-    {
       provide: ACCESS_AUTHORIZER,
-      useClass: GitAccessService,
+      useClass: GitAuthorizerService,
     },
     {
       provide: CLONE_VALIDATOR,
-      useClass: GitCloneValidatorService,
+      useClass: GitValidatorService,
     },
     {
       provide: REPOSITORY_CLONER,
