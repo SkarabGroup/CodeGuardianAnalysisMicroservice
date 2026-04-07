@@ -10,20 +10,24 @@ import { REPOSITORY_CLONER } from './git-cloner-service.as';
 import { UserId } from '../../domain/value-objects/user-id.vo';
 import { AnalysisId } from '../../domain/value-objects/analysis-id.vo';
 import { RepoURL } from '../../domain/value-objects/repo-url.vo';
-import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 import { BranchName } from '../../domain/value-objects/branch-name.vo';
 import { CommitHash } from '../../domain/value-objects/commit-hash.vo';
+import { PersonalAccessToken } from '../../domain/value-objects/personal-access-token.vo';
 
+import type { IPasswordProvider } from '../../domain/services/interfaces/password-provider.ds.interface';
 import type { IRepositoryAuthorizer } from './interfaces/repository-authorizer.as.interface';
 import type { IRepositoryValidator } from './interfaces/repository-validator.as.interface';
 import type { IRepositoryCloner } from './interfaces/repository-cloner.as.interface';
 
+import { PASSWORD_PROVIDER } from '../../domain/services/pat-password-provider.ds';
+
 import { v7 as uuid } from 'uuid';
-import { createHash } from 'crypto';
 
 @Injectable()
 export class StartAnalysisService implements StartAnalysisUseCase {
   public constructor(
+    @Inject(PASSWORD_PROVIDER)
+    private readonly passwordProviderService: IPasswordProvider,
     @Inject(ACCESS_AUTHORIZER)
     private readonly authorizationService: IRepositoryAuthorizer,
     @Inject(CLONE_VALIDATOR)
@@ -36,11 +40,9 @@ export class StartAnalysisService implements StartAnalysisUseCase {
     const analysisId: AnalysisId = AnalysisId.create(uuid());
     const repoURL: RepoURL = RepoURL.create(command.url);
 
-    const pat = await this.authorizationService.authorize(
+    const pat: PersonalAccessToken = await this.authorizationService.authorize(
       repoURL,
-      command.password
-        ? PATPassword.create(createHash('sha256').update(command.password).digest('hex'))
-        : undefined,
+      command.password ? this.passwordProviderService.generate(command.password) : undefined,
     );
 
     const providedBranch = command.branch ? BranchName.create(command.branch) : null;

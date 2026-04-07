@@ -36,6 +36,7 @@ import {
 } from './infrastructure/adapters/externals/github-adapter.adapter';
 import { PatController } from './presentation/controllers/pat-controller.controller';
 import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-service.as';
+import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-password-provider.ds';
 
 @Module({
   imports: [
@@ -63,6 +64,10 @@ import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-servi
       useClass: NewPatService,
     },
 
+    {
+      provide: PASSWORD_PROVIDER,
+      useClass: PATPasswordProvider,
+    },
     // Application Service (Use Cases Helpers)
     {
       provide: ACCESS_AUTHORIZER,
