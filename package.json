@@ -88,8 +88,6 @@
       "!src/**/*.port.ts",
       "!src/**/*.request.ts",
       "!src/**/*.response.ts",
-      "!src/**/*.controller.ts",
-      "!src/**/*.adapter.ts",
       "!src/**/index.ts",
       "!**/node_modules/**",
       "!**/test/**"
