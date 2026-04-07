@@ -3,29 +3,29 @@ import { PathFinding } from './path-finding.vo';
 
 export class FileCoverage {
   private constructor(
-    private readonly pathFinding: PathFinding,
-    private readonly linesPercentage: CoveragePercentage,
-    private readonly branchesPercentage: CoveragePercentage,
-    private readonly missedLines: number[],
+    private readonly _pathFinding: PathFinding,
+    private readonly _linesPercentage: CoveragePercentage,
+    private readonly _branchesPercentage: CoveragePercentage,
+    private readonly _missedLines: number[],
   ) {
     this.validate();
   }
 
   private validate(): void {
-    if (this.missedLines.some((line) => line <= 0)) {
+    if (this._missedLines.some((line) => line <= 0)) {
       throw new Error('Line numbers must be greater than 0');
     }
 
-    if (this.missedLines.some((line) => !Number.isInteger(line))) {
+    if (this._missedLines.some((line) => !Number.isInteger(line))) {
       throw new Error('Line numbers must be integers');
     }
 
-    const unique = new Set(this.missedLines);
-    if (unique.size !== this.missedLines.length) {
+    const unique = new Set(this._missedLines);
+    if (unique.size !== this._missedLines.length) {
       throw new Error('Missed lines must not contain duplicates');
     }
 
-    if (this.linesPercentage.value === 1 && this.missedLines.length > 0) {
+    if (this._linesPercentage.value === 1 && this._missedLines.length > 0) {
       throw new Error('Missed lines must be empty when coverage is 100%');
     }
   }
@@ -35,10 +35,10 @@ export class FileCoverage {
       throw new Error('Invalid argument');
     }
     return (
-      this.pathFinding.equals(other.pathFinding) &&
-      this.linesPercentage.equals(other.linesPercentage) &&
-      this.branchesPercentage.equals(other.branchesPercentage) &&
-      this.arraysEqual(this.missedLines, other.missedLines)
+      this._pathFinding.equals(other._pathFinding) &&
+      this._linesPercentage.equals(other._linesPercentage) &&
+      this._branchesPercentage.equals(other._branchesPercentage) &&
+      this.arraysEqual(this._missedLines, other._missedLines)
     );
   }
 
@@ -48,19 +48,19 @@ export class FileCoverage {
   }
 
   public getPath(): PathFinding {
-    return this.pathFinding;
+    return this._pathFinding;
   }
 
   public getLinesPercentage(): CoveragePercentage {
-    return this.linesPercentage;
+    return this._linesPercentage;
   }
 
   public getBranchesPercentage(): CoveragePercentage {
-    return this.branchesPercentage;
+    return this._branchesPercentage;
   }
 
   public getMissedLines(): number[] {
-    return [...this.missedLines];
+    return [...this._missedLines];
   }
 
   public static create(
