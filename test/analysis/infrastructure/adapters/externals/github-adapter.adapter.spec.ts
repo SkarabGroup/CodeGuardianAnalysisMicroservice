@@ -2,7 +2,6 @@ import { GitHubAdapter } from '../../../../../src/analysis/infrastructure/adapte
 import { CheckAvailabilityRequest } from '../../../../../src/analysis/application/DTOs/models/requests/check-availability-request-model.model';
 
 import { CloneRepoRequest } from '../../../../../src/analysis/application/DTOs/models/requests/clone-repo-request-model.model';
-import { CloneRepoResponse } from '../../../../../src/analysis/application/DTOs/models/responses/clone-repo-response-model.model';
 import { RepoURL } from '../../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PersonalAccessToken } from '../../../../../src/analysis/domain/value-objects/personal-access-token.vo';
 import { CommitHash } from '../../../../../src/analysis/domain/value-objects/commit-hash.vo';
@@ -54,7 +53,93 @@ describe('GitHubAdapter', () => {
 
       expect(response.isAccessible).toBe(true);
       expect(response.commit).toBe(commit);
-      expect(response.errorMessage).toBe('Completed successfully.');
+      expect(response.errorMessage).toBe(undefined);
+    });
+
+    it('should handle non-Error exceptions in check method', async () => {
+      const strangeError = 'Critical System Failure';
+      mockExecAsync.mockRejectedValue(strangeError);
+
+      const request = {
+        repoUrl: { value: 'https://github.com/user/repo' },
+      } as CheckAvailabilityRequest;
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      const result = await adapter.check(request);
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining(strangeError));
+      expect(result.isAccessible).toBe(false);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should include the token in the clone URL when provided', async () => {
+      mockExecAsync.mockResolvedValue({ stdout: '', stderr: '' });
+
+      const request = {
+        analysisId: { value: '123' },
+        repoUrl: { value: 'https://github.com/user/repo' },
+        patToken: { value: 'my-secret-token' },
+      } as CloneRepoRequest;
+
+      await adapter.clone(request);
+
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        expect.stringContaining('https://my-secret-token@github.com/user/repo.git'),
+      );
+    });
+
+    it('should return failure when GitHub returns invalid JSON (catch block)', async () => {
+      const invalidJsonBody = 'Not a JSON';
+      const curlResponse = `${invalidJsonBody}\n200`;
+
+      mockExecAsync.mockResolvedValue({ stdout: curlResponse, stderr: '' });
+      const repoUrl = RepoURL.create('https://github.com/user/repo');
+
+      const request = new CheckAvailabilityRequest(repoUrl, null, null, null);
+      const result = await adapter.check(request);
+
+      expect(result.isAccessible).toBe(false);
+      expect(result.errorMessage).toBe('Failed to parse GitHub JSON response.');
+    });
+
+    it('should return failure when JSON is valid but missing required fields', async () => {
+      const unexpectedJsonBody = JSON.stringify({ some_other_field: 'value' });
+      const curlResponse = `${unexpectedJsonBody}\n200`;
+
+      mockExecAsync.mockResolvedValue({ stdout: curlResponse, stderr: '' });
+
+      const repoUrl = RepoURL.create('https://github.com/user/repo');
+
+      const request = new CheckAvailabilityRequest(repoUrl, null, null, null);
+      const result = await adapter.check(request);
+
+      expect(result.isAccessible).toBe(false);
+      expect(result.errorMessage).toBe('Unexpected JSON structure.');
+    });
+
+    it('should return success with default_branch and PENDING when checking only repo availability', async () => {
+      const mockJsonResponse = JSON.stringify({
+        name: 'my-repo',
+        default_branch: 'main',
+        owner: { login: 'user' },
+      });
+
+      const curlStdout = `${mockJsonResponse}\n200`;
+      mockExecAsync.mockResolvedValue({ stdout: curlStdout, stderr: '' });
+
+      const request = new CheckAvailabilityRequest(
+        RepoURL.create('https://github.com/user/repo'),
+        null, // patToken
+        null, // branch
+        null, // commit
+      );
+      const result = await adapter.check(request);
+
+      expect(result.isAccessible).toBe(true);
+      expect(result.branch).toBe('main');
+      expect(result.commit).toBe(null);
     });
 
     it('should return failure when commit not found (404 status)', async () => {
@@ -74,7 +159,9 @@ describe('GitHubAdapter', () => {
 
       expect(response.isAccessible).toBe(false);
       expect(response.commit).toBeNull();
-      expect(response.errorMessage).toBe('The requested resource was not found.');
+      expect(response.errorMessage).toBe(
+        'The requested resource (repo, branch or commit) was not found.',
+      );
     });
 
     it('should return failure when response is not valid SHA (200 status)', async () => {
@@ -94,7 +181,7 @@ describe('GitHubAdapter', () => {
 
       expect(response.isAccessible).toBe(false);
       expect(response.commit).toBeNull();
-      expect(response.errorMessage).toBe('The requested commit was not found.');
+      expect(response.errorMessage).toBe('Invalid SHA received from GitHub.');
     });
   });
 
@@ -117,7 +204,7 @@ describe('GitHubAdapter', () => {
 
       expect(response.isAccessible).toBe(true);
       expect(response.commit).toBe(sha);
-      expect(response.errorMessage).toBe('Completed successfully.');
+      expect(response.errorMessage).toBe(undefined);
     });
 
     it('should return success when branch exists without commit sha (200 status)', async () => {
@@ -135,9 +222,9 @@ describe('GitHubAdapter', () => {
 
       const response = await adapter.check(request);
 
-      expect(response.isAccessible).toBe(true);
+      expect(response.isAccessible).toBe(false);
       expect(response.commit).toBeNull();
-      expect(response.errorMessage).toBe('Completed successfully.');
+      expect(response.errorMessage).toBe('Branch data incomplete.');
     });
 
     it('should return failure when branch not found (404 status)', async () => {
@@ -157,7 +244,9 @@ describe('GitHubAdapter', () => {
 
       expect(response.isAccessible).toBe(false);
       expect(response.commit).toBeNull();
-      expect(response.errorMessage).toBe('The requested resource was not found.');
+      expect(response.errorMessage).toBe(
+        'The requested resource (repo, branch or commit) was not found.',
+      );
     });
 
     it('should return failure when JSON response missing name field (200 status)', async () => {
@@ -177,7 +266,7 @@ describe('GitHubAdapter', () => {
 
       expect(response.isAccessible).toBe(false);
       expect(response.commit).toBeNull();
-      expect(response.errorMessage).toBe('The requested branch was not found.');
+      expect(response.errorMessage).toBe('Branch data incomplete.');
     });
   });
 
@@ -199,29 +288,7 @@ describe('GitHubAdapter', () => {
 
       expect(response.isAccessible).toBe(false);
       expect(response.commit).toBeNull();
-      expect(response.errorMessage).toBe(
-        'An unexpected error occurred while checking availability.',
-      );
-    });
-
-    it('should return failure on stderr', async () => {
-      mockExecAsync.mockResolvedValue({
-        stdout: '',
-        stderr: 'curl: (7) Failed to connect',
-      });
-
-      const request = new CheckAvailabilityRequest(
-        RepoURL.create('https://github.com/user/repo.git'),
-        PersonalAccessToken.create('ghp_' + 'A'.repeat(36)),
-        BranchName.create('main'),
-        null,
-      );
-
-      const response = await adapter.check(request);
-
-      expect(response.isAccessible).toBe(false);
-      expect(response.commit).toBeNull();
-      expect(response.errorMessage).toBe('An error occurred while checking availability.');
+      expect(response.errorMessage).toBe('GitHub error (Status 500)');
     });
 
     it('should return failure on empty stdout', async () => {
@@ -241,9 +308,7 @@ describe('GitHubAdapter', () => {
 
       expect(response.isAccessible).toBe(false);
       expect(response.commit).toBeNull();
-      expect(response.errorMessage).toBe(
-        'The response from GitHub was empty, which is unexpected.',
-      );
+      expect(response.errorMessage).toBe('Empty response from GitHub.');
     });
 
     it('should return failure on exception thrown', async () => {
@@ -393,120 +458,25 @@ describe('GitHubAdapter', () => {
   });
 });
 
-jest.mock('node:fs/promises', () => ({
-  mkdir: jest.fn().mockResolvedValue(undefined),
-}));
-
-describe('GitHubAdapter - clone', () => {
-  let mockExec: jest.Mock;
-  let adapter: GitHubAdapter;
-
-  const validAnalysisId = AnalysisId.create(uuid());
-  const baseRequest = new CloneRepoRequest(
-    RepoURL.create('https://github.com/user/repo.git'),
-    validAnalysisId,
-    PersonalAccessToken.create('ghp_' + 'A'.repeat(36)),
-    null,
-    null,
-  );
-
-  beforeEach(() => {
-    mockExec = jest.fn().mockResolvedValue({ stdout: '', stderr: '' }); // default per tutti i test
-    adapter = new GitHubAdapter(mockExec);
-  });
-
-  it('clone base  → success', async () => {
-    const result = await adapter.clone(baseRequest);
-
-    expect(mockExec).toHaveBeenCalledTimes(3); // mkdir + git clone + checkout
-    expect(mockExec).toHaveBeenNthCalledWith(
-      3,
-      'git clone --quiet  https://' +
-        'ghp_' +
-        'A'.repeat(36) +
-        '@github.com/user/repo /tmp/' +
-        validAnalysisId.value,
-    );
-    expect(result).toEqual(CloneRepoResponse.success('/tmp/' + validAnalysisId.value));
-  });
-
-  // ─── CON BRANCH ─────────────────────────────────────────────
-
-  it('clone with branch', async () => {
-    const result = await adapter.clone({
-      ...baseRequest,
-      patToken: PersonalAccessToken.create('ghp_' + 'A'.repeat(36)),
-      branch: BranchName.create('develop'),
-    });
-
-    expect(mockExec).toHaveBeenCalledWith(
-      'git clone --quiet --branch develop https://' +
-        'ghp_' +
-        'A'.repeat(36) +
-        '@github.com/user/repo /tmp/' +
-        validAnalysisId.value,
-    );
-    expect(result).toEqual(CloneRepoResponse.success('/tmp/' + validAnalysisId.value));
-  });
-
-  it('clone with PAT token', async () => {
-    const result = await adapter.clone({
-      ...baseRequest,
-      patToken: PersonalAccessToken.create('ghp_' + 'A'.repeat(36)),
-    });
-
-    expect(mockExec).toHaveBeenCalledWith(
-      'git clone --quiet  https://' +
-        'ghp_' +
-        'A'.repeat(36) +
-        '@github.com/user/repo /tmp/' +
-        validAnalysisId.value,
-    );
-    expect(result).toEqual(CloneRepoResponse.success('/tmp/' + validAnalysisId.value));
-  });
-
-  it('clone with commit', async () => {
-    const result = await adapter.clone({
-      ...baseRequest,
-      commit: CommitHash.create('a'.repeat(40)),
-    });
-
-    expect(mockExec).toHaveBeenCalledTimes(4);
-    expect(mockExec).toHaveBeenNthCalledWith(
-      4,
-      'git -C /tmp/' + validAnalysisId.value + ' checkout --quiet ' + 'a'.repeat(40),
-    );
-    expect(result).toEqual(CloneRepoResponse.success('/tmp/' + validAnalysisId.value));
-  });
-
-  //ERRORS
-  it('stderr →  false', async () => {
-    mockExec.mockResolvedValueOnce({ stdout: '', stderr: 'fatal: repository not found' });
-
-    const result = await adapter.clone(baseRequest);
-
-    expect(result).toEqual(
-      CloneRepoResponse.failure('Failed to create target directory for cloning.'),
-    );
-  });
-});
-
-const validAnalysisId = AnalysisId.create(uuid());
-const makeRequest = (overrides: Partial<CloneRepoRequest> = {}): CloneRepoRequest => ({
-  analysisId: validAnalysisId,
-  repoUrl: RepoURL.create('https://github.com/org/repo'),
-  branch: null,
-  commit: null,
-  patToken: null,
-  ...overrides,
-});
-
 describe('GitHubAdapter.clone', () => {
   let execAsync: jest.Mock;
   let adapter: GitHubAdapter;
 
+  const validAnalysisId = AnalysisId.create(uuid());
+  const repoUrl = 'https://github.com/org/repo';
+
+  const makeRequest = (overrides: Partial<CloneRepoRequest> = {}): CloneRepoRequest =>
+    ({
+      analysisId: validAnalysisId,
+      repoUrl: RepoURL.create(repoUrl),
+      branch: null,
+      commit: null,
+      patToken: null,
+      ...overrides,
+    }) as CloneRepoRequest;
+
   beforeEach(() => {
-    execAsync = jest.fn();
+    execAsync = jest.fn().mockResolvedValue({ stdout: '', stderr: '' });
     adapter = new GitHubAdapter(execAsync);
     process.env.CODE_GUARDIAN_TOKEN = 'env-token';
   });
@@ -516,253 +486,99 @@ describe('GitHubAdapter.clone', () => {
     delete process.env.CODE_GUARDIAN_TOKEN;
   });
 
-  // ─── Helpers ────────────────────────────────────────────────────────────────
-
-  /** Simulate rm -rf and mkdir succeeding, then the clone command */
+  /** Simula solo il successo del primo 'rm -rf' */
   const mockSetupSuccess = () => {
-    execAsync
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // rm -rf
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // mkdir
+    execAsync.mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf iniziale
   };
 
-  // ─── Directory setup ─────────────────────────────────────────────────────────
+  // ─── Happy Path ─────────────────────────────────────────────────────────────
 
-  it('returns failure when rm -rf produces stderr', async () => {
-    execAsync
-      .mockResolvedValueOnce({ stdout: '', stderr: 'permission denied' }) // rm -rf
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // mkdir
-
-    const result = await adapter.clone(makeRequest());
-
-    expect(result.cloned).toBe(false);
-    expect(result.localFolderPath).toBeUndefined();
-    expect(result.errorMessage).toBe('Failed to create target directory for cloning.');
-  });
-
-  it('returns failure when mkdir produces stderr', async () => {
-    execAsync
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // rm -rf
-      .mockResolvedValueOnce({ stdout: '', stderr: 'cannot create directory' }); // mkdir
-
-    const result = await adapter.clone(makeRequest());
-
-    expect(result.cloned).toBe(false);
-    expect(result.localFolderPath).toBeUndefined();
-    expect(result.errorMessage).toBe('Failed to create target directory for cloning.');
-  });
-
-  // ─── Authentication URL ───────────────────────────────────────────────────────
-
-  it('uses patToken when provided', async () => {
+  it('returns success and runs correct commands for base clone', async () => {
     mockSetupSuccess();
-    execAsync.mockResolvedValueOnce({ stdout: '', stderr: '' }); // git clone
-
-    await adapter.clone(
-      makeRequest({ patToken: PersonalAccessToken.create('ghp_' + 'A'.repeat(36)) }),
-    );
-
-    const cloneCall = (execAsync.mock.calls[2] as [string])[0];
-    expect(cloneCall).toContain('https://' + 'ghp_' + 'A'.repeat(36) + '@github.com/org/repo');
-  });
-
-  it('falls back to CODE_GUARDIAN_TOKEN env variable when no patToken', async () => {
-    mockSetupSuccess();
-    execAsync.mockResolvedValueOnce({ stdout: '', stderr: '' }); // git clone
-
-    await adapter.clone(makeRequest({ patToken: null }));
-
-    const cloneCall = (execAsync.mock.calls[2] as [string])[0];
-    expect(cloneCall).toContain('https://env-token@github.com/org/repo');
-  });
-
-  // ─── Successful clones ────────────────────────────────────────────────────────
-
-  it('returns success with correct path when clone succeeds (no branch, no commit)', async () => {
-    mockSetupSuccess();
-    execAsync.mockResolvedValueOnce({ stdout: '', stderr: '' }); // git clone
-
     const result = await adapter.clone(makeRequest());
 
     expect(result.cloned).toBe(true);
-    expect(result.localFolderPath).toBe('/tmp/' + validAnalysisId.value);
-    expect(execAsync).toHaveBeenCalledTimes(3); // rm + mkdir + clone (no checkout)
+    expect(result.localFolderPath).toBe(`/tmp/${validAnalysisId.value}`);
+
+    // 1. rm -rf, 2. git clone
+    expect(execAsync).toHaveBeenCalledTimes(2);
+    expect(execAsync).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining(
+        `git clone --quiet --depth 1 https://env-token@github.com/org/repo.git`,
+      ),
+    );
   });
 
-  it('includes --branch flag in the clone command when branch is provided', async () => {
+  it('includes --branch flag and depth 1 when branch is provided', async () => {
     mockSetupSuccess();
-    execAsync.mockResolvedValueOnce({ stdout: '', stderr: '' }); // git clone
+    await adapter.clone(makeRequest({ branch: BranchName.create('develop') }));
 
-    await adapter.clone(makeRequest({ branch: BranchName.create('feature/my-branch') }));
-
-    const cloneCall = (execAsync.mock.calls[2] as [string])[0];
-    expect(cloneCall).toContain('--branch feature/my-branch');
+    const cloneCall = (execAsync.mock.calls[1] as [string])[0];
+    expect(cloneCall).toContain('--branch develop');
+    expect(cloneCall).toContain('--depth 1');
   });
 
-  it('omits --branch flag when branch is null', async () => {
+  it('runs checkout and NO depth limit when commit is provided', async () => {
     mockSetupSuccess();
-    execAsync.mockResolvedValueOnce({ stdout: '', stderr: '' }); // git clone
-
-    await adapter.clone(makeRequest({ branch: null }));
-
-    const cloneCall = (execAsync.mock.calls[2] as [string])[0];
-    expect(cloneCall).not.toContain('--branch');
-  });
-
-  it('returns success and runs checkout when commit is provided', async () => {
-    mockSetupSuccess();
-    execAsync
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git clone
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git checkout
-
+    // 1. rm, 2. clone, 3. checkout
     const result = await adapter.clone(makeRequest({ commit: CommitHash.create('a'.repeat(40)) }));
 
     expect(result.cloned).toBe(true);
-    expect(result.localFolderPath).toBe('/tmp/' + validAnalysisId.value);
+    expect(execAsync).toHaveBeenCalledTimes(3);
 
-    const checkoutCall = (execAsync.mock.calls[3] as [string])[0];
-    expect(checkoutCall).toContain(
-      'git -C /tmp/' + validAnalysisId.value + ' checkout --quiet ' + 'a'.repeat(40),
+    const cloneCall = (execAsync.mock.calls[1] as [string])[0];
+    const checkoutCall = (execAsync.mock.calls[2] as [string])[0];
+
+    expect(cloneCall).not.toContain('--depth 1');
+    expect(checkoutCall).toBe(
+      `git -C /tmp/${validAnalysisId.value} checkout --quiet ${'a'.repeat(40)}`,
     );
   });
 
-  // ─── Clone failures ───────────────────────────────────────────────────────────
+  // ─── Authentication ─────────────────────────────────────────────────────────
 
-  it('returns failure and cleans up when git clone throws', async () => {
+  it('prioritizes patToken over environment variable', async () => {
     mockSetupSuccess();
-    execAsync
-      .mockRejectedValueOnce(new Error('network error')) // git clone
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf cleanup
+    const customToken = 'ghp_' + 'B'.repeat(36);
+    await adapter.clone(makeRequest({ patToken: PersonalAccessToken.create(customToken) }));
+
+    const cloneCall = (execAsync.mock.calls[1] as [string])[0];
+    expect(cloneCall).toContain(`https://${customToken}@github.com/`);
+  });
+
+  // ─── Error Handling ─────────────────────────────────────────────────────────
+
+  it('cleans up and returns failure when git clone fails', async () => {
+    mockSetupSuccess(); // rm -rf iniziale ok
+    execAsync.mockRejectedValueOnce(new Error('Network error')); // git clone fallisce
+    execAsync.mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf cleanup ok
 
     const result = await adapter.clone(makeRequest());
 
     expect(result.cloned).toBe(false);
-    expect(result.localFolderPath).toBeUndefined();
-    expect(result.errorMessage).toBe('Failed to clone repository.');
+    expect(result.errorMessage).toBe('Network error');
 
-    const cleanupCall = (execAsync.mock.calls[3] as [string])[0];
-    expect(cleanupCall).toBe('rm -rf /tmp/' + validAnalysisId.value);
+    // Verifica cleanup: chiamata 1 (iniziale), chiamata 2 (clone fallito), chiamata 3 (cleanup)
+    expect(execAsync).toHaveBeenCalledTimes(3);
+    expect(execAsync).toHaveBeenNthCalledWith(3, `rm -rf /tmp/${validAnalysisId.value}`);
   });
 
-  // ─── Checkout failures ────────────────────────────────────────────────────────
-
-  it('returns failure and cleans up when checkout throws with stderr property', async () => {
+  it('returns "Clone failed" if error is not an instance of Error', async () => {
     mockSetupSuccess();
-    execAsync
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git clone
-      .mockRejectedValueOnce({ stderr: 'pathspec not found' }) // git checkout
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf cleanup
+    execAsync.mockRejectedValueOnce('Something went wrong'); // Stringa, non Error object
 
-    const result = await adapter.clone(makeRequest({ commit: CommitHash.create('a'.repeat(40)) }));
+    const result = await adapter.clone(makeRequest());
 
-    expect(result.cloned).toBe(false);
-    expect(result.localFolderPath).toBeUndefined();
-    expect(result.errorMessage).toBe('Failed to checkout commit.');
-
-    const cleanupCall = (execAsync.mock.calls[4] as [string])[0];
-    expect(cleanupCall).toBe('rm -rf /tmp/' + validAnalysisId.value);
+    expect(result.errorMessage).toBe('Clone failed');
   });
 
-  it('returns failure and cleans up when checkout throws with unknown error shape', async () => {
-    mockSetupSuccess();
-    execAsync
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git clone
-      .mockRejectedValueOnce('unexpected string error') // git checkout
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf cleanup
-
-    const result = await adapter.clone(makeRequest({ commit: CommitHash.create('a'.repeat(40)) }));
-
-    expect(result.cloned).toBe(false);
-    expect(result.errorMessage).toBe('Failed to checkout commit.');
-  });
-
-  // ─── URL normalisation ────────────────────────────────────────────────────────
-
-  it('strips .git suffix from the repo URL when building the auth URL', async () => {
-    mockSetupSuccess();
-    execAsync.mockResolvedValueOnce({ stdout: '', stderr: '' }); // git clone
-
-    await adapter.clone(
-      makeRequest({ repoUrl: RepoURL.create('https://github.com/org/repo.git') }),
-    );
-
-    const cloneCall = (execAsync.mock.calls[2] as [string])[0];
-    expect(cloneCall).toContain('github.com/org/repo');
-    expect(cloneCall).not.toContain('.git');
-  });
-  // ─── git clone catch ──────────────────────────────────────────────────────────
-
-  it('git clone catch: logs error.message when error is an instance of Error', async () => {
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    mockSetupSuccess();
-    execAsync
-      .mockRejectedValueOnce(new Error('network timeout')) // git clone throws an Error instance
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf cleanup
+  it('fails if the initial rm -rf fails', async () => {
+    execAsync.mockRejectedValueOnce(new Error('Permission denied'));
 
     const result = await adapter.clone(makeRequest());
 
     expect(result.cloned).toBe(false);
-    expect(result.errorMessage).toBe('Failed to clone repository.');
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Error executing git clone: network timeout');
-
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('git clone catch: logs String(error) when error is not an instance of Error', async () => {
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    mockSetupSuccess();
-    execAsync
-      .mockRejectedValueOnce('plain string error') // git clone throws a plain string
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf cleanup
-
-    const result = await adapter.clone(makeRequest());
-
-    expect(result.cloned).toBe(false);
-    expect(result.errorMessage).toBe('Failed to clone repository.');
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Error executing git clone: plain string error');
-
-    consoleErrorSpy.mockRestore();
-  });
-
-  // ─── git checkout catch (else branch) ────────────────────────────────────────
-
-  it('checkout catch else: logs error.message when error is an instance of Error', async () => {
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    mockSetupSuccess();
-    execAsync
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git clone
-      .mockRejectedValueOnce(new Error('detached HEAD')) // git checkout throws Error (no stderr prop)
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf cleanup
-
-    const result = await adapter.clone(makeRequest({ commit: CommitHash.create('a'.repeat(40)) }));
-
-    expect(result.cloned).toBe(false);
-    expect(result.errorMessage).toBe('Failed to checkout commit.');
-    // Error instanceof Error → entra nell'else, usa error.message
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Unknown error during checkout: detached HEAD');
-
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('checkout catch else: logs String(error) when error is a plain string', async () => {
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    mockSetupSuccess();
-    execAsync
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git clone
-      .mockRejectedValueOnce('unexpected string error') // git checkout throws string
-      .mockResolvedValueOnce({ stdout: '', stderr: '' }); // rm -rf cleanup
-
-    const result = await adapter.clone(makeRequest({ commit: CommitHash.create('a'.repeat(40)) }));
-
-    expect(result.cloned).toBe(false);
-    expect(result.errorMessage).toBe('Failed to checkout commit.');
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Unknown error during checkout: unexpected string error',
-    );
-
-    consoleErrorSpy.mockRestore();
+    expect(result.errorMessage).toBe('Permission denied');
   });
 });

@@ -41,7 +41,9 @@ export class MongoDBAdapter
         .exec();
 
       if (!credential) {
-        return GetGitCredentialResponse.failure('Credenziali non trovate o password errata');
+        return GetGitCredentialResponse.failure(
+          'Credential not found for the specified repository URL',
+        );
       }
 
       const isValid = await bcrypt.compare(model.password.value, credential.password);
@@ -51,7 +53,7 @@ export class MongoDBAdapter
         : GetGitCredentialResponse.failure('Wrong password');
     } catch (error) {
       return GetGitCredentialResponse.failure(
-        `Errore di connessione al database: ${(error as Error).message}`,
+        `Connection error database: ${(error as Error).message}`,
       );
     }
   }
@@ -68,12 +70,12 @@ export class MongoDBAdapter
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
         return PostGitCredentialResponse.failure(
-          `Le credenziali per la repository ${model.repoUrl.value} sono già esistenti.`,
+          `Credentials for repository ${model.repoUrl.value} already exist.`,
         );
       }
 
-      const message = error instanceof Error ? error.message : 'Errore sconosciuto';
-      return PostGitCredentialResponse.failure(`Errore durante il salvataggio: ${message}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return PostGitCredentialResponse.failure(`Error during saving: ${message}`);
     }
   }
 
