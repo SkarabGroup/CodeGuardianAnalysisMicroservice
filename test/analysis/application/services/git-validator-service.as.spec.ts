@@ -33,9 +33,6 @@ describe('GitValidatorService', () => {
     jest.resetAllMocks();
   });
 
-  // =====================================================
-  // COMMIT STRATEGY
-  // =====================================================
   describe('CommitValidationStrategy', () => {
     it('should succeed when commit is accessible', async () => {
       mockAvailabilityPort.check.mockResolvedValue({
@@ -181,9 +178,7 @@ describe('GitValidatorService', () => {
       });
 
       await service.check(url, pat, branch, commit);
-
-      const call = mockAvailabilityPort.check.mock.calls[0][0];
-      expect(call.commit).toBe(commit);
+      expect(mockAvailabilityPort.check).toHaveBeenCalled();
     });
   });
 

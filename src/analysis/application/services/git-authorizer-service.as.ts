@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 import { PersonalAccessToken } from '../../domain/value-objects/personal-access-token.vo';
@@ -11,7 +12,6 @@ import { GetGitCredentialResponse } from '../DTOs/models/responses/get-git-crede
 
 import type { IGitCredentialReadPort } from '../ports/repositories/git-credential-read-port.repository';
 import { GIT_CREDENTIAL_READ_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
-import { ConfigService } from '@nestjs/config';
 
 interface AuthorizationStrategy {
   getPersonalAccessToken(url?: RepoURL): Promise<string>;
