@@ -11,7 +11,9 @@ import { AnalysisProvider, ANALYSIS_PROVIDER } from './domain/services/analysis-
 import {
   MongoDBAdapter,
   GIT_CREDENTIAL_READ_PORT,
-  GIT_CREDENTIAL_WRITE_PORT,
+  GIT_CREDENTIAL_SAVE_PORT,
+  GIT_CREDENTIAL_DELETE_PORT,
+  GIT_CREDENTIAL_UPDATE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -72,7 +74,15 @@ import {
       useClass: MongoDBAdapter,
     },
     {
-      provide: GIT_CREDENTIAL_WRITE_PORT,
+      provide: GIT_CREDENTIAL_SAVE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GIT_CREDENTIAL_DELETE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GIT_CREDENTIAL_UPDATE_PORT,
       useClass: MongoDBAdapter,
     },
     {

@@ -108,7 +108,6 @@ export class MongoDBAdapter
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
-export const GIT_CREDENTIAL_WRITE_PORT = Symbol('IGitCredentialWritePort');
 export const GIT_CREDENTIAL_SAVE_PORT = Symbol('IGitCredentialSavePort');
 export const GIT_CREDENTIAL_DELETE_PORT = Symbol('IGitCredentialDeletePort');
 export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
