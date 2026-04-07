@@ -3,37 +3,37 @@ import { IsString, IsUrl, IsNotEmpty, IsOptional } from 'class-validator';
 export class StartAnalysisCommand {
   @IsString()
   @IsNotEmpty()
-  public readonly userId: string;
+  public readonly user: string;
 
   @IsUrl()
   @IsNotEmpty()
-  public readonly repositoryUrl: string;
+  public readonly url: string;
 
   @IsOptional()
   @IsString()
-  public readonly patPassword: string | undefined;
-
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  public readonly branch: string | undefined;
+  public readonly password?: string | undefined = undefined;
 
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  public readonly commitHash: string | undefined;
+  public readonly branch?: string | undefined = undefined;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  public readonly commit?: string | undefined = undefined;
 
   constructor(data: {
-    userId: string;
-    repositoryUrl: string;
-    patPassword?: string;
-    branch?: string;
-    commitHash?: string;
+    user: string;
+    url: string;
+    password?: string | undefined;
+    branch?: string | undefined;
+    commit?: string | undefined;
   }) {
-    this.userId = data.userId;
-    this.repositoryUrl = data.repositoryUrl;
-    this.patPassword = data.patPassword;
+    this.user = data.user;
+    this.url = data.url;
+    this.password = data.password;
     this.branch = data.branch;
-    this.commitHash = data.commitHash;
+    this.commit = data.commit;
   }
 }

@@ -21,19 +21,28 @@ export class AnalysisController {
     @Body() dto: StartAnalysisRequestDTO,
   ): Promise<StartAnalysisResponseDTO> {
     const command = new StartAnalysisCommand({
-      userId: uuid(),
-      repositoryUrl: dto.repoUrl,
+      user: uuid(),
+      url: dto.repoUrl,
+      password: dto.password || undefined,
+      branch: dto.branch || undefined,
+      commit: dto.commit || undefined,
     });
 
     try {
       const result: StartAnalysisResult = await this.startAnalysis.execute(command);
-      if (!result.isSuccess) {
+      if (!result.success) {
         return StartAnalysisResponseDTO.failure(
-          result.error || 'Impossible to analyze this repository',
+          result.message || 'Impossible to analyze this repository',
         );
       }
 
-      return StartAnalysisResponseDTO.success('', result.analysisId!);
+      return StartAnalysisResponseDTO.success(
+        result.user,
+        result.id,
+        result.url,
+        result.branch,
+        result.commit,
+      );
     } catch (error) {
       return StartAnalysisResponseDTO.failure(
         error instanceof Error ? error.message : 'Internal Server Error',

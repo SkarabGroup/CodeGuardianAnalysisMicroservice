@@ -15,7 +15,12 @@ import { UpdateGitCredentialPatResponse } from '../../../application/DTOs/models
 import { IGitCredentialDeletePort } from '../../../application/ports/repositories/git-delete-credential-port.repository';
 import { IGitCredentialUpdatePort } from '../../../application/ports/repositories/git-update-credential-port.repository';
 
-@Injectable()
+import * as bcrypt from 'bcrypt';
+
+@Injectable() //Get
+//Post
+// Delete
+// Update
 export class MongoDBAdapter
   implements
     IGitCredentialReadPort,
@@ -31,10 +36,7 @@ export class MongoDBAdapter
   async authorize(model: GetGitCredentialRequest): Promise<GetGitCredentialResponse> {
     try {
       const credential = await this.credentialModel
-        .findOne({
-          repoUrl: model.repoUrl.value,
-          password: model.password.value,
-        })
+        .findOne({ repoUrl: model.repoUrl.value })
         .lean()
         .exec();
 
@@ -42,7 +44,11 @@ export class MongoDBAdapter
         return GetGitCredentialResponse.failure('Credenziali non trovate o password errata');
       }
 
-      return GetGitCredentialResponse.success(credential.patToken);
+      const isValid = await bcrypt.compare(model.password.value, credential.password);
+
+      return isValid
+        ? GetGitCredentialResponse.success(credential.patToken)
+        : GetGitCredentialResponse.failure('Wrong password');
     } catch (error) {
       return GetGitCredentialResponse.failure(
         `Errore di connessione al database: ${(error as Error).message}`,

@@ -2,65 +2,77 @@ import { Inject, Injectable } from '@nestjs/common';
 import { StartAnalysisUseCase } from '../use-case/start-analysis.uc';
 import { StartAnalysisCommand } from '../commands/start-analysis-command.command';
 import { StartAnalysisResult } from '../results/start-analysis-result.result';
-import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 
-import type { IAnalysisFactory } from '../../domain/services/analysis-factory.ds.interface';
+import { ACCESS_AUTHORIZER } from './git-authorizer-service.as';
+import { CLONE_VALIDATOR } from './git-validator-service.as';
+import { REPOSITORY_CLONER } from './git-cloner-service.as';
+
+import { UserId } from '../../domain/value-objects/user-id.vo';
+import { AnalysisId } from '../../domain/value-objects/analysis-id.vo';
+import { RepoURL } from '../../domain/value-objects/repo-url.vo';
+import { PATPassword } from '../../domain/value-objects/pat-password.vo';
+import { BranchName } from '../../domain/value-objects/branch-name.vo';
+import { CommitHash } from '../../domain/value-objects/commit-hash.vo';
+
 import type { IRepositoryAuthorizer } from './interfaces/repository-authorizer.as.interface';
-import type { IRepositoryCloneValidator } from './interfaces/source-validator.ds.interface';
+import type { IRepositoryValidator } from './interfaces/repository-validator.as.interface';
 import type { IRepositoryCloner } from './interfaces/repository-cloner.as.interface';
 
-import { ANALYSIS_PROVIDER } from '../../domain/services/analysis-provider.ds';
-import { ACCESS_AUTHORIZER } from './git-access-service.as';
-import { CLONE_VALIDATOR } from './git-clone-validator-service.as';
-import { REPOSITORY_CLONER } from './git-cloner-service.as';
+import { v7 as uuid } from 'uuid';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class StartAnalysisService implements StartAnalysisUseCase {
   public constructor(
-    @Inject(ANALYSIS_PROVIDER)
-    private readonly analysisProvider: IAnalysisFactory,
     @Inject(ACCESS_AUTHORIZER)
-    private readonly authorizer: IRepositoryAuthorizer,
+    private readonly authorizationService: IRepositoryAuthorizer,
     @Inject(CLONE_VALIDATOR)
-    private readonly validator: IRepositoryCloneValidator,
+    private readonly validatorService: IRepositoryValidator,
     @Inject(REPOSITORY_CLONER)
-    private readonly cloner: IRepositoryCloner,
+    private readonly clonerService: IRepositoryCloner,
   ) {}
 
   public async execute(command: StartAnalysisCommand): Promise<StartAnalysisResult> {
-    try {
-      const analysis = this.analysisProvider.createGitHubAnalysisEntity(command);
+    const analysisId: AnalysisId = AnalysisId.create(uuid());
+    const repoURL: RepoURL = RepoURL.create(command.url);
 
-      const pat = command.patPassword
-        ? await this.authorizer.authorize(
-            analysis.getRepoURL(),
-            PATPassword.create(command.patPassword),
-          )
-        : null;
+    const pat = await this.authorizationService.authorize(
+      repoURL,
+      command.password
+        ? PATPassword.create(createHash('sha256').update(command.password).digest('hex'))
+        : undefined,
+    );
 
-      const resolvedCommit = await this.validator.check(
-        analysis.getRepoURL(),
-        pat,
-        analysis.getBranch(),
-        analysis.getCommit(),
-      );
+    const providedBranch = command.branch ? BranchName.create(command.branch) : null;
+    const providedCommit = command.commit ? CommitHash.create(command.commit) : null;
 
-      const path = await this.cloner.clone(
-        analysis.getRepoURL(),
-        analysis.getAnalysisId(),
-        pat,
-        analysis.getBranch(),
-        resolvedCommit,
-      );
+    const { branch, commit } = await this.validatorService.check(
+      repoURL,
+      pat,
+      providedBranch,
+      providedCommit,
+    );
 
-      //emit analyzeRepository(path)
+    const localFolderPath = await this.clonerService.clone(
+      repoURL,
+      analysisId,
+      pat,
+      branch,
+      commit,
+    );
 
-      return StartAnalysisResult.success(path);
-    } catch (error) {
-      return StartAnalysisResult.failure(
-        error instanceof Error ? error.message : 'Analysis initiation failed',
-      );
-    }
+    console.log();
+
+    //emit(localFolderPath)
+    const user = UserId.create(command.user);
+    return StartAnalysisResult.success(
+      user.value,
+      analysisId.value,
+      repoURL.value,
+      branch.value,
+      commit.value,
+      localFolderPath,
+    );
   }
 }
 

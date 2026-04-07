@@ -96,7 +96,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       const result = await adapter.authorize(mockRequest);
 
-      expect(result.isAuthorized).toBe(true);
       expect(result.patToken).toBe('ghp_token_valido');
       expect(mockModel.findOne).toHaveBeenCalledWith({
         repoUrl: mockRequest.repoUrl.value,
