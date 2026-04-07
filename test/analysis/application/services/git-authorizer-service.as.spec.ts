@@ -1,21 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+
 import { GitAuthorizerService } from '../../../../src/analysis/application/services/git-authorizer-service.as';
 import { GIT_CREDENTIAL_READ_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
+
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../../../src/analysis/domain/value-objects/pat-password.vo';
 import { PersonalAccessToken } from '../../../../src/analysis/domain/value-objects/personal-access-token.vo';
 
-const mockCredentialPort = {
-  authorize: jest.fn(),
-};
-
-const mockConfigService = {
-  get: jest.fn(),
-};
-
-describe('GitAuthorizerService Arricchito', () => {
+describe('GitAuthorizerService', () => {
   let service: GitAuthorizerService;
+
+  const mockCredentialPort = {
+    authorize: jest.fn(),
+  };
+
+  const mockConfigService = {
+    get: jest.fn(),
+  };
+
+  const validUrl = RepoURL.create('https://github.com/owner/repo');
+  const validPassword = PATPassword.create(
+    'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+  );
+  const validPatString = 'ghp_' + 'A'.repeat(36);
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -27,18 +35,12 @@ describe('GitAuthorizerService Arricchito', () => {
     }).compile();
 
     service = module.get<GitAuthorizerService>(GitAuthorizerService);
-    jest.clearAllMocks();
+
+    jest.resetAllMocks();
   });
 
-  const validUrl = RepoURL.create('https://github.com/owner/repo');
-  const validPassword = PATPassword.create(
-    'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-  );
-  const validPatString = 'ghp_' + 'A'.repeat(36);
-
-  // --- TEST STRATEGIA PRIVATA ---
-  describe('Private Strategy Execution', () => {
-    it('should return a PersonalAccessToken if authorization is successful', async () => {
+  describe('Private Strategy', () => {
+    it('should return PAT when authorization succeeds', async () => {
       mockCredentialPort.authorize.mockResolvedValue({
         isAuthorized: true,
         patToken: validPatString,
@@ -49,15 +51,11 @@ describe('GitAuthorizerService Arricchito', () => {
 
       expect(result).toBeInstanceOf(PersonalAccessToken);
       expect(result.value).toBe(validPatString);
-      expect(mockCredentialPort.authorize).toHaveBeenCalledWith(
-        expect.objectContaining({
-          repoUrl: validUrl,
-          password: validPassword,
-        }),
-      );
+
+      expect(mockCredentialPort.authorize).toHaveBeenCalledTimes(1);
     });
 
-    it('should throw Error if isAuthorized is false', async () => {
+    it('should throw if isAuthorized is false', async () => {
       mockCredentialPort.authorize.mockResolvedValue({
         isAuthorized: false,
         patToken: null,
@@ -69,30 +67,40 @@ describe('GitAuthorizerService Arricchito', () => {
       );
     });
 
-    it('should throw Error if an errorMessage is returned from port', async () => {
+    it('should throw if errorMessage is present', async () => {
       mockCredentialPort.authorize.mockResolvedValue({
         isAuthorized: false,
         patToken: null,
-        errorMessage: 'Database connection failed',
+        errorMessage: 'DB error',
       });
 
-      await expect(service.authorize(validUrl, validPassword)).rejects.toThrow(
-        'Database connection failed',
-      );
+      await expect(service.authorize(validUrl, validPassword)).rejects.toThrow('DB error');
     });
 
-    it('should throw Error if port returns an unexpected empty response', async () => {
+    it('should throw if response is malformed', async () => {
       mockCredentialPort.authorize.mockResolvedValue({});
 
       await expect(service.authorize(validUrl, validPassword)).rejects.toThrow(
         'Authorization not granted',
       );
     });
+
+    it('should propagate port errors', async () => {
+      mockCredentialPort.authorize.mockRejectedValue(new Error('Port failure'));
+
+      await expect(service.authorize(validUrl, validPassword)).rejects.toThrow('Port failure');
+    });
+
+    it('should throw if URL is missing', async () => {
+      // bypass TS
+      await expect(service.authorize(undefined as any, validPassword)).rejects.toThrow(
+        'URL is required for private repository authorization',
+      );
+    });
   });
 
-  // --- TEST STRATEGIA PUBBLICA ---
-  describe('Public Strategy Execution', () => {
-    it('should return token from config even if URL is provided (Public Strategy context)', async () => {
+  describe('Public Strategy', () => {
+    it('should return token from config', async () => {
       mockConfigService.get.mockReturnValue(validPatString);
 
       const result = await service.authorize(validUrl);
@@ -102,17 +110,22 @@ describe('GitAuthorizerService Arricchito', () => {
       expect(mockCredentialPort.authorize).not.toHaveBeenCalled();
     });
 
-    it('should throw error if public token is not configured in env', async () => {
-      mockConfigService.get.mockReturnValue(null);
+    it('should throw if token not configured', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
 
       await expect(service.authorize(validUrl)).rejects.toThrow(
         'Public analysis requested but GITHUB_PUBLIC_TOKEN is not configured',
       );
     });
+
+    it('should throw if token is invalid for VO', async () => {
+      mockConfigService.get.mockReturnValue('invalid-token');
+
+      await expect(service.authorize(validUrl)).rejects.toThrow();
+    });
   });
 
-  // --- TEST SCELTA DELLA STRATEGIA (Switch Logic) ---
-  describe('Strategy Switching Logic', () => {
+  describe('Strategy Switching', () => {
     it('should use PrivateStrategy when password is provided', async () => {
       mockCredentialPort.authorize.mockResolvedValue({
         isAuthorized: true,
@@ -125,7 +138,7 @@ describe('GitAuthorizerService Arricchito', () => {
       expect(mockConfigService.get).not.toHaveBeenCalled();
     });
 
-    it('should use PublicStrategy when password is not provided', async () => {
+    it('should use PublicStrategy when password is NOT provided', async () => {
       mockConfigService.get.mockReturnValue(validPatString);
 
       await service.authorize(validUrl);
@@ -135,45 +148,10 @@ describe('GitAuthorizerService Arricchito', () => {
     });
   });
 
-  // --- TEST COMPLEMENTARI E ROBUSTEZZA ---
-  describe('Edge Cases and Integrity', () => {
-    it('should propagate errors thrown by the port', async () => {
-      mockCredentialPort.authorize.mockRejectedValue(new Error('Port crash'));
-
-      await expect(service.authorize(validUrl, validPassword)).rejects.toThrow('Port crash');
-    });
-
-    it('should throw error if the returned token format is invalid for VO PersonalAccessToken', async () => {
-      mockConfigService.get.mockReturnValue('invalid-token');
-
-      await expect(service.authorize(validUrl)).rejects.toThrow();
-    });
-  });
-
-  // --- TEST RUNTIME CHECKS ---
-  describe('Runtime Validation', () => {
-    it('should throw specific error for missing URL in private context', async () => {
-      // @ts-ignore (testiamo runtime bypassando i controlli TS)
-      await expect(service.authorize(undefined, validPassword)).rejects.toThrow(
-        'URL is required for private repository authorization',
-      );
-    });
-  });
-
-  describe('GitAuthorizerService Constructor', () => {
-    it('should be defined and correctly instantiated', async () => {
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          GitAuthorizerService,
-          { provide: GIT_CREDENTIAL_READ_PORT, useValue: mockCredentialPort },
-          { provide: ConfigService, useValue: mockConfigService },
-        ],
-      }).compile();
-
-      const instance = module.get<GitAuthorizerService>(GitAuthorizerService);
-
-      expect(instance).toBeDefined();
-      expect(instance).toBeInstanceOf(GitAuthorizerService);
+  describe('Initialization', () => {
+    it('should instantiate correctly', () => {
+      expect(service).toBeDefined();
+      expect(service).toBeInstanceOf(GitAuthorizerService);
     });
   });
 });

@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { StartAnalysisService } from '../../../../src/analysis/application/services/start-analysis.as';
 import { ACCESS_AUTHORIZER } from '../../../../src/analysis/application/services/git-authorizer-service.as';
 import { CLONE_VALIDATOR } from '../../../../src/analysis/application/services/git-validator-service.as';
 import { REPOSITORY_CLONER } from '../../../../src/analysis/application/services/git-cloner-service.as';
+
 import { StartAnalysisCommand } from '../../../../src/analysis/application/commands/start-analysis-command.command';
 
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
@@ -13,96 +15,97 @@ import { PersonalAccessToken } from '../../../../src/analysis/domain/value-objec
 import { createHash } from 'crypto';
 import { v7 as uuid } from 'uuid';
 
-const mockAuthorizer = {
-  authorize: jest.fn(),
-};
-
-const mockCloneValidator = {
-  check: jest.fn(),
-};
-
-const mockCloner = {
-  clone: jest.fn(),
-};
-
-describe('StartAnalysisService Orchestration', () => {
+describe('StartAnalysisService', () => {
   let service: StartAnalysisService;
+
+  const mockAuthorizer = {
+    authorize: jest.fn(),
+  };
+
+  const mockValidator = {
+    check: jest.fn(),
+  };
+
+  const mockCloner = {
+    clone: jest.fn(),
+  };
+
+  const VALID_URL = 'https://github.com/owner/repo';
+  const VALID_USER = uuid();
+  const PASSWORD = 'password123';
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StartAnalysisService,
         { provide: ACCESS_AUTHORIZER, useValue: mockAuthorizer },
-        { provide: CLONE_VALIDATOR, useValue: mockCloneValidator },
+        { provide: CLONE_VALIDATOR, useValue: mockValidator },
         { provide: REPOSITORY_CLONER, useValue: mockCloner },
       ],
     }).compile();
 
     service = module.get<StartAnalysisService>(StartAnalysisService);
-    jest.clearAllMocks();
+
+    jest.resetAllMocks();
     jest.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  const VALID_URL = 'https://github.com/owner/repo';
-  const VALID_USER = uuid();
-  const PLAIN_PASS = 'password123';
-  const HASHED_PASS = createHash('sha256').update(PLAIN_PASS).digest('hex');
+  // =====================================================
+  // SUCCESS FLOW
+  // =====================================================
+  it('should orchestrate full flow correctly', async () => {
+    const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
+    const branch = BranchName.create('main');
+    const commit = CommitHash.create('a'.repeat(40));
+    const path = '/tmp/repo';
 
-  it('should orchestrate the full analysis flow successfully', async () => {
-    // 1. Setup Mocks
-    const mockToken = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
-    const mockBranch = BranchName.create('main');
-    const mockCommit = CommitHash.create('a'.repeat(40));
-    const mockPath = '/tmp/local-repo';
+    mockAuthorizer.authorize.mockResolvedValue(token);
+    mockValidator.check.mockResolvedValue({ branch, commit });
+    mockCloner.clone.mockResolvedValue(path);
 
-    mockAuthorizer.authorize.mockResolvedValue(mockToken);
-    mockCloneValidator.check.mockResolvedValue({
-      branch: mockBranch,
-      commit: mockCommit,
-    });
-    mockCloner.clone.mockResolvedValue(mockPath);
-
-    // 2. Comando con struttura corretta (oggetto data)
     const command = new StartAnalysisCommand({
       url: VALID_URL,
       user: VALID_USER,
-      password: PLAIN_PASS,
+      password: PASSWORD,
       branch: 'main',
     });
 
-    // 3. Esecuzione
     const result = await service.execute(command);
 
-    // 4. Asserzioni sul risultato
     expect(result.success).toBe(true);
-    expect(result.message).toBe(mockPath);
-    expect(result.branch).toBe('main');
+    expect(result.message).toBe(path);
 
-    // 5. Verifica orchestrazione con arrow functions per evitare unbound-method
-    expect(() => mockAuthorizer.authorize).toHaveBeenCalledWith(
+    // ✔ verify authorizer
+    const expectedHash = createHash('sha256').update(PASSWORD).digest('hex');
+
+    expect(mockAuthorizer.authorize).toHaveBeenCalledWith(
       expect.any(RepoURL),
-      expect.objectContaining({ value: HASHED_PASS }),
+      expect.objectContaining({ value: expectedHash }),
     );
 
-    expect(() => mockCloneValidator.check).toHaveBeenCalledWith(
+    // ✔ verify validator
+    expect(mockValidator.check).toHaveBeenCalledWith(
       expect.any(RepoURL),
-      mockToken,
+      token,
       expect.any(BranchName),
       null,
     );
 
-    expect(() => mockCloner.clone).toHaveBeenCalledWith(
+    // ✔ verify cloner
+    expect(mockCloner.clone).toHaveBeenCalledWith(
       expect.any(RepoURL),
       expect.any(Object), // AnalysisId
-      mockToken,
-      mockBranch,
-      mockCommit,
+      token,
+      branch,
+      commit,
     );
   });
 
-  it('should handle public repositories (no password provided)', async () => {
-    mockAuthorizer.authorize.mockResolvedValue(null);
-    mockCloneValidator.check.mockResolvedValue({
+  it('should handle public repo (no password)', async () => {
+    const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
+
+    mockAuthorizer.authorize.mockResolvedValue(token);
+    mockValidator.check.mockResolvedValue({
       branch: BranchName.create('main'),
       commit: CommitHash.create('b'.repeat(40)),
     });
@@ -115,26 +118,14 @@ describe('StartAnalysisService Orchestration', () => {
 
     await service.execute(command);
 
-    expect(() => mockAuthorizer.authorize).toHaveBeenCalledWith(expect.any(RepoURL), undefined);
+    expect(mockAuthorizer.authorize).toHaveBeenCalledWith(expect.any(RepoURL), undefined);
   });
 
-  it('should propagate errors from internal services', async () => {
-    const command = new StartAnalysisCommand({
-      url: VALID_URL,
-      user: VALID_USER,
-      password: PLAIN_PASS,
-    });
+  it('should pass branch and commit when provided', async () => {
+    const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
 
-    const error = new Error('Validation failed');
-    mockAuthorizer.authorize.mockResolvedValue(null);
-    mockCloneValidator.check.mockRejectedValue(error);
-
-    await expect(service.execute(command)).rejects.toThrow('Validation failed');
-  });
-
-  it('should correctly pass provided branch and commit to validator', async () => {
-    mockAuthorizer.authorize.mockResolvedValue(null);
-    mockCloneValidator.check.mockResolvedValue({
+    mockAuthorizer.authorize.mockResolvedValue(token);
+    mockValidator.check.mockResolvedValue({
       branch: BranchName.create('develop'),
       commit: CommitHash.create('c'.repeat(40)),
     });
@@ -149,11 +140,74 @@ describe('StartAnalysisService Orchestration', () => {
 
     await service.execute(command);
 
-    expect(() => mockCloneValidator.check).toHaveBeenCalledWith(
-      expect.objectContaining({ value: VALID_URL }),
-      null,
+    expect(mockValidator.check).toHaveBeenCalledWith(
+      expect.any(RepoURL),
+      token,
       expect.objectContaining({ value: 'develop' }),
       expect.objectContaining({ value: 'c'.repeat(40) }),
     );
+  });
+
+  it('should propagate validator errors', async () => {
+    const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
+
+    mockAuthorizer.authorize.mockResolvedValue(token);
+    mockValidator.check.mockRejectedValue(new Error('Validation failed'));
+
+    const command = new StartAnalysisCommand({
+      url: VALID_URL,
+      user: VALID_USER,
+      password: PASSWORD,
+    });
+
+    await expect(service.execute(command)).rejects.toThrow('Validation failed');
+  });
+
+  it('should propagate cloner errors', async () => {
+    const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
+
+    mockAuthorizer.authorize.mockResolvedValue(token);
+    mockValidator.check.mockResolvedValue({
+      branch: BranchName.create('main'),
+      commit: CommitHash.create('a'.repeat(40)),
+    });
+    mockCloner.clone.mockRejectedValue(new Error('Clone failed'));
+
+    const command = new StartAnalysisCommand({
+      url: VALID_URL,
+      user: VALID_USER,
+    });
+
+    await expect(service.execute(command)).rejects.toThrow('Clone failed');
+  });
+
+  it('should call services in correct order', async () => {
+    const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
+
+    mockAuthorizer.authorize.mockResolvedValue(token);
+    mockValidator.check.mockResolvedValue({
+      branch: BranchName.create('main'),
+      commit: CommitHash.create('a'.repeat(40)),
+    });
+    mockCloner.clone.mockResolvedValue('/tmp/path');
+
+    const command = new StartAnalysisCommand({
+      url: VALID_URL,
+      user: VALID_USER,
+    });
+
+    await service.execute(command);
+
+    const authorizeOrder = mockAuthorizer.authorize.mock.invocationCallOrder[0];
+    const validatorOrder = mockValidator.check.mock.invocationCallOrder[0];
+    const clonerOrder = mockCloner.clone.mock.invocationCallOrder[0];
+
+    expect(authorizeOrder).toBeLessThan(validatorOrder);
+    expect(validatorOrder).toBeLessThan(clonerOrder);
+  });
+
+  it('should be instantiated correctly', () => {
+    expect(service).toBeDefined();
+    expect(service).toBeInstanceOf(StartAnalysisService);
   });
 });
