@@ -2,11 +2,11 @@ export class CoveragePercentage {
   private readonly _value: number;
 
   private constructor(value: number) {
-    this._validate(value);
+    this.validate(value);
     this._value = value;
   }
 
-  private _validate(value: number): void {
+  private validate(value: number): void {
     if (value < 0 || value > 1 || !Number.isFinite(value)) {
       throw new Error('Coverage percentage must be a number between 0 and 1');
     }
