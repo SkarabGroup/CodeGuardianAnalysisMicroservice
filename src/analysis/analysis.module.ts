@@ -80,6 +80,15 @@ import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-servi
     },
     {
       provide: GIT_CREDENTIAL_READ_PORT,
+      provide: GIT_CREDENTIAL_SAVE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GIT_CREDENTIAL_DELETE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GIT_CREDENTIAL_UPDATE_PORT,
       useClass: MongoDBAdapter,
     },
     {

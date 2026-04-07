@@ -18,6 +18,7 @@ const ignoreExtensions = [
   'result.ts',
   '.module.ts',
   'main.ts',
+  '.dto.ts',
 ];
 
 function getFiles(dir, allFiles = []) {
