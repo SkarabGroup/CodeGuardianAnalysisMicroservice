@@ -3,5 +3,5 @@ import { PersonalAccessToken } from '../../../domain/value-objects/personal-acce
 import { RepoURL } from '../../../domain/value-objects/repo-url.vo';
 
 export interface IRepositoryAuthorizer {
-  authorize(url: RepoURL, password: PATPassword): Promise<PersonalAccessToken>;
+  authorize(url: RepoURL, password?: PATPassword): Promise<PersonalAccessToken>;
 }
