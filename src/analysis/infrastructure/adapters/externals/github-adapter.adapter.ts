@@ -89,8 +89,6 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
     switch (statusCode) {
       case 200:
         return this.validateBody(body, request);
-      case 401:
-        return CheckAvailabilityResponse.failure('Unauthorized: Invalid Personal Access Token.');
       case 404:
         return CheckAvailabilityResponse.failure(
           'The requested resource (repo, branch or commit) was not found.',
@@ -118,14 +116,13 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
         return CheckAvailabilityResponse.failure('Branch data incomplete.');
       }
 
-      // Se non abbiamo chiesto nulla (Caso Default), restituiamo il nome e segnale PENDING
       if (data.default_branch) {
-        return CheckAvailabilityResponse.success(data.default_branch, 'PENDING');
+        return CheckAvailabilityResponse.success(data.default_branch, null);
       }
 
       return CheckAvailabilityResponse.failure('Unexpected JSON structure.');
     } catch {
-      return CheckAvailabilityResponse.failure('Failed to parse GitHub JSON.');
+      return CheckAvailabilityResponse.failure('Failed to parse GitHub JSON response.');
     }
   }
 
@@ -136,7 +133,7 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
       await this.execAsync(`rm -rf ${tempPath}`);
 
       const token = request.patToken?.value || process.env.CODE_GUARDIAN_TOKEN;
-      const authPart = token ? `${token}@` : '';
+      const authPart = `${token}@`;
       const repoPath = this.extractRepoPath(request.repoUrl.value);
       const repoUrlWithAuth = `https://${authPart}github.com/${repoPath}.git`;
 

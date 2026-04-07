@@ -11,6 +11,7 @@ import { UpdateGitCredentialPatRequest } from '../../../../../src/analysis/appli
 import { RepoURL } from '../../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../../../../src/analysis/domain/value-objects/pat-password.vo';
 import { PersonalAccessToken } from '../../../../../src/analysis/domain/value-objects/personal-access-token.vo';
+import * as bcrypt from 'bcrypt';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -31,6 +32,9 @@ interface MongoError extends Error {
   code: number;
 }
 
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+}));
 const VALID_PASSWORD = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 const VALID_PAT = 'ghp_' + 'A'.repeat(36);
 
@@ -89,17 +93,35 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
     it('should return a successful response when credentials are found', async () => {
       const mockDbResult = {
-        patToken: 'ghp_token_valido',
+        patToken: 'ghp_' + 'B'.repeat(36),
+        password: VALID_PASSWORD,
       } as GitCredential;
 
       mockQuery.exec.mockResolvedValue(mockDbResult);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true as never);
 
       const result = await adapter.authorize(mockRequest);
 
-      expect(result.patToken).toBe('ghp_token_valido');
+      expect(result.patToken).toBe('ghp_' + 'B'.repeat(36));
       expect(mockModel.findOne).toHaveBeenCalledWith({
         repoUrl: mockRequest.repoUrl.value,
-        password: mockRequest.password.value,
+      });
+    });
+
+    it('should return a bad response when credentials are found', async () => {
+      const mockDbResult = {
+        patToken: 'ghp_' + 'B'.repeat(36),
+        password: VALID_PASSWORD,
+      } as GitCredential;
+
+      mockQuery.exec.mockResolvedValue(mockDbResult);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false as never);
+
+      const result = await adapter.authorize(mockRequest);
+
+      expect(result.patToken).toBe(null);
+      expect(mockModel.findOne).toHaveBeenCalledWith({
+        repoUrl: mockRequest.repoUrl.value,
       });
     });
 
@@ -110,7 +132,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result.isAuthorized).toBe(false);
       expect(result.patToken).toBeNull();
-      expect(result.errorMessage).toBe('Credenziali non trovate o password errata');
+      expect(result.errorMessage).toBe('Credential not found for the specified repository URL');
     });
 
     it('should return error response when database throws an exception', async () => {
@@ -120,7 +142,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
       const result = await adapter.authorize(mockRequest);
 
       expect(result.isAuthorized).toBe(false);
-      expect(result.errorMessage).toContain('Errore di connessione al database');
+      expect(result.errorMessage).toContain('Connection error database: Connection timeout');
     });
   });
 
@@ -154,7 +176,9 @@ describe('MongoDBAdapter (Unit Test)', () => {
       const result = await adapter.save(mockSaveRequest);
 
       expect(result.isSuccess).toBe(false);
-      expect(result.errorMessage).toContain('già esistenti');
+      expect(result.errorMessage).toContain(
+        'Credentials for repository https://github.com/owner/new-repo already exist.',
+      );
     });
 
     it('should return failure for generic database errors', async () => {
@@ -194,7 +218,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
       const result = await adapter.save(mockSaveRequest);
 
       expect(result.isSuccess).toBe(false);
-      expect(result.errorMessage).toContain('Errore sconosciuto');
+      expect(result.errorMessage).toContain('Unknown error');
     });
   });
 
@@ -217,8 +241,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
     });
 
     it('should return success even when no document matched (deleteOne is idempotent)', async () => {
-      // deleteOne non lancia eccezioni se il documento non esiste,
-      // restituisce semplicemente { deletedCount: 0 }
       mockModel.deleteOne.mockResolvedValue({ deletedCount: 0 });
 
       const result = await adapter.deletePAT(mockDeleteRequest);

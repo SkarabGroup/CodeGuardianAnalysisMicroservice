@@ -6,11 +6,11 @@ export class CheckAvailabilityResponse {
     public readonly errorMessage?: string,
   ) {}
 
-  public static success(branch: string, commit: string): CheckAvailabilityResponse {
+  public static success(branch: string, commit: string | null): CheckAvailabilityResponse {
     return new CheckAvailabilityResponse(true, branch, commit);
   }
 
   public static failure(message: string): CheckAvailabilityResponse {
-    return new CheckAvailabilityResponse(false, null, message);
+    return new CheckAvailabilityResponse(false, null, null, message);
   }
 }
