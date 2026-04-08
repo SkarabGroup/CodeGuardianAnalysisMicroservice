@@ -23,12 +23,6 @@ describe('DependencyFinding (Value Object)', () => {
       );
 
       expect(dep).toBeDefined();
-      expect(dep.path).toBe(VALID_PATH);
-      expect(dep.packageName).toBe(VALID_PACKAGE_NAME);
-      expect(dep.packageVersion).toBe(VALID_PACKAGE_VERSION);
-      expect(dep.vulnerabilityId).toBe(VALID_VULNERABILITY_ID);
-      expect(dep.severity).toBe(VALID_SEVERITY);
-      expect(dep.description).toBe(VALID_DESCRIPTION);
     });
 
     it('should return true for equal objects', () => {
@@ -50,6 +44,39 @@ describe('DependencyFinding (Value Object)', () => {
       );
 
       expect(d1.equals(d2)).toBe(true);
+    });
+
+    it('should return correct values from getters', () => {
+      const df = DependencyFinding.create(
+        VALID_PATH,
+        VALID_PACKAGE_NAME,
+        VALID_PACKAGE_VERSION,
+        VALID_VULNERABILITY_ID,
+        VALID_SEVERITY,
+        VALID_DESCRIPTION,
+      );
+
+      expect(df.getPathFinding()).toBe(VALID_PATH);
+      expect(df.getPackageName()).toBe(VALID_PACKAGE_NAME);
+      expect(df.getPackageVersion()).toBe(VALID_PACKAGE_VERSION);
+      expect(df.getVulnerabilityId()).toBe(VALID_VULNERABILITY_ID);
+      expect(df.getSeverityFinding()).toBe(VALID_SEVERITY);
+      expect(df.getDescriptionFinding()).toBe(VALID_DESCRIPTION);
+    });
+
+    it('should trim string fields when creating an instance', () => {
+      const df = DependencyFinding.create(
+        VALID_PATH,
+        '  my-package  ',
+        '  1.0.0  ',
+        '  CVE-2024-123  ',
+        VALID_SEVERITY,
+        VALID_DESCRIPTION,
+      );
+
+      expect(df.getPackageName()).toBe('my-package');
+      expect(df.getPackageVersion()).toBe('1.0.0');
+      expect(df.getVulnerabilityId()).toBe('CVE-2024-123');
     });
   });
 
