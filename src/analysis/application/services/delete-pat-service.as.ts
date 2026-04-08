@@ -33,3 +33,5 @@ export class DeletePatService implements DeletePatUseCase {
     }
   }
 }
+
+export const DELETE_PAT = Symbol('DeletePatUseCase');

@@ -26,7 +26,7 @@ export class UpdatePatService implements UpdatePatUseCase {
         return UpdatePatResult.success();
       }
       return UpdatePatResult.failure(
-        response.errorMessage || 'Unknown error occurred while deleting Git credentials',
+        response.errorMessage || 'Unknown error occurred while updating Git credentials',
       );
     } catch (error) {
       return UpdatePatResult.failure(
@@ -35,3 +35,5 @@ export class UpdatePatService implements UpdatePatUseCase {
     }
   }
 }
+
+export const UPDATE_PAT = Symbol('UpdatePatUseCase');
