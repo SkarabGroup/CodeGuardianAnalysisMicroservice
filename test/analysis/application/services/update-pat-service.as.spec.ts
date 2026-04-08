@@ -1,65 +1,75 @@
 import { Test, TestingModule } from '@nestjs/testing';
-
 import { UpdatePatService } from '../../../../src/analysis/application/services/update-pat-service.as';
-import { IGitCredentialUpdatePort } from '../../../../src/analysis/application/ports/repositories/git-update-credential-port.repository';
 import { UpdatePatCommand } from '../../../../src/analysis/application/commands/update-pat-command.command';
 import { UpdateGitCredentialPatResponse } from '../../../../src/analysis/application/DTOs/models/responses/update-git-credential-pat-response.model';
 import { GIT_CREDENTIAL_UPDATE_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
-import { PATPassword } from '../../../../src/analysis/domain/value-objects/pat-password.vo';
 import { PersonalAccessToken } from '../../../../src/analysis/domain/value-objects/personal-access-token.vo';
+import { PASSWORD_PROVIDER } from '../../../../src/analysis/domain/services/pat-password-provider.ds';
+import { PATPassword } from '../../../../src/analysis/domain/value-objects/pat-password.vo';
+import { UpdateGitCredentialPatRequest } from '../../../../src/analysis/application/DTOs/models/requests/update-git-credential-pat-request.model';
 
 jest.mock('../../../../src/analysis/domain/value-objects/repo-url.vo');
-jest.mock('../../../../src/analysis/domain/value-objects/pat-password.vo');
 jest.mock('../../../../src/analysis/domain/value-objects/personal-access-token.vo');
 
+const mockRepoURL = { value: 'https://github.com/org/repo' };
 const repoURLCreateSpy = jest
   .spyOn(RepoURL, 'create')
-  .mockReturnValue({ value: 'https://github.com/org/repo' } as ReturnType<typeof RepoURL.create>);
-const patPasswordCreateSpy = jest
-  .spyOn(PATPassword, 'create')
-  .mockReturnValue({ value: 'ghp_oldtoken' } as ReturnType<typeof PATPassword.create>);
+  .mockReturnValue(mockRepoURL as ReturnType<typeof RepoURL.create>);
+
+const mockNewPat = { value: 'ghp_newtoken' };
 const personalAccessTokenCreateSpy = jest
   .spyOn(PersonalAccessToken, 'create')
-  .mockReturnValue({ value: 'ghp_newtoken' } as ReturnType<typeof PersonalAccessToken.create>);
+  .mockReturnValue(mockNewPat as ReturnType<typeof PersonalAccessToken.create>);
 
 describe('UpdatePatService', () => {
   let service: UpdatePatService;
-  let credentialPort: jest.Mocked<IGitCredentialUpdatePort>;
+  let updatePATMock: jest.Mock<
+    Promise<UpdateGitCredentialPatResponse | { isSuccess: boolean; errorMessage?: string }>,
+    [UpdateGitCredentialPatRequest]
+  >;
+  let generateMock: jest.Mock<PATPassword, [string]>;
 
   const validCommand = new UpdatePatCommand({
     repositoryUrl: 'https://github.com/org/repo',
-    patPassword: 'ghp_oldtoken',
+    patPassword: 'my-secret-password',
     newPat: 'ghp_newtoken',
   });
 
+  const mockHashedPassword = { value: 'hashed-password-123' } as PATPassword;
+
   beforeEach(async () => {
-    const mockCredentialPort: jest.Mocked<IGitCredentialUpdatePort> = {
-      updatePAT: jest.fn(),
-    };
+    updatePATMock = jest.fn<
+      Promise<UpdateGitCredentialPatResponse | { isSuccess: boolean; errorMessage?: string }>,
+      [UpdateGitCredentialPatRequest]
+    >();
+    generateMock = jest.fn<PATPassword, [string]>().mockReturnValue(mockHashedPassword);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UpdatePatService,
         {
           provide: GIT_CREDENTIAL_UPDATE_PORT,
-          useValue: mockCredentialPort,
+          useValue: { updatePAT: updatePATMock },
+        },
+        {
+          provide: PASSWORD_PROVIDER,
+          useValue: { generate: generateMock },
         },
       ],
     }).compile();
 
     service = module.get<UpdatePatService>(UpdatePatService);
-    credentialPort = module.get<jest.Mocked<IGitCredentialUpdatePort>>(GIT_CREDENTIAL_UPDATE_PORT);
   });
 
-  afterEach(() => jest.clearAllMocks());
-
-  // ─── execute ────────────────────────────────────────────────────────────────
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
   describe('execute', () => {
     describe('when the port returns success', () => {
       it('should return a successful UpdatePatResult', async () => {
-        credentialPort.updatePAT.mockResolvedValue(UpdateGitCredentialPatResponse.success());
+        updatePATMock.mockResolvedValue(UpdateGitCredentialPatResponse.success());
 
         const result = await service.execute(validCommand);
 
@@ -67,21 +77,25 @@ describe('UpdatePatService', () => {
         expect(result.errorMessage).toBeUndefined();
       });
 
-      it('should build the request from all three command fields', async () => {
-        credentialPort.updatePAT.mockResolvedValue(UpdateGitCredentialPatResponse.success());
+      it('should build the request from all command fields and the password provider', async () => {
+        updatePATMock.mockResolvedValue(UpdateGitCredentialPatResponse.success());
 
         await service.execute(validCommand);
 
         expect(repoURLCreateSpy).toHaveBeenCalledWith(validCommand.repositoryUrl);
-        expect(patPasswordCreateSpy).toHaveBeenCalledWith(validCommand.patPassword);
+        expect(generateMock).toHaveBeenCalledWith(validCommand.patPassword);
         expect(personalAccessTokenCreateSpy).toHaveBeenCalledWith(validCommand.newPat);
-        expect(credentialPort.updatePAT.mock.calls).toHaveLength(1);
+
+        const updateCallArg = updatePATMock.mock.calls[0][0];
+        expect(updateCallArg.repoUrl).toBe(mockRepoURL);
+        expect(updateCallArg.patPassword).toBe(mockHashedPassword);
+        expect(updateCallArg.newPat).toBe(mockNewPat);
       });
     });
 
     describe('when the port returns failure', () => {
       it('should return a failed result with the port error message', async () => {
-        credentialPort.updatePAT.mockResolvedValue(
+        updatePATMock.mockResolvedValue(
           UpdateGitCredentialPatResponse.failure('Credential not found'),
         );
 
@@ -92,18 +106,18 @@ describe('UpdatePatService', () => {
       });
 
       it('should fall back to a generic message when errorMessage is missing', async () => {
-        credentialPort.updatePAT.mockResolvedValue(new UpdateGitCredentialPatResponse(false, ''));
+        updatePATMock.mockResolvedValue(new UpdateGitCredentialPatResponse(false, ''));
 
         const result = await service.execute(validCommand);
 
         expect(result.isSuccess).toBe(false);
-        expect(result.errorMessage).toBe('Unknown error occurred while deleting Git credentials');
+        expect(result.errorMessage).toBe('Unknown error occurred while updating Git credentials');
       });
     });
 
     describe('when the port throws', () => {
       it('should catch an Error instance and return a failed result with its message', async () => {
-        credentialPort.updatePAT.mockRejectedValue(new Error('Connection timeout'));
+        updatePATMock.mockRejectedValue(new Error('Connection timeout'));
 
         const result = await service.execute(validCommand);
 
@@ -112,7 +126,7 @@ describe('UpdatePatService', () => {
       });
 
       it('should catch a non-Error thrown value and stringify it', async () => {
-        credentialPort.updatePAT.mockRejectedValue('unexpected string error');
+        updatePATMock.mockRejectedValue('unexpected string error');
 
         const result = await service.execute(validCommand);
 
