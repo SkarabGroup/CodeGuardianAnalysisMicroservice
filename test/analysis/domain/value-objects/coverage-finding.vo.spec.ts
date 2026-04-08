@@ -75,8 +75,8 @@ describe('CoverageFinding (Value Object)', () => {
     });
 
     it('should return false when coverageFiles have different lengths', () => {
-  		const a = CoverageFinding.create(LINE_80, BRANCH_70, [FILE_1, FILE_2]);
-  		const b = CoverageFinding.create(LINE_80, BRANCH_70, [FILE_1]);
+      const a = CoverageFinding.create(LINE_80, BRANCH_70, [FILE_1, FILE_2]);
+      const b = CoverageFinding.create(LINE_80, BRANCH_70, [FILE_1]);
 
       expect(a.equals(b)).toBe(false);
     });
