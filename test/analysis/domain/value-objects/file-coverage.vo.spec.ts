@@ -1,5 +1,5 @@
-import { FileCoverage } from '../../../../src/analysis/domain/value-objects/code/file-coverage.vo';
-import { CoveragePercentage } from '../../../../src/analysis/domain/value-objects/code/coverage-percentage.vo';
+import { FileCoverage } from '../../../../src/analysis/domain/value-objects/file-coverage.vo';
+import { CoveragePercentage } from '../../../../src/analysis/domain/value-objects/coverage-percentage.vo';
 import { PathFinding } from '../../../../src/analysis/domain/value-objects/path-finding.vo';
 
 describe('FileCoverage (Value Object)', () => {

@@ -1,6 +1,6 @@
-import { PathFinding } from '../path-finding.vo';
-import { ErrorFinding } from '../error-finding.vo';
-import { SupportedLanguages } from '../../enums/supported-languages.enum';
+import { PathFinding } from './path-finding.vo';
+import { ErrorFinding } from './error-finding.vo';
+import { SupportedLanguages } from '../enums/supported-languages.enum';
 
 export class StaticAnalysisFinding {
   private readonly _path: PathFinding;

@@ -1,5 +1,5 @@
-import { ErrorFinding } from '../error-finding.vo';
-import { PathFinding } from '../path-finding.vo';
+import { ErrorFinding } from './error-finding.vo';
+import { PathFinding } from './path-finding.vo';
 
 export class DocumentationFinding {
   private constructor(

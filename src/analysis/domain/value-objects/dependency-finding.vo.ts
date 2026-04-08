@@ -1,6 +1,6 @@
-import { PathFinding } from '../path-finding.vo';
-import { SeverityFinding } from '../severity-finding.vo';
-import { DescriptionFinding } from '../description-finding.vo';
+import { PathFinding } from './path-finding.vo';
+import { SeverityFinding } from './severity-finding.vo';
+import { DescriptionFinding } from './description-finding.vo';
 
 export class DependencyFinding {
   private readonly _path: PathFinding;

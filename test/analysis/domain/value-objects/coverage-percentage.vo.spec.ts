@@ -1,4 +1,4 @@
-import { CoveragePercentage } from '../../../../src/analysis/domain/value-objects/code/coverage-percentage.vo';
+import { CoveragePercentage } from '../../../../src/analysis/domain/value-objects/coverage-percentage.vo';
 
 describe('CoveragePercentage (Value Object)', () => {
   const VALID_PERCENTAGES = [0, 0.01, 0.5, 0.99, 1];
