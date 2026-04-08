@@ -22,6 +22,7 @@ import type { IRepositoryCloner } from './interfaces/repository-cloner.as.interf
 import { PASSWORD_PROVIDER } from '../../domain/services/pat-password-provider.ds';
 
 import { v7 as uuid } from 'uuid';
+import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 
 @Injectable()
 export class StartAnalysisService implements StartAnalysisUseCase {
@@ -37,16 +38,23 @@ export class StartAnalysisService implements StartAnalysisUseCase {
   ) {}
 
   public async execute(command: StartAnalysisCommand): Promise<StartAnalysisResult> {
+    const user = UserId.create(command.user);
     const analysisId: AnalysisId = AnalysisId.create(uuid());
     const repoURL: RepoURL = RepoURL.create(command.url);
+    const password: PATPassword | undefined = command.password
+      ? this.passwordProviderService.generate(command.password)
+      : undefined;
 
-    const pat: PersonalAccessToken = await this.authorizationService.authorize(
-      repoURL,
-      command.password ? this.passwordProviderService.generate(command.password) : undefined,
+    console.log(
+      `Istantiation of user, id, url and password completed. Password : ${password?.value}`,
     );
 
+    const pat: PersonalAccessToken = await this.authorizationService.authorize(repoURL, password);
+    console.log('PAT retrieved');
     const providedBranch = command.branch ? BranchName.create(command.branch) : null;
+    console.log('All value object before commit created correctly');
     const providedCommit = command.commit ? CommitHash.create(command.commit) : null;
+    console.log(`providedCommit created correctly: ${providedCommit?.value}`);
 
     const { branch, commit } = await this.validatorService.check(
       repoURL,
@@ -54,7 +62,7 @@ export class StartAnalysisService implements StartAnalysisUseCase {
       providedBranch,
       providedCommit,
     );
-
+    console.log('Commit created from check()');
     const localFolderPath = await this.clonerService.clone(
       repoURL,
       analysisId,
@@ -63,10 +71,7 @@ export class StartAnalysisService implements StartAnalysisUseCase {
       commit,
     );
 
-    console.log();
-
     //emit(localFolderPath)
-    const user = UserId.create(command.user);
     return StartAnalysisResult.success(
       user.value,
       analysisId.value,

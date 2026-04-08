@@ -28,6 +28,7 @@ export class AnalysisController {
       commit: dto.commit || undefined,
     });
 
+    console.log(`Command created correctly. Commit: ${dto.commit}`);
     try {
       const result: StartAnalysisResult = await this.startAnalysis.execute(command);
       if (!result.success) {

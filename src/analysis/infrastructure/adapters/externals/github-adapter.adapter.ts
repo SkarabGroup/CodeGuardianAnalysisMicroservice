@@ -6,14 +6,12 @@ import { IGitHubAvailabilityPort } from '../../../application/ports/externals/gi
 import { CloneRepoRequest } from '../../../application/DTOs/models/requests/clone-repo-request-model.model';
 import { CloneRepoResponse } from '../../../application/DTOs/models/responses/clone-repo-response-model.model';
 import { IGitClonePort } from '../../../application/ports/externals/github-clone-port.port';
-import { config } from 'dotenv';
-
-config();
 
 type ExecAsync = (command: string) => Promise<{ stdout: string; stderr: string }>;
 
-interface GitHubBranchResponse {
+interface GitHubResponse {
   name?: string;
+  sha?: string;
   commit?: {
     sha: string;
   };
@@ -48,11 +46,7 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
       parts.push(`-H "Authorization: Bearer ${request.patToken.value}"`);
     }
 
-    const acceptHeader = request.commit
-      ? 'application/vnd.github.sha'
-      : 'application/vnd.github+json';
-
-    parts.push(`-H "Accept: ${acceptHeader}"`);
+    parts.push('-H "Accept: application/vnd.github+json"');
     parts.push(this.buildUrl(request));
 
     return parts.join(' ');
@@ -75,10 +69,10 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
     return repositoryUrl.replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '');
   }
 
-  private parseResponse(
+  private async parseResponse(
     stdout: string,
     request: CheckAvailabilityRequest,
-  ): CheckAvailabilityResponse {
+  ): Promise<CheckAvailabilityResponse> {
     const trimmed = stdout.trim();
     if (!trimmed) return CheckAvailabilityResponse.failure('Empty response from GitHub.');
 
@@ -88,7 +82,7 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
 
     switch (statusCode) {
       case 200:
-        return this.validateBody(body, request);
+        return await this.validateBody(body, request);
       case 404:
         return CheckAvailabilityResponse.failure(
           'The requested resource (repo, branch or commit) was not found.',
@@ -98,29 +92,58 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
     }
   }
 
-  private validateBody(body: string, request: CheckAvailabilityRequest): CheckAvailabilityResponse {
-    if (request.commit) {
-      const isSha = /^[0-9a-f]{40}$/i.test(body);
-      return isSha
-        ? CheckAvailabilityResponse.success(request.branch?.value || 'resolved-commit', body)
-        : CheckAvailabilityResponse.failure('Invalid SHA received from GitHub.');
-    }
+  private async getCommitFromBranch(
+    repoPath: string,
+    branch: string,
+    patToken?: string,
+  ): Promise<{ sha: string } | null> {
+    const parts = ['curl', '--silent', '-H "Accept: application/vnd.github+json"'];
+    if (patToken) parts.push(`-H "Authorization: Bearer ${patToken}"`);
+    parts.push(`https://api.github.com/repos/${repoPath}/commits/${branch}`);
 
     try {
-      const data = JSON.parse(body) as GitHubBranchResponse;
+      const { stdout } = await this.execAsync(parts.join(' '));
+      const data = JSON.parse(stdout) as GitHubResponse;
+      return data.sha ? { sha: data.sha } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async validateBody(
+    body: string,
+    request: CheckAvailabilityRequest,
+  ): Promise<CheckAvailabilityResponse> {
+    try {
+      const data = JSON.parse(body) as GitHubResponse;
+      const repoPath = this.extractRepoPath(request.repoUrl.value);
+
+      if (request.commit) {
+        if (data.sha) {
+          return CheckAvailabilityResponse.success('resolved-commit', data.sha);
+        }
+        return CheckAvailabilityResponse.failure('Commit not found.');
+      }
 
       if (request.branch) {
-        if (data.name && data.commit?.sha) {
-          return CheckAvailabilityResponse.success(data.name, data.commit.sha);
+        if (data.commit?.sha) {
+          return CheckAvailabilityResponse.success(request.branch.value, data.commit.sha);
         }
         return CheckAvailabilityResponse.failure('Branch data incomplete.');
       }
 
       if (data.default_branch) {
-        return CheckAvailabilityResponse.success(data.default_branch, null);
+        const commitData = await this.getCommitFromBranch(
+          repoPath,
+          data.default_branch,
+          request.patToken?.value,
+        );
+        if (commitData) {
+          return CheckAvailabilityResponse.success(data.default_branch, commitData.sha);
+        }
       }
 
-      return CheckAvailabilityResponse.failure('Unexpected JSON structure.');
+      return CheckAvailabilityResponse.failure('Could not resolve repository data.');
     } catch {
       return CheckAvailabilityResponse.failure('Failed to parse GitHub JSON response.');
     }
@@ -133,7 +156,7 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
       await this.execAsync(`rm -rf ${tempPath}`);
 
       const token = request.patToken?.value || process.env.CODE_GUARDIAN_TOKEN;
-      const authPart = `${token}@`;
+      const authPart = token ? `${token}@` : '';
       const repoPath = this.extractRepoPath(request.repoUrl.value);
       const repoUrlWithAuth = `https://${authPart}github.com/${repoPath}.git`;
 

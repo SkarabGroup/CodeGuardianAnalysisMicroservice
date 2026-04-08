@@ -14,9 +14,6 @@ import { UpdateGitCredentialPatRequest } from '../../../application/DTOs/models/
 import { UpdateGitCredentialPatResponse } from '../../../application/DTOs/models/responses/update-git-credential-pat-response.model';
 import { IGitCredentialDeletePort } from '../../../application/ports/repositories/git-delete-credential-port.repository';
 import { IGitCredentialUpdatePort } from '../../../application/ports/repositories/git-update-credential-port.repository';
-
-import * as bcrypt from 'bcrypt';
-
 @Injectable() //Get
 //Post
 // Delete
@@ -46,7 +43,8 @@ export class MongoDBAdapter
         );
       }
 
-      const isValid = await bcrypt.compare(model.password.value, credential.password);
+      console.log(credential.password);
+      const isValid = model.password.value === credential.password;
 
       return isValid
         ? GetGitCredentialResponse.success(credential.patToken)
