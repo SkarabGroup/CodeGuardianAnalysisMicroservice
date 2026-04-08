@@ -1,4 +1,4 @@
-import { OWASPFinding } from '../../../../src/analysis/domain/value-objects/owasp-finding.vo';
+import { OWASPFinding } from '../../../../src/analysis/domain/value-objects/security/owasp-finding.vo';
 import { PathFinding } from '../../../../src/analysis/domain/value-objects/path-finding.vo';
 import { ErrorFinding } from '../../../../src/analysis/domain/value-objects/error-finding.vo';
 import { DescriptionFinding } from '../../../../src/analysis/domain/value-objects/description-finding.vo';

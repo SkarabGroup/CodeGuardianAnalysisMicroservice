@@ -1,6 +1,6 @@
-import { CoverageFinding } from '../../../../src/analysis/domain/value-objects/coverage-finding.vo';
-import { CoveragePercentage } from '../../../../src/analysis/domain/value-objects/coverage-percentage.vo';
-import { FileCoverage } from '../../../../src/analysis/domain/value-objects/file-coverage.vo';
+import { CoverageFinding } from '../../../../src/analysis/domain/value-objects/code/coverage-finding.vo';
+import { CoveragePercentage } from '../../../../src/analysis/domain/value-objects/code/coverage-percentage.vo';
+import { FileCoverage } from '../../../../src/analysis/domain/value-objects/code/file-coverage.vo';
 import { PathFinding } from '../../../../src/analysis/domain/value-objects/path-finding.vo';
 import { SupportedLanguages } from '../../../../src/analysis/domain/enums/supported-languages.enum';
 

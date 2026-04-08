@@ -1,5 +1,5 @@
 import { CoveragePercentage } from './coverage-percentage.vo';
-import { PathFinding } from './path-finding.vo';
+import { PathFinding } from '../path-finding.vo';
 
 export class FileCoverage {
   private constructor(

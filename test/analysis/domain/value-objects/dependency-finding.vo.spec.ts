@@ -1,4 +1,4 @@
-import { DependencyFinding } from '../../../../src/analysis/domain/value-objects/dependency-finding.vo';
+import { DependencyFinding } from '../../../../src/analysis/domain/value-objects/security/dependency-finding.vo';
 import { PathFinding } from '../../../../src/analysis/domain/value-objects/path-finding.vo';
 import { SeverityFinding } from '../../../../src/analysis/domain/value-objects/severity-finding.vo';
 import { DescriptionFinding } from '../../../../src/analysis/domain/value-objects/description-finding.vo';

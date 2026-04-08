@@ -1,5 +1,5 @@
-import { PathFinding } from './path-finding.vo';
-import { ErrorFinding } from './error-finding.vo';
+import { PathFinding } from '../path-finding.vo';
+import { ErrorFinding } from '../error-finding.vo';
 
 export class OWASPFinding {
   private constructor(

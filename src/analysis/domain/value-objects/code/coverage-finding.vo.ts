@@ -1,6 +1,6 @@
 import { CoveragePercentage } from './coverage-percentage.vo';
 import { FileCoverage } from './file-coverage.vo';
-import { SupportedLanguages } from '../enums/supported-languages.enum';
+import { SupportedLanguages } from '../../enums/supported-languages.enum';
 
 export class CoverageFinding {
   private constructor(
