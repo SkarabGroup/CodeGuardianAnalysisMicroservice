@@ -31,6 +31,8 @@ services:
       - mongo_data:/data/db
     networks:
       - analysis_network
+    logging:
+      driver: "none"
 
 volumes:
   mongo_data:

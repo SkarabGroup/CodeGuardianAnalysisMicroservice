@@ -36,6 +36,8 @@ import {
 } from './infrastructure/adapters/externals/github-adapter.adapter';
 import { PatController } from './presentation/controllers/pat-controller.controller';
 import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-service.as';
+import { DELETE_PAT, DeletePatService } from './application/services/delete-pat-service.as';
+import { UPDATE_PAT, UpdatePatService } from './application/services/update-pat-service.as';
 import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-password-provider.ds';
 
 @Module({
@@ -62,6 +64,14 @@ import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-pa
     {
       provide: ADD_NEW_PAT,
       useClass: NewPatService,
+    },
+    {
+      provide: DELETE_PAT,
+      useClass: DeletePatService,
+    },
+    {
+      provide: UPDATE_PAT,
+      useClass: UpdatePatService,
     },
 
     {

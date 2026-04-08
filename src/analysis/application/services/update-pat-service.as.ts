@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { IGitCredentialUpdatePort } from '../ports/repositories/git-update-credential-port.repository';
 import { UpdatePatCommand } from '../commands/update-pat-command.command';
 import { UpdatePatUseCase } from '../use-case/update-pat-use-case.uc';
@@ -9,6 +9,7 @@ import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 import { GIT_CREDENTIAL_UPDATE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { PersonalAccessToken } from '../../domain/value-objects/personal-access-token.vo';
 
+@Injectable()
 export class UpdatePatService implements UpdatePatUseCase {
   constructor(
     @Inject(GIT_CREDENTIAL_UPDATE_PORT) private readonly credentialPort: IGitCredentialUpdatePort,
@@ -26,7 +27,7 @@ export class UpdatePatService implements UpdatePatUseCase {
         return UpdatePatResult.success();
       }
       return UpdatePatResult.failure(
-        response.errorMessage || 'Unknown error occurred while deleting Git credentials',
+        response.errorMessage || 'Unknown error occurred while updating Git credentials',
       );
     } catch (error) {
       return UpdatePatResult.failure(
@@ -35,3 +36,5 @@ export class UpdatePatService implements UpdatePatUseCase {
     }
   }
 }
+
+export const UPDATE_PAT = Symbol('UpdatePatUseCase');

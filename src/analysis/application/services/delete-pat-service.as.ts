@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { IGitCredentialDeletePort } from '../ports/repositories/git-delete-credential-port.repository';
 import { DeletePatCommand } from '../commands/delete-pat-command.command';
 import { DeletePatUseCase } from '../use-case/delete-pat-use-case.uc';
@@ -8,6 +8,7 @@ import { RepoURL } from '../../domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 import { GIT_CREDENTIAL_DELETE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
 
+@Injectable()
 export class DeletePatService implements DeletePatUseCase {
   constructor(
     @Inject(GIT_CREDENTIAL_DELETE_PORT) private readonly credentialPort: IGitCredentialDeletePort,
@@ -33,3 +34,5 @@ export class DeletePatService implements DeletePatUseCase {
     }
   }
 }
+
+export const DELETE_PAT = Symbol('DeletePatUseCase');

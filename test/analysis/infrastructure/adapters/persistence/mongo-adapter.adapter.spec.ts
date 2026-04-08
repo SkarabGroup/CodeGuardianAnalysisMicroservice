@@ -11,7 +11,6 @@ import { UpdateGitCredentialPatRequest } from '../../../../../src/analysis/appli
 import { RepoURL } from '../../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../../../../src/analysis/domain/value-objects/pat-password.vo';
 import { PersonalAccessToken } from '../../../../../src/analysis/domain/value-objects/personal-access-token.vo';
-import * as bcrypt from 'bcrypt';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -32,9 +31,6 @@ interface MongoError extends Error {
   code: number;
 }
 
-jest.mock('bcrypt', () => ({
-  compare: jest.fn(),
-}));
 const VALID_PASSWORD = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 const VALID_PAT = 'ghp_' + 'A'.repeat(36);
 
@@ -42,6 +38,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
   let adapter: MongoDBAdapter;
   let mockModel: MockModel;
   let mockQuery: MockQuery;
+  let consoleLogSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     mockQuery = {
@@ -65,6 +62,8 @@ describe('MongoDBAdapter (Unit Test)', () => {
       >,
     };
 
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MongoDBAdapter,
@@ -76,6 +75,11 @@ describe('MongoDBAdapter (Unit Test)', () => {
     }).compile();
 
     adapter = module.get<MongoDBAdapter>(MongoDBAdapter);
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    jest.clearAllMocks();
   });
 
   describe('instantiation', () => {
@@ -98,7 +102,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
       } as GitCredential;
 
       mockQuery.exec.mockResolvedValue(mockDbResult);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true as never);
 
       const result = await adapter.authorize(mockRequest);
 
@@ -108,18 +111,18 @@ describe('MongoDBAdapter (Unit Test)', () => {
       });
     });
 
-    it('should return a bad response when credentials are found', async () => {
+    it('should return a bad response when credentials are found with wrong password', async () => {
       const mockDbResult = {
         patToken: 'ghp_' + 'B'.repeat(36),
-        password: VALID_PASSWORD,
+        password: 'wrong_password',
       } as GitCredential;
 
       mockQuery.exec.mockResolvedValue(mockDbResult);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false as never);
 
       const result = await adapter.authorize(mockRequest);
 
       expect(result.patToken).toBe(null);
+      expect(result.errorMessage).toBe('Wrong password');
       expect(mockModel.findOne).toHaveBeenCalledWith({
         repoUrl: mockRequest.repoUrl.value,
       });
