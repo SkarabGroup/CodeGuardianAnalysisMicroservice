@@ -1,7 +1,7 @@
 export class StartAnalysisResponseDTO {
   private constructor(
-    public readonly id: string | undefined,
     public readonly user: string | undefined,
+    public readonly id: string | undefined,
     public readonly url: string | undefined,
     public readonly branch: string | undefined,
     public readonly commit: string | undefined,
@@ -9,15 +9,15 @@ export class StartAnalysisResponseDTO {
   ) {}
 
   public static success(
-    id: string | undefined,
     user: string | undefined,
+    id: string | undefined,
     url: string | undefined,
     branch: string | undefined,
     commit: string | undefined,
   ): StartAnalysisResponseDTO {
     return new StartAnalysisResponseDTO(
-      id,
       user,
+      id,
       url,
       branch,
       commit,

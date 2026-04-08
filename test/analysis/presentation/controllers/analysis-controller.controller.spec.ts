@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AnalysisController } from '../../../../src/analysis/presentation/controllers/analysis-controller.controller';
+import {
+  AnalysisController,
+  JwtAuthGuard,
+} from '../../../../src/analysis/presentation/controllers/analysis-controller.controller';
 import { START_ANALYSIS_SERVICE } from '../../../../src/analysis/application/services/start-analysis.as';
 import { StartAnalysisRequestDTO } from '../../../../src/analysis/presentation/DTOs/requests/request-analysis.dto';
 import { StartAnalysisResponseDTO } from '../../../../src/analysis/presentation/DTOs/responses/start-analysis-response.dto';
@@ -14,6 +17,7 @@ describe('AnalysisController', () => {
     execute: jest.fn(),
   };
 
+  const MOCK_USER_ID = 'user-uuid-from-jwt';
   const VALID_DTO = new StartAnalysisRequestDTO(
     'https://github.com/owner/repo',
     'password123',
@@ -31,7 +35,10 @@ describe('AnalysisController', () => {
           useValue: mockStartAnalysis,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AnalysisController>(AnalysisController);
     jest.clearAllMocks();
@@ -40,7 +47,7 @@ describe('AnalysisController', () => {
   describe('requestAnalysis', () => {
     it('should return success response when use case succeeds', async () => {
       const resultData = {
-        user: 'user-uuid',
+        user: MOCK_USER_ID,
         id: 'analysis-uuid',
         url: VALID_DTO.repoUrl,
         branch: 'main',
@@ -59,11 +66,13 @@ describe('AnalysisController', () => {
         ),
       );
 
-      const response = await controller.requestAnalysis(VALID_DTO);
+      // Passiamo manualmente il MOCK_USER_ID che il decoratore estrarrebbe dal JWT
+      const response = await controller.requestAnalysis(VALID_DTO, MOCK_USER_ID);
 
       expect(response).toBeInstanceOf(StartAnalysisResponseDTO);
-      expect(response.id).toBe(resultData.user);
-      expect(response.user).toBe(resultData.id);
+      // Nota: nel tuo test precedente avevi invertito response.id e response.user
+      expect(response.user).toBe(resultData.user);
+      expect(response.id).toBe(resultData.id);
       expect(response.errorMessage).toBe('Analysis Started Successfully');
     });
 
@@ -72,7 +81,7 @@ describe('AnalysisController', () => {
         StartAnalysisResult.failure('', 'Repository not found'),
       );
 
-      const response = await controller.requestAnalysis(VALID_DTO);
+      const response = await controller.requestAnalysis(VALID_DTO, MOCK_USER_ID);
 
       expect(response).toBeInstanceOf(StartAnalysisResponseDTO);
       expect(response.id).toBeUndefined();
@@ -82,7 +91,7 @@ describe('AnalysisController', () => {
     it('should return default error message when failure message is empty', async () => {
       mockStartAnalysis.execute.mockResolvedValue(StartAnalysisResult.failure('', ''));
 
-      const response = await controller.requestAnalysis(VALID_DTO);
+      const response = await controller.requestAnalysis(VALID_DTO, MOCK_USER_ID);
 
       expect(response.errorMessage).toBe('Impossible to analyze this repository');
     });
@@ -90,7 +99,7 @@ describe('AnalysisController', () => {
     it('should catch exceptions and return failure response', async () => {
       mockStartAnalysis.execute.mockRejectedValue(new Error('System failure'));
 
-      const response = await controller.requestAnalysis(VALID_DTO);
+      const response = await controller.requestAnalysis(VALID_DTO, MOCK_USER_ID);
 
       expect(response.errorMessage).toBe('System failure');
       expect(response.id).toBeUndefined();
@@ -99,24 +108,24 @@ describe('AnalysisController', () => {
     it('should return Internal Server Error when thrown value is not an Error object', async () => {
       mockStartAnalysis.execute.mockRejectedValue('Unknown string error');
 
-      const response = await controller.requestAnalysis(VALID_DTO);
+      const response = await controller.requestAnalysis(VALID_DTO, MOCK_USER_ID);
 
       expect(response.errorMessage).toBe('Internal Server Error');
     });
 
-    it('should map DTO properties to command correctly', async () => {
+    it('should map DTO properties and JWT userId to command correctly', async () => {
       mockStartAnalysis.execute.mockResolvedValue(
         StartAnalysisResult.success('u', 'i', 'url', 'b', 'c', 'p'),
       );
 
-      await controller.requestAnalysis(VALID_DTO);
+      await controller.requestAnalysis(VALID_DTO, MOCK_USER_ID);
 
       const command = mockStartAnalysis.execute.mock.calls[0][0];
       expect(command.url).toBe(VALID_DTO.repoUrl);
       expect(command.password).toBe(VALID_DTO.password);
       expect(command.branch).toBe(VALID_DTO.branch);
       expect(command.commit).toBe(VALID_DTO.commit);
-      expect(command.user).toBeDefined();
+      expect(command.user).toBe(MOCK_USER_ID);
     });
 
     it('should handle undefined optional fields in request', async () => {
@@ -132,12 +141,13 @@ describe('AnalysisController', () => {
         StartAnalysisResult.success('u', 'i', 'url', 'b', 'c', 'p'),
       );
 
-      await controller.requestAnalysis(minimalDto);
+      await controller.requestAnalysis(minimalDto, MOCK_USER_ID);
 
       const command = mockStartAnalysis.execute.mock.calls[0][0];
       expect(command.password).toBeUndefined();
       expect(command.branch).toBeUndefined();
       expect(command.commit).toBeUndefined();
+      expect(command.user).toBe(MOCK_USER_ID);
     });
   });
 });
