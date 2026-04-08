@@ -12,9 +12,6 @@ describe('ErrorFinding (Value Object)', () => {
       const error = ErrorFinding.create(VALID_LINE, VALID_DESCRIPTION, VALID_SEVERITY);
 
       expect(error).toBeDefined();
-      expect(error.errorLine).toBe(VALID_LINE);
-      expect(error.description).toBe(VALID_DESCRIPTION);
-      expect(error.severity).toBe(VALID_SEVERITY);
     });
 
     it('should return true for equal ErrorFindings', () => {
@@ -26,6 +23,14 @@ describe('ErrorFinding (Value Object)', () => {
       );
 
       expect(e1.equals(e2)).toBe(true);
+    });
+
+    it('should return correct values from getters', () => {
+      const ef = ErrorFinding.create(VALID_LINE, VALID_DESCRIPTION, VALID_SEVERITY);
+
+      expect(ef.getErrorLine()).toBe(VALID_LINE);
+      expect(ef.getDescriptionFinding()).toBe(VALID_DESCRIPTION);
+      expect(ef.getSeverityFinding()).toBe(VALID_SEVERITY);
     });
   });
 

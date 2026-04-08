@@ -77,27 +77,27 @@ export class DependencyFinding {
     }
   }
 
-  public get path(): PathFinding {
+  public getPathFinding(): PathFinding {
     return this._path;
   }
 
-  public get packageName(): string {
+  public getPackageName(): string {
     return this._packageName;
   }
 
-  public get packageVersion(): string {
+  public getPackageVersion(): string {
     return this._packageVersion;
   }
 
-  public get vulnerabilityId(): string {
+  public getVulnerabilityId(): string {
     return this._vulnerabilityId;
   }
 
-  public get severity(): SeverityFinding {
+  public getSeverityFinding(): SeverityFinding {
     return this._severity;
   }
 
-  public get description(): DescriptionFinding {
+  public getDescriptionFinding(): DescriptionFinding {
     return this._description;
   }
 

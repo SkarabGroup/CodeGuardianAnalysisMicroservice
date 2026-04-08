@@ -43,15 +43,15 @@ export class ErrorFinding {
     }
   }
 
-  public get errorLine(): number {
+  public getErrorLine(): number {
     return this._errorLine;
   }
 
-  public get description(): DescriptionFinding {
+  public getDescriptionFinding(): DescriptionFinding {
     return this._description;
   }
 
-  public get severity(): SeverityFinding {
+  public getSeverityFinding(): SeverityFinding {
     return this._severity;
   }
 
