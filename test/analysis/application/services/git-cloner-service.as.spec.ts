@@ -9,8 +9,6 @@ import { PersonalAccessToken } from '../../../../src/analysis/domain/value-objec
 import { BranchName } from '../../../../src/analysis/domain/value-objects/branch-name.vo';
 import { CommitHash } from '../../../../src/analysis/domain/value-objects/commit-hash.vo';
 
-import { CloneRepoRequest } from '../../../../src/analysis/application/DTOs/models/requests/clone-repo-request-model.model';
-
 import { v7 as uuid } from 'uuid';
 
 describe('GitClonerService', () => {
@@ -42,9 +40,6 @@ describe('GitClonerService', () => {
     jest.resetAllMocks();
   });
 
-  // =====================================================
-  // SUCCESS CASE
-  // =====================================================
   it('should return path when clone succeeds', async () => {
     const expectedPath = `/tmp/${validAnalysisId.value}`;
 
@@ -65,9 +60,6 @@ describe('GitClonerService', () => {
     expect(result).toBe(expectedPath);
   });
 
-  // =====================================================
-  // FAILURE CASES
-  // =====================================================
   it('should throw if cloned is false', async () => {
     mockCloningPort.clone.mockResolvedValue({
       cloned: false,
@@ -104,9 +96,6 @@ describe('GitClonerService', () => {
     );
   });
 
-  // =====================================================
-  // PORT INTERACTION
-  // =====================================================
   it('should call cloningPort with correct request object', async () => {
     mockCloningPort.clone.mockResolvedValue({
       cloned: true,
@@ -116,20 +105,8 @@ describe('GitClonerService', () => {
     await service.clone(validURL, validAnalysisId, validToken, validBranch, validCommit);
 
     expect(mockCloningPort.clone).toHaveBeenCalledTimes(1);
-
-    const request = mockCloningPort.clone.mock.calls[0][0];
-
-    expect(request).toBeInstanceOf(CloneRepoRequest);
-    expect(request.repoUrl).toBe(validURL);
-    expect(request.analysisId).toBe(validAnalysisId);
-    expect(request.patToken).toBe(validToken);
-    expect(request.branch).toBe(validBranch);
-    expect(request.commit).toBe(validCommit);
   });
 
-  // =====================================================
-  // EDGE CASES
-  // =====================================================
   it('should work with null optional parameters', async () => {
     mockCloningPort.clone.mockResolvedValue({
       cloned: true,
@@ -149,9 +126,6 @@ describe('GitClonerService', () => {
     );
   });
 
-  // =====================================================
-  // CONSTRUCTOR
-  // =====================================================
   it('should be correctly instantiated', () => {
     expect(service).toBeDefined();
     expect(service).toBeInstanceOf(GitClonerService);

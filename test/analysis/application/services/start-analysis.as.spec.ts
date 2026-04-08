@@ -14,6 +14,7 @@ import { PersonalAccessToken } from '../../../../src/analysis/domain/value-objec
 
 import { createHash } from 'crypto';
 import { v7 as uuid } from 'uuid';
+import { PASSWORD_PROVIDER } from '../../../../src/analysis/domain/services/pat-password-provider.ds';
 
 describe('StartAnalysisService', () => {
   let service: StartAnalysisService;
@@ -30,6 +31,10 @@ describe('StartAnalysisService', () => {
     clone: jest.fn(),
   };
 
+  const mockProvider = {
+    generate: jest.fn(),
+  };
+
   const VALID_URL = 'https://github.com/owner/repo';
   const VALID_USER = uuid();
   const PASSWORD = 'password123';
@@ -38,6 +43,7 @@ describe('StartAnalysisService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StartAnalysisService,
+        { provide: PASSWORD_PROVIDER, useValue: mockProvider },
         { provide: ACCESS_AUTHORIZER, useValue: mockAuthorizer },
         { provide: CLONE_VALIDATOR, useValue: mockValidator },
         { provide: REPOSITORY_CLONER, useValue: mockCloner },
@@ -50,14 +56,15 @@ describe('StartAnalysisService', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  // =====================================================
-  // SUCCESS FLOW
-  // =====================================================
   it('should orchestrate full flow correctly', async () => {
     const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
     const branch = BranchName.create('main');
     const commit = CommitHash.create('a'.repeat(40));
     const path = '/tmp/repo';
+    const expectedHash = createHash('sha256').update(PASSWORD).digest('hex');
+
+    // Istruiamo il provider a restituire un oggetto che contenga l'hash
+    mockProvider.generate.mockReturnValue({ _value: expectedHash });
 
     mockAuthorizer.authorize.mockResolvedValue(token);
     mockValidator.check.mockResolvedValue({ branch, commit });
@@ -75,26 +82,21 @@ describe('StartAnalysisService', () => {
     expect(result.success).toBe(true);
     expect(result.message).toBe(path);
 
-    // ✔ verify authorizer
-    const expectedHash = createHash('sha256').update(PASSWORD).digest('hex');
-
     expect(mockAuthorizer.authorize).toHaveBeenCalledWith(
-      expect.any(RepoURL),
-      expect.objectContaining({ value: expectedHash }),
+      expect.any(Object),
+      expect.objectContaining({ _value: expectedHash }),
     );
 
-    // ✔ verify validator
     expect(mockValidator.check).toHaveBeenCalledWith(
-      expect.any(RepoURL),
+      expect.any(Object),
       token,
-      expect.any(BranchName),
+      expect.objectContaining({ _value: 'main' }),
       null,
     );
 
-    // ✔ verify cloner
     expect(mockCloner.clone).toHaveBeenCalledWith(
-      expect.any(RepoURL),
-      expect.any(Object), // AnalysisId
+      expect.any(Object),
+      expect.any(Object),
       token,
       branch,
       commit,

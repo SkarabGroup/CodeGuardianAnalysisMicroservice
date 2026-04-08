@@ -93,9 +93,9 @@ describe('GitAuthorizerService', () => {
 
     it('should throw if URL is missing', async () => {
       // bypass TS
-      await expect(service.authorize(undefined as any, validPassword)).rejects.toThrow(
-        'URL is required for private repository authorization',
-      );
+      await expect(
+        service.authorize(undefined as unknown as RepoURL, validPassword),
+      ).rejects.toThrow('URL is required for private repository authorization');
     });
   });
 
