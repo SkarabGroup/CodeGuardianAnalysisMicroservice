@@ -75,6 +75,9 @@ export class AnalysisController {
       password: dto.password || undefined,
       branch: dto.branch || undefined,
       commit: dto.commit || undefined,
+      code: dto.requestedCode,
+      docs: dto.requestDocumentation,
+      security: dto.requestedSecurity,
     });
 
     console.log(`Command created correctly. Commit: ${dto.commit}`);
