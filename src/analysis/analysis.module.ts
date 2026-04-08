@@ -44,6 +44,10 @@ import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-servi
 import { DELETE_PAT, DeletePatService } from './application/services/delete-pat-service.as';
 import { UPDATE_PAT, UpdatePatService } from './application/services/update-pat-service.as';
 import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-password-provider.ds';
+import {
+  ANALYSIS_ORCHESTRATOR,
+  AnalysisOrchestratorService,
+} from './application/services/analysis-orchestrator-service.as';
 
 @Module({
   imports: [
@@ -69,6 +73,10 @@ import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-pa
     {
       provide: START_ANALYSIS_SERVICE,
       useClass: StartAnalysisService,
+    },
+    {
+      provide: ANALYSIS_ORCHESTRATOR,
+      useClass: AnalysisOrchestratorService,
     },
     {
       provide: ADD_NEW_PAT,
