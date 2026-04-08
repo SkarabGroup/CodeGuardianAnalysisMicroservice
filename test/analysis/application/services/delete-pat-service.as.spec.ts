@@ -1,61 +1,66 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeletePatService } from '../../../../src/analysis/application/services/delete-pat-service.as';
-import { IGitCredentialDeletePort } from '../../../../src/analysis/application/ports/repositories/git-delete-credential-port.repository';
 import { DeletePatCommand } from '../../../../src/analysis/application/commands/delete-pat-command.command';
 import { GIT_CREDENTIAL_DELETE_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../../../src/analysis/domain/value-objects/pat-password.vo';
+import { PASSWORD_PROVIDER } from '../../../../src/analysis/domain/services/pat-password-provider.ds';
+import { DeleteGitCredentialRequest } from '../../../../src/analysis/application/DTOs/models/requests/delete-git-credential-request.model';
 
-// Mock value objects
 jest.mock('../../../../src/analysis/domain/value-objects/repo-url.vo');
-jest.mock('../../../../src/analysis/domain/value-objects/pat-password.vo');
 
 const mockRepoURL = { value: 'https://github.com/org/repo' };
-const mockPATPassword = { value: 'ghp_testtoken' };
-
 const repoURLCreateSpy = jest
   .spyOn(RepoURL, 'create')
   .mockReturnValue(mockRepoURL as ReturnType<typeof RepoURL.create>);
-const patPasswordCreateSpy = jest
-  .spyOn(PATPassword, 'create')
-  .mockReturnValue(mockPATPassword as ReturnType<typeof PATPassword.create>);
 
 describe('DeletePatService', () => {
   let service: DeletePatService;
-  let credentialPort: jest.Mocked<IGitCredentialDeletePort>;
+  let deletePATMock: jest.Mock<
+    Promise<{ isSuccess: boolean; errorMessage?: string }>,
+    [DeleteGitCredentialRequest]
+  >;
+  let generateMock: jest.Mock<PATPassword, [string]>;
 
   const validCommand = new DeletePatCommand({
     repositoryUrl: 'https://github.com/org/repo',
-    patPassword: 'ghp_testtoken',
+    patPassword: 'my-secret-password',
   });
 
+  const mockHashedPassword = { value: 'hashed-password-123' } as PATPassword;
+
   beforeEach(async () => {
-    const mockCredentialPort: jest.Mocked<IGitCredentialDeletePort> = {
-      deletePAT: jest.fn(),
-    };
+    deletePATMock = jest.fn<
+      Promise<{ isSuccess: boolean; errorMessage?: string }>,
+      [DeleteGitCredentialRequest]
+    >();
+    generateMock = jest.fn<PATPassword, [string]>().mockReturnValue(mockHashedPassword);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DeletePatService,
         {
           provide: GIT_CREDENTIAL_DELETE_PORT,
-          useValue: mockCredentialPort,
+          useValue: { deletePAT: deletePATMock },
+        },
+        {
+          provide: PASSWORD_PROVIDER,
+          useValue: { generate: generateMock },
         },
       ],
     }).compile();
 
     service = module.get<DeletePatService>(DeletePatService);
-    credentialPort = module.get(GIT_CREDENTIAL_DELETE_PORT);
   });
 
-  afterEach(() => jest.clearAllMocks());
-
-  // ─── execute ────────────────────────────────────────────────────────────────
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
   describe('execute', () => {
     describe('when the port returns success', () => {
       it('should return a successful DeletePatResult', async () => {
-        credentialPort.deletePAT.mockResolvedValue({ isSuccess: true });
+        deletePATMock.mockResolvedValue({ isSuccess: true });
 
         const result = await service.execute(validCommand);
 
@@ -63,20 +68,23 @@ describe('DeletePatService', () => {
         expect(result.errorMessage).toBeUndefined();
       });
 
-      it('should call deletePAT with a request built from the command', async () => {
-        credentialPort.deletePAT.mockResolvedValue({ isSuccess: true });
+      it('should call deletePAT with a request built from the command and the password provider', async () => {
+        deletePATMock.mockResolvedValue({ isSuccess: true });
 
         await service.execute(validCommand);
 
         expect(repoURLCreateSpy).toHaveBeenCalledWith(validCommand.repositoryUrl);
-        expect(patPasswordCreateSpy).toHaveBeenCalledWith(validCommand.patPassword);
-        expect(credentialPort.deletePAT.mock.calls).toHaveLength(1);
+        expect(generateMock).toHaveBeenCalledWith(validCommand.patPassword);
+
+        const deleteCallArg = deletePATMock.mock.calls[0][0];
+        expect(deleteCallArg.repoUrl).toBe(mockRepoURL);
+        expect(deleteCallArg.patPassword).toBe(mockHashedPassword);
       });
     });
 
     describe('when the port returns failure', () => {
       it('should return a failed result with the port error message', async () => {
-        credentialPort.deletePAT.mockResolvedValue({
+        deletePATMock.mockResolvedValue({
           isSuccess: false,
           errorMessage: 'Credential not found',
         });
@@ -88,7 +96,7 @@ describe('DeletePatService', () => {
       });
 
       it('should fall back to a generic message when errorMessage is missing', async () => {
-        credentialPort.deletePAT.mockResolvedValue({ isSuccess: false });
+        deletePATMock.mockResolvedValue({ isSuccess: false });
 
         const result = await service.execute(validCommand);
 
@@ -99,7 +107,7 @@ describe('DeletePatService', () => {
 
     describe('when the port throws', () => {
       it('should catch an Error instance and return a failed result with its message', async () => {
-        credentialPort.deletePAT.mockRejectedValue(new Error('Connection timeout'));
+        deletePATMock.mockRejectedValue(new Error('Connection timeout'));
 
         const result = await service.execute(validCommand);
 
@@ -108,7 +116,7 @@ describe('DeletePatService', () => {
       });
 
       it('should catch a non-Error thrown value and stringify it', async () => {
-        credentialPort.deletePAT.mockRejectedValue('unexpected string error');
+        deletePATMock.mockRejectedValue('unexpected string error');
 
         const result = await service.execute(validCommand);
 

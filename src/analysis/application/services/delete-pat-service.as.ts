@@ -5,18 +5,21 @@ import { DeletePatUseCase } from '../use-case/delete-pat-use-case.uc';
 import { DeletePatResult } from '../results/delete-pat-result.result';
 import { DeleteGitCredentialRequest } from '../DTOs/models/requests/delete-git-credential-request.model';
 import { RepoURL } from '../../domain/value-objects/repo-url.vo';
-import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 import { GIT_CREDENTIAL_DELETE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
+import type { IPasswordProvider } from '../../domain/services/interfaces/password-provider.ds.interface';
+import { PASSWORD_PROVIDER } from '../../domain/services/pat-password-provider.ds';
 
 @Injectable()
 export class DeletePatService implements DeletePatUseCase {
   constructor(
+    @Inject(PASSWORD_PROVIDER)
+    private readonly passwordProviderService: IPasswordProvider,
     @Inject(GIT_CREDENTIAL_DELETE_PORT) private readonly credentialPort: IGitCredentialDeletePort,
   ) {}
   async execute(command: DeletePatCommand): Promise<DeletePatResult> {
     const request = new DeleteGitCredentialRequest(
       RepoURL.create(command.repositoryUrl),
-      PATPassword.create(command.patPassword),
+      this.passwordProviderService.generate(command.patPassword),
     );
 
     try {
