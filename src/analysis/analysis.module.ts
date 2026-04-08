@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 
 import {
   StartAnalysisService,
@@ -19,7 +21,10 @@ import {
   GitCredential,
   GitCredentialSchema,
 } from './infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
-import { AnalysisController } from './presentation/controllers/analysis-controller.controller';
+import {
+  AnalysisController,
+  JwtStrategy,
+} from './presentation/controllers/analysis-controller.controller';
 import {
   ACCESS_AUTHORIZER,
   GitAuthorizerService,
@@ -54,9 +59,13 @@ import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-pa
       ],
       'DatabaseConnection',
     ),
+    PassportModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'secret',
+    }),
   ],
   providers: [
-    // Application Service (Use Cases implementations)
+    JwtStrategy,
     {
       provide: START_ANALYSIS_SERVICE,
       useClass: StartAnalysisService,
@@ -73,12 +82,10 @@ import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-pa
       provide: UPDATE_PAT,
       useClass: UpdatePatService,
     },
-
     {
       provide: PASSWORD_PROVIDER,
       useClass: PATPasswordProvider,
     },
-    // Application Service (Use Cases Helpers)
     {
       provide: ACCESS_AUTHORIZER,
       useClass: GitAuthorizerService,
@@ -90,10 +97,6 @@ import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-pa
     {
       provide: REPOSITORY_CLONER,
       useClass: GitClonerService,
-    },
-    {
-      provide: GIT_CREDENTIAL_SAVE_PORT,
-      useClass: MongoDBAdapter,
     },
     {
       provide: GIT_CREDENTIAL_SAVE_PORT,
