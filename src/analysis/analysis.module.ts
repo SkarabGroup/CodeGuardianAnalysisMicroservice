@@ -15,6 +15,7 @@ import {
   GIT_CREDENTIAL_UPDATE_PORT,
   GIT_CREDENTIAL_DELETE_PORT,
   GIT_CREDENTIAL_READ_PORT,
+  GITHUB_ANALYSIS_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -49,6 +50,10 @@ import {
   AnalysisOrchestratorService,
 } from './application/services/analysis-orchestrator-service.as';
 import {
+  GitHubAnalysisRecord,
+  GitHubAnalysisSchema,
+} from './infrastructure/adapters/persistence/schema/github-analysis.schema';
+import {
   CODE_AGENT,
   CodeAnalysisAdapter,
 } from './infrastructure/adapters/externals/code-agent.adapter';
@@ -63,6 +68,10 @@ import {
         {
           name: GitCredential.name,
           schema: GitCredentialSchema,
+        },
+        {
+          name: GitHubAnalysisRecord.name,
+          schema: GitHubAnalysisSchema,
         },
       ],
       'DatabaseConnection',
@@ -133,6 +142,10 @@ import {
     {
       provide: CLONING_PORT,
       useClass: GitHubAdapter,
+    },
+    {
+      provide: GITHUB_ANALYSIS_SAVE_PORT,
+      useClass: MongoDBAdapter,
     },
     {
       provide: CODE_AGENT,

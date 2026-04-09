@@ -14,6 +14,10 @@ import { UpdateGitCredentialPatRequest } from '../../../application/DTOs/models/
 import { UpdateGitCredentialPatResponse } from '../../../application/DTOs/models/responses/update-git-credential-pat-response.model';
 import { IGitCredentialDeletePort } from '../../../application/ports/repositories/git-delete-credential-port.repository';
 import { IGitCredentialUpdatePort } from '../../../application/ports/repositories/git-update-credential-port.repository';
+import { IGitHubAnalysisSavePort } from '../../../application/ports/repositories/github-analysis-save-port.repository';
+import { SaveGitHubAnalysisRequest } from '../../../application/DTOs/models/requests/save-git-analysis-request-model.model';
+import { SaveGitHubAnalysisResponse } from '../../../application/DTOs/models/responses/save-git-analysis-response-model.model';
+import { GitHubAnalysisRecord, GitHubAnalysisDocument } from './schema/github-analysis.schema';
 @Injectable() //Get
 //Post
 // Delete
@@ -23,11 +27,14 @@ export class MongoDBAdapter
     IGitCredentialReadPort,
     IGitCredentialSavePort,
     IGitCredentialDeletePort,
-    IGitCredentialUpdatePort
+    IGitCredentialUpdatePort,
+    IGitHubAnalysisSavePort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
     private readonly credentialModel: Model<GitCredentialDocument>,
+    @InjectModel(GitHubAnalysisRecord.name, 'DatabaseConnection')
+    private readonly analysisModel: Model<GitHubAnalysisDocument>,
   ) {}
 
   async authorize(model: GetGitCredentialRequest): Promise<GetGitCredentialResponse> {
@@ -111,9 +118,28 @@ export class MongoDBAdapter
       );
     }
   }
+
+  async saveAnalysis(request: SaveGitHubAnalysisRequest): Promise<SaveGitHubAnalysisResponse> {
+    try {
+      await this.analysisModel.create({
+        analysisId: request.analysisId.value,
+        userId: request.userId.value,
+        repoURL: request.repoURL.value,
+        branch: request.branch.value,
+        commit: request.commit.value,
+        status: request.status,
+      });
+
+      return SaveGitHubAnalysisResponse.success();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return SaveGitHubAnalysisResponse.failure(`Error saving analysis: ${message}`);
+    }
+  }
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
 export const GIT_CREDENTIAL_SAVE_PORT = Symbol('IGitCredentialSavePort');
 export const GIT_CREDENTIAL_DELETE_PORT = Symbol('IGitCredentialDeletePort');
 export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
+export const GITHUB_ANALYSIS_SAVE_PORT = Symbol('IGitHubAnalysisSavePort');

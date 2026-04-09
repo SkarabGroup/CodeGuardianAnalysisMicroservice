@@ -11,6 +11,14 @@ import { UpdateGitCredentialPatRequest } from '../../../../../src/analysis/appli
 import { RepoURL } from '../../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../../../../src/analysis/domain/value-objects/pat-password.vo';
 import { PersonalAccessToken } from '../../../../../src/analysis/domain/value-objects/personal-access-token.vo';
+import { GitHubAnalysisRecord } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/github-analysis.schema';
+import { SaveGitHubAnalysisRequest } from '../../../../../src/analysis/application/DTOs/models/requests/save-git-analysis-request-model.model';
+import { AnalysisId } from '../../../../../src/analysis/domain/value-objects/analysis-id.vo';
+import { UserId } from '../../../../../src/analysis/domain/value-objects/user-id.vo';
+import { BranchName } from '../../../../../src/analysis/domain/value-objects/branch-name.vo';
+import { CommitHash } from '../../../../../src/analysis/domain/value-objects/commit-hash.vo';
+import { AnalysisStatus } from '../../../../../src/analysis/domain/enums/analysis-status.enum';
+import { v7 as uuid } from 'uuid';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -26,6 +34,9 @@ interface MockModel {
     [FilterQuery<GitCredential>, Partial<GitCredential>]
   >;
 }
+interface MockAnalysisModel {
+  create: jest.Mock;
+}
 
 interface MongoError extends Error {
   code: number;
@@ -39,6 +50,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
   let mockModel: MockModel;
   let mockQuery: MockQuery;
   let consoleLogSpy: jest.SpyInstance;
+  let mockAnalysisModel: MockAnalysisModel;
 
   beforeEach(async () => {
     mockQuery = {
@@ -64,12 +76,20 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
+    mockAnalysisModel = {
+      create: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MongoDBAdapter,
         {
           provide: getModelToken(GitCredential.name, 'DatabaseConnection'),
           useValue: mockModel,
+        },
+        {
+          provide: getModelToken(GitHubAnalysisRecord.name, 'DatabaseConnection'),
+          useValue: mockAnalysisModel,
         },
       ],
     }).compile();
@@ -351,6 +371,61 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toContain('Timeout exceeded');
+    });
+  });
+
+  describe('saveAnalysis', () => {
+    const mockRequest = new SaveGitHubAnalysisRequest(
+      AnalysisId.create(uuid()),
+      UserId.create(uuid()),
+      RepoURL.create('https://github.com/owner/repo'),
+      BranchName.create('main'),
+      CommitHash.create('a'.repeat(40)),
+      AnalysisStatus.PENDING,
+    );
+
+    it('should return success when analysis is saved correctly', async () => {
+      mockAnalysisModel.create.mockResolvedValue({});
+
+      const result = await adapter.saveAnalysis(mockRequest);
+
+      expect(result.isSuccess).toBe(true);
+      expect(mockAnalysisModel.create).toHaveBeenCalledWith({
+        analysisId: mockRequest.analysisId.value,
+        userId: mockRequest.userId.value,
+        repoURL: mockRequest.repoURL.value,
+        branch: mockRequest.branch.value,
+        commit: mockRequest.commit.value,
+        status: mockRequest.status,
+      });
+    });
+
+    it('should return failure for generic database errors', async () => {
+      mockAnalysisModel.create.mockRejectedValue(new Error('Connection lost'));
+
+      const result = await adapter.saveAnalysis(mockRequest);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('Connection lost');
+    });
+
+    it('should return failure when a non-Error object is thrown', async () => {
+      mockAnalysisModel.create.mockRejectedValue('error string');
+
+      const result = await adapter.saveAnalysis(mockRequest);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('Unknown error');
+    });
+
+    it('should return failure with correct message prefix', async () => {
+      mockAnalysisModel.create.mockRejectedValue(new Error('Timeout'));
+
+      const result = await adapter.saveAnalysis(mockRequest);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('Error saving analysis');
+      expect(result.errorMessage).toContain('Timeout');
     });
   });
 });
