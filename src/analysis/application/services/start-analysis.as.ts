@@ -84,11 +84,11 @@ export class StartAnalysisService implements StartAnalysisUseCase {
 
     await this.analysisSavePort.saveAnalysis(
       new SaveGitHubAnalysisRequest(
-        analysis.getAnalysisId().value,
-        analysis.getUserId().value,
-        analysis.getRepoURL().value,
-        analysis.getBranch().value,
-        analysis.getCommit().value,
+        analysis.getAnalysisId(),
+        analysis.getUserId(),
+        analysis.getRepoURL(),
+        analysis.getBranch(),
+        analysis.getCommit(),
         analysis.getStatus(),
       ),
     );

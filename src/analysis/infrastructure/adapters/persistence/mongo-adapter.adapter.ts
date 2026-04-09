@@ -122,11 +122,11 @@ export class MongoDBAdapter
   async saveAnalysis(request: SaveGitHubAnalysisRequest): Promise<SaveGitHubAnalysisResponse> {
     try {
       await this.analysisModel.create({
-        analysisId: request.analysisId,
-        userId: request.userId,
-        repoURL: request.repoURL,
-        branch: request.branch,
-        commit: request.commit,
+        analysisId: request.analysisId.value,
+        userId: request.userId.value,
+        repoURL: request.repoURL.value,
+        branch: request.branch.value,
+        commit: request.commit.value,
         status: request.status,
       });
 

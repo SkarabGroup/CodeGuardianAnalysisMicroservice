@@ -13,6 +13,12 @@ import { PATPassword } from '../../../../../src/analysis/domain/value-objects/pa
 import { PersonalAccessToken } from '../../../../../src/analysis/domain/value-objects/personal-access-token.vo';
 import { GitHubAnalysisRecord } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/github-analysis.schema';
 import { SaveGitHubAnalysisRequest } from '../../../../../src/analysis/application/DTOs/models/requests/save-git-analysis-request-model.model';
+import { AnalysisId } from '../../../../../src/analysis/domain/value-objects/analysis-id.vo';
+import { UserId } from '../../../../../src/analysis/domain/value-objects/user-id.vo';
+import { BranchName } from '../../../../../src/analysis/domain/value-objects/branch-name.vo';
+import { CommitHash } from '../../../../../src/analysis/domain/value-objects/commit-hash.vo';
+import { AnalysisStatus } from '../../../../../src/analysis/domain/enums/analysis-status.enum';
+import { v7 as uuid } from 'uuid';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -370,12 +376,12 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
   describe('saveAnalysis', () => {
     const mockRequest = new SaveGitHubAnalysisRequest(
-      'analysis-id-123',
-      'user-id-456',
-      'https://github.com/owner/repo',
-      'main',
-      'a'.repeat(40),
-      'pending',
+      AnalysisId.create(uuid()),
+      UserId.create(uuid()),
+      RepoURL.create('https://github.com/owner/repo'),
+      BranchName.create('main'),
+      CommitHash.create('a'.repeat(40)),
+      AnalysisStatus.PENDING,
     );
 
     it('should return success when analysis is saved correctly', async () => {
@@ -385,11 +391,11 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result.isSuccess).toBe(true);
       expect(mockAnalysisModel.create).toHaveBeenCalledWith({
-        analysisId: mockRequest.analysisId,
-        userId: mockRequest.userId,
-        repoURL: mockRequest.repoURL,
-        branch: mockRequest.branch,
-        commit: mockRequest.commit,
+        analysisId: mockRequest.analysisId.value,
+        userId: mockRequest.userId.value,
+        repoURL: mockRequest.repoURL.value,
+        branch: mockRequest.branch.value,
+        commit: mockRequest.commit.value,
         status: mockRequest.status,
       });
     });
