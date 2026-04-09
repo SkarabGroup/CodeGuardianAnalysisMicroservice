@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { GitHubAnalysis } from '../../domain/entities/github-analysis.entity';
 import { IAnalysisOrchestrator } from './interfaces/analysis-orchestrator.as.interface';
+import type { IAgentPort } from '../ports/externals/agent-port.port';
+import { CODE_AGENT } from '../../infrastructure/adapters/externals/code-agent.adapter';
+import { AgentRequest } from '../DTOs/models/requests/agent-request-model.model';
 
 @Injectable()
 export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
-  constructor() {}
+  constructor(
+    @Inject(CODE_AGENT)
+    private readonly codeAgent: IAgentPort,
+  ) {}
 
   private async orchestrateAnalysis(
     analysis: GitHubAnalysis,
@@ -13,10 +19,10 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     docs: boolean,
     security: boolean,
   ): Promise<void> {
-    await Promise.resolve();
     console.log(
       `Analysis started for: ${analysis.getAnalysisId().value}, ${repoPath}. \n Code: ${code} \n Documentation: ${docs} \n Security: ${security}`,
     );
+    await this.codeAgent.runAnalysis(new AgentRequest(analysis.getAnalysisId()));
   }
 
   public analyze(

@@ -1,0 +1,7 @@
+strands-agents==1.35.0
+strands-agents-tools==0.4.0
+ruff
+pytest
+pytest-cov
+coverage
+pytest-json-report

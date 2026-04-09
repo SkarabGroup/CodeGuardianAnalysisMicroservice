@@ -53,6 +53,10 @@ import {
   GitHubAnalysisRecord,
   GitHubAnalysisSchema,
 } from './infrastructure/adapters/persistence/schema/github-analysis.schema';
+import {
+  CODE_AGENT,
+  CodeAnalysisAdapter,
+} from './infrastructure/adapters/externals/code-agent.adapter';
 
 @Module({
   imports: [
@@ -142,6 +146,10 @@ import {
     {
       provide: GITHUB_ANALYSIS_SAVE_PORT,
       useClass: MongoDBAdapter,
+    },
+    {
+      provide: CODE_AGENT,
+      useClass: CodeAnalysisAdapter,
     },
   ],
   controllers: [AnalysisController, PatController],
