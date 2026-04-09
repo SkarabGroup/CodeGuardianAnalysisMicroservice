@@ -1,0 +1,33 @@
+FROM ubuntu:24.04
+
+# Installazione runtime e utility di base (senza Node.js)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv \
+    openjdk-17-jdk maven \
+    wget unzip curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Installazione di Node.js 22 tramite NodeSource
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Installazione tool JS/TS
+RUN npm install -g pnpm yarn @biomejs/biome typescript eslint jest
+
+# Installazione tool Java (PMD) - URL CORRETTO: pmd-dist-7.0.0-bin.zip
+RUN wget https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.0.0/pmd-dist-7.0.0-bin.zip -O pmd.zip \
+    && unzip pmd.zip -d /opt/ \
+    && rm pmd.zip
+ENV PATH="$PATH:/opt/pmd-bin-7.0.0/bin"
+
+WORKDIR /app
+
+# Copia del file requirements e installazione dipendenze Python
+COPY src/agents/code/requirements.txt /app/requirements.txt
+RUN pip3 install --no-cache-dir -r /app/requirements.txt --break-system-packages
+
+# Copia dell'intera cartella dell'agente
+COPY src/agents/code/ /app/
+
+ENTRYPOINT ["python3", "/app/main.py"]

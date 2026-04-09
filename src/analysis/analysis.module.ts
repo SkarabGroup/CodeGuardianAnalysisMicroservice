@@ -48,6 +48,10 @@ import {
   ANALYSIS_ORCHESTRATOR,
   AnalysisOrchestratorService,
 } from './application/services/analysis-orchestrator-service.as';
+import {
+  CODE_AGENT,
+  CodeAnalysisAdapter,
+} from './infrastructure/adapters/externals/code-agent.adapter';
 
 @Module({
   imports: [
@@ -129,6 +133,10 @@ import {
     {
       provide: CLONING_PORT,
       useClass: GitHubAdapter,
+    },
+    {
+      provide: CODE_AGENT,
+      useClass: CodeAnalysisAdapter,
     },
   ],
   controllers: [AnalysisController, PatController],
