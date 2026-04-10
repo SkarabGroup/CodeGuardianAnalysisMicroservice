@@ -57,6 +57,7 @@ import {
   CODE_AGENT,
   CodeAnalysisAdapter,
 } from './infrastructure/adapters/externals/code-agent.adapter';
+import { DOCS_AGENT, DocumentationAnalysisAdapter } from './infrastructure/adapters/externals/docs-agent.adapter';
 
 @Module({
   imports: [
@@ -150,6 +151,10 @@ import {
     {
       provide: CODE_AGENT,
       useClass: CodeAnalysisAdapter,
+    },
+    {
+      provide: DOCS_AGENT,
+      useClass: DocumentationAnalysisAdapter,
     },
   ],
   controllers: [AnalysisController, PatController],
