@@ -16,6 +16,7 @@ import {
   GIT_CREDENTIAL_DELETE_PORT,
   GIT_CREDENTIAL_READ_PORT,
   GITHUB_ANALYSIS_SAVE_PORT,
+  CODE_REPORT_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -57,6 +58,10 @@ import {
   CODE_AGENT,
   CodeAnalysisAdapter,
 } from './infrastructure/adapters/externals/code-agent.adapter';
+import {
+  CodeReportRecord,
+  CodeReportSchema,
+} from './infrastructure/adapters/persistence/schema/code-report.schema';
 
 @Module({
   imports: [
@@ -72,6 +77,10 @@ import {
         {
           name: GitHubAnalysisRecord.name,
           schema: GitHubAnalysisSchema,
+        },
+        {
+          name: CodeReportRecord.name,
+          schema: CodeReportSchema,
         },
       ],
       'DatabaseConnection',
@@ -150,6 +159,10 @@ import {
     {
       provide: CODE_AGENT,
       useClass: CodeAnalysisAdapter,
+    },
+    {
+      provide: CODE_REPORT_SAVE_PORT,
+      useClass: MongoDBAdapter,
     },
   ],
   controllers: [AnalysisController, PatController],

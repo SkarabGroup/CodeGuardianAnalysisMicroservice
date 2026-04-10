@@ -18,6 +18,11 @@ import { IGitHubAnalysisSavePort } from '../../../application/ports/repositories
 import { SaveGitHubAnalysisRequest } from '../../../application/DTOs/models/requests/save-git-analysis-request-model.model';
 import { SaveGitHubAnalysisResponse } from '../../../application/DTOs/models/responses/save-git-analysis-response-model.model';
 import { GitHubAnalysisRecord, GitHubAnalysisDocument } from './schema/github-analysis.schema';
+import { ICodeReportSavePort } from '../../../application/ports/repositories/code-report-save-port.repository';
+import { SaveCodeReportRequest } from '../../../application/DTOs/models/requests/save-code-report-request-model.model';
+import { SaveCodeReportResponse } from '../../../application/DTOs/models/responses/save-code-report-response-model.model';
+import { CodeReportRecord, CodeReportDocument } from './schema/code-report.schema';
+
 @Injectable() //Get
 //Post
 // Delete
@@ -28,13 +33,16 @@ export class MongoDBAdapter
     IGitCredentialSavePort,
     IGitCredentialDeletePort,
     IGitCredentialUpdatePort,
-    IGitHubAnalysisSavePort
+    IGitHubAnalysisSavePort,
+    ICodeReportSavePort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
     private readonly credentialModel: Model<GitCredentialDocument>,
     @InjectModel(GitHubAnalysisRecord.name, 'DatabaseConnection')
     private readonly analysisModel: Model<GitHubAnalysisDocument>,
+    @InjectModel(CodeReportRecord.name, 'DatabaseConnection')
+    private readonly codeReportModel: Model<CodeReportDocument>,
   ) {}
 
   async authorize(model: GetGitCredentialRequest): Promise<GetGitCredentialResponse> {
@@ -136,6 +144,41 @@ export class MongoDBAdapter
       return SaveGitHubAnalysisResponse.failure(`Error saving analysis: ${message}`);
     }
   }
+
+  async saveCodeReport(request: SaveCodeReportRequest): Promise<SaveCodeReportResponse> {
+    try {
+      await this.codeReportModel.create({
+        reportId: request.reportId.value,
+        analysisId: request.analysisId.value,
+        coverageFinding: request.coverageFinding.map((f) => ({
+          totalLinesPercentage: f.getTotalLinesPercentage().value,
+          totalBranchesPercentage: f.getTotalBranchesPercentage().value,
+          analyzedLanguage: f.getAnalyzedLanguage(),
+          coverageFiles: f.getCoverageFiles().map((file) => ({
+            path: file.getPath().value,
+            linesPercentage: file.getLinesPercentage().value,
+            branchesPercentage: file.getBranchesPercentage().value,
+            missedLines: file.getMissedLines(),
+          })),
+        })),
+        staticAnalysisErrors: request.staticAnalysisErrors.map((e) => ({
+          path: e.getPathFinding().value,
+          category: e.getErrorCategory(),
+          error: {
+            line: e.getErrorFinding().getErrorLine(),
+            description: e.getErrorFinding().getDescriptionFinding().value,
+            severity: e.getErrorFinding().getSeverityFinding().value,
+          },
+          language: e.getAnalyzedLanguage(),
+        })),
+      });
+
+      return SaveCodeReportResponse.success();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return SaveCodeReportResponse.failure(`Error saving code report: ${message}`);
+    }
+  }
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
@@ -143,3 +186,4 @@ export const GIT_CREDENTIAL_SAVE_PORT = Symbol('IGitCredentialSavePort');
 export const GIT_CREDENTIAL_DELETE_PORT = Symbol('IGitCredentialDeletePort');
 export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
 export const GITHUB_ANALYSIS_SAVE_PORT = Symbol('IGitHubAnalysisSavePort');
+export const CODE_REPORT_SAVE_PORT = Symbol('ICodeReportSavePort');
