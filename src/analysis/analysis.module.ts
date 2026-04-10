@@ -57,7 +57,10 @@ import {
   CODE_AGENT,
   CodeAnalysisAdapter,
 } from './infrastructure/adapters/externals/code-agent.adapter';
-import { DOCS_AGENT, DocumentationAnalysisAdapter } from './infrastructure/adapters/externals/docs-agent.adapter';
+import {
+  DOCS_AGENT,
+  DocumentationAnalysisAdapter,
+} from './infrastructure/adapters/externals/docs-agent.adapter';
 
 @Module({
   imports: [
