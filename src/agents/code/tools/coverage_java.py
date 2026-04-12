@@ -3,11 +3,7 @@ import json
 import os
 import xml.etree.ElementTree as ET
 from strands import tool
-
 from tools.models import FileCoverage, CoverageReport, TestSummary
-
-
-# ─── Constants ────────────────────────────────────────────────────────────────
 
 JACOCO_REPORT_RELATIVE = "target/site/jacoco/jacoco.xml"
 TOOL_NAME              = "JaCoCo + Maven"
@@ -15,32 +11,19 @@ LANGUAGE               = "java"
 LOW_COVERAGE_THRESHOLD = 50.0
 JACOCO_VERSION         = "0.8.12"
 
-
-# ─── JaCoCo Strategy ─────────────────────────────────────────────────────────
-
 class JaCoCoStrategy:
-
     @staticmethod
     def has_jacoco(pom_path: str) -> bool:
-        with open(pom_path) as f:
-            return "jacoco-maven-plugin" in f.read()
+        try:
+            with open(pom_path) as f: return "jacoco-maven-plugin" in f.read()
+        except Exception: return False
 
     @staticmethod
     def build_command(has_plugin: bool) -> list[str]:
-        if has_plugin:
-            return ["mvn", "clean", "test", "jacoco:report"]
-        return [
-            "mvn", "clean",
-            f"org.jacoco:jacoco-maven-plugin:{JACOCO_VERSION}:prepare-agent",
-            "test",
-            f"org.jacoco:jacoco-maven-plugin:{JACOCO_VERSION}:report",
-        ]
-
-
-# ─── Runner ───────────────────────────────────────────────────────────────────
+        if has_plugin: return ["mvn", "clean", "test", "jacoco:report"]
+        return ["mvn", "clean", f"org.jacoco:jacoco-maven-plugin:{JACOCO_VERSION}:prepare-agent", "test", f"org.jacoco:jacoco-maven-plugin:{JACOCO_VERSION}:report"]
 
 class JaCoCoRunner:
-
     def run(self, repo_path: str) -> str:
         pom_path = os.path.join(repo_path, "pom.xml")
         if not os.path.exists(pom_path):
@@ -49,26 +32,16 @@ class JaCoCoRunner:
         has_plugin = JaCoCoStrategy.has_jacoco(pom_path)
         cmd        = JaCoCoStrategy.build_command(has_plugin)
 
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, check=False, cwd=repo_path,
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=repo_path)
         if result.returncode != 0:
-            # Surface Maven errors clearly
             raise RuntimeError(f"Maven build failed:\n{result.stderr[-2000:]}")
 
         report_path = os.path.join(repo_path, JACOCO_REPORT_RELATIVE)
         if not os.path.exists(report_path):
-            raise FileNotFoundError(
-                f"JaCoCo report not found at {report_path}. "
-                "Ensure tests are configured and JaCoCo executed successfully."
-            )
+            raise FileNotFoundError(f"JaCoCo report not found at {report_path}.")
         return report_path
 
-
-# ─── Mapper ───────────────────────────────────────────────────────────────────
-
 class JaCoCoMapper:
-
     @staticmethod
     def _pct(covered: int, missed: int) -> float:
         total = covered + missed
@@ -76,7 +49,7 @@ class JaCoCoMapper:
 
     @staticmethod
     def _counter(element: ET.Element, counter_type: str) -> tuple[int, int]:
-        """Returns (covered, missed) for a given counter type."""
+        if element is None: return 0, 0
         for counter in element.findall("counter"):
             if counter.get("type") == counter_type:
                 return int(counter.get("covered", 0)), int(counter.get("missed", 0))
@@ -93,8 +66,7 @@ class JaCoCoMapper:
 
         missing_lines = [
             int(line.get("nr", 0))
-            for line in sourcefile.findall("line")
-            if line.get("mi", "0") != "0"
+            for line in sourcefile.findall("line") if line.get("mi", "0") != "0"
         ]
 
         return FileCoverage(
@@ -111,16 +83,18 @@ class JaCoCoMapper:
 
     @classmethod
     def map_report(cls, report_path: str) -> tuple[list[dict], float, float, float]:
-        tree    = ET.parse(report_path)
-        root    = tree.getroot()
-        files   = []
+        try:
+            tree = ET.parse(report_path)
+            root = tree.getroot()
+        except ET.ParseError:
+            raise ValueError("JaCoCo report XML is malformed")
 
+        files = []
         for package in root.findall("package"):
             pkg_name = package.get("name", "")
             for sourcefile in package.findall("sourcefile"):
                 files.append(cls.map_file(pkg_name, sourcefile).to_dict())
 
-        # Overall totals from root counters
         line_cov, line_miss     = cls._counter(root, "LINE")
         branch_cov, branch_miss = cls._counter(root, "BRANCH")
         method_cov, method_miss = cls._counter(root, "METHOD")
@@ -132,16 +106,8 @@ class JaCoCoMapper:
             cls._pct(method_cov, method_miss),
         )
 
-
-# ─── Tool ─────────────────────────────────────────────────────────────────────
-
 @tool
 def java_coverage_analysis(repo_path: str) -> str:
-    """
-    Execute code coverage analysis on a Java Maven repository using JaCoCo.
-    Detects if JaCoCo plugin is already configured; otherwise injects it dynamically.
-    Returns a normalized JSON report compatible with all language tools.
-    """
     try:
         runner      = JaCoCoRunner()
         report_path = runner.run(repo_path)
@@ -149,10 +115,7 @@ def java_coverage_analysis(repo_path: str) -> str:
         mapper = JaCoCoMapper()
         files, line_pct, branch_pct, fn_pct = mapper.map_report(report_path)
 
-        uncovered = [
-            f.get("file", "") for f in files
-            if f.get("line_coverage_pct", 0) < LOW_COVERAGE_THRESHOLD
-        ]
+        uncovered = [f.get("file", "") for f in files if f.get("line_coverage_pct", 0) < LOW_COVERAGE_THRESHOLD]
 
         report = CoverageReport(
             language             = LANGUAGE,
@@ -161,10 +124,9 @@ def java_coverage_analysis(repo_path: str) -> str:
             overall_branch_pct   = branch_pct,
             overall_function_pct = fn_pct,
             files                = files,
-            test_summary         = None,  # JaCoCo doesn't expose test counts
+            test_summary         = None,
             uncovered_files      = uncovered,
         )
         return json.dumps(report.to_dict())
-
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
