@@ -23,10 +23,6 @@ import type { IRepositoryValidator } from './interfaces/repository-validator.as.
 import type { IRepositoryCloner } from './interfaces/repository-cloner.as.interface';
 import type { IAnalysisOrchestrator } from './interfaces/analysis-orchestrator.as.interface';
 
-import { GITHUB_ANALYSIS_SAVE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
-import type { IGitHubAnalysisSavePort } from '../ports/repositories/github-analysis-save-port.repository';
-import { SaveGitHubAnalysisRequest } from '../DTOs/models/requests/save-git-analysis-request-model.model';
-
 import { v7 as uuid } from 'uuid';
 import { GitHubAnalysis } from '../../domain/entities/github-analysis.entity';
 
@@ -43,8 +39,6 @@ export class StartAnalysisService implements StartAnalysisUseCase {
     private readonly clonerService: IRepositoryCloner,
     @Inject(ANALYSIS_ORCHESTRATOR)
     private readonly orchestrationService: IAnalysisOrchestrator,
-    @Inject(GITHUB_ANALYSIS_SAVE_PORT)
-    private readonly analysisSavePort: IGitHubAnalysisSavePort,
   ) {}
 
   public async execute(command: StartAnalysisCommand): Promise<StartAnalysisResult> {
@@ -81,17 +75,6 @@ export class StartAnalysisService implements StartAnalysisUseCase {
       branch: branch,
       commit: commit,
     });
-
-    await this.analysisSavePort.saveAnalysis(
-      new SaveGitHubAnalysisRequest(
-        analysis.getAnalysisId(),
-        analysis.getUserId(),
-        analysis.getRepoURL(),
-        analysis.getBranch(),
-        analysis.getCommit(),
-        analysis.getStatus(),
-      ),
-    );
 
     this.orchestrationService.analyze(
       analysis,

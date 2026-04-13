@@ -12,7 +12,6 @@ import { CommitHash } from '../../../../src/analysis/domain/value-objects/commit
 import { PersonalAccessToken } from '../../../../src/analysis/domain/value-objects/personal-access-token.vo';
 import { GitHubAnalysis } from '../../../../src/analysis/domain/entities/github-analysis.entity';
 import { v7 as uuid } from 'uuid';
-import { GITHUB_ANALYSIS_SAVE_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 describe('StartAnalysisService', () => {
   let service: StartAnalysisService;
@@ -22,7 +21,6 @@ describe('StartAnalysisService', () => {
   const mockCloner = { clone: jest.fn() };
   const mockProvider = { generate: jest.fn() };
   const mockOrchestrator = { analyze: jest.fn() };
-  const mockAnalysisSavePort = { saveAnalysis: jest.fn() };
 
   const VALID_URL = 'https://github.com/owner/repo';
   const VALID_USER = uuid();
@@ -37,7 +35,6 @@ describe('StartAnalysisService', () => {
         { provide: CLONE_VALIDATOR, useValue: mockValidator },
         { provide: REPOSITORY_CLONER, useValue: mockCloner },
         { provide: ANALYSIS_ORCHESTRATOR, useValue: mockOrchestrator },
-        { provide: GITHUB_ANALYSIS_SAVE_PORT, useValue: mockAnalysisSavePort },
       ],
     }).compile();
 

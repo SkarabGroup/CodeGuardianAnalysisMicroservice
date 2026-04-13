@@ -5,6 +5,7 @@ import { BranchName } from '../value-objects/branch-name.vo';
 import { CommitHash } from '../value-objects/commit-hash.vo';
 import { AnalysisStatus } from '../enums/analysis-status.enum';
 
+// Properties
 export type GitHubAnalysisProps = {
   id: AnalysisId;
   user: UserId;
