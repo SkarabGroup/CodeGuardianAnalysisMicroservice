@@ -166,6 +166,8 @@ import {
     {
       provide: DOCS_AGENT,
       useClass: DocumentationAnalysisAdapter,
+    },
+    {
       provide: CODE_REPORT_SAVE_PORT,
       useClass: MongoDBAdapter,
     },
