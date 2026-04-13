@@ -162,6 +162,7 @@ Your goal is to produce a comprehensive inconsistency report between the documen
 - The JSON must start with `{` and end with `}`.
 - All string values inside the JSON must be properly escaped.
 - Do not truncate the output.
+- Response must be in english
 
 ## OUTPUT SCHEMA
 {

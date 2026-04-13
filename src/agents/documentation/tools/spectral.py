@@ -31,7 +31,7 @@ def _find_candidates(root: Path, extensions: list[str]) -> list[Path]:
 
 
 def _severity_label(code: int) -> str:
-    return {0: "error", 1: "warning", 2: "info", 3: "hint"}.get(code, "unknown")
+    return {0: "CRITICAL", 1: "HIGH", 2: "MEDIUM", 3: "LOW"}.get(code, "unknown")
 
 
 def _lint_file(spectral_bin: str, file_path: Path) -> dict:
