@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "check_id": "python.lang.security.audit.eval",
+      "path": "app.py",
+      "start": { "line": 10 },
+      "extra": {
+        "message": "Use of eval is dangerous",
+        "severity": "ERROR",
+        "metadata": {
+          "owasp": ["A1: Injection"]
+        }
+      }
+    }
+  ],
+  "errors": []
+}
