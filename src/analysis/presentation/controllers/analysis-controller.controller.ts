@@ -18,6 +18,7 @@ import { StartAnalysisRequestDTO } from '../DTOs/requests/request-analysis.dto';
 import { StartAnalysisCommand } from '../../application/commands/start-analysis-command.command';
 import { StartAnalysisResponseDTO } from '../DTOs/responses/start-analysis-response.dto';
 import { StartAnalysisResult } from '../../application/results/start-analysis-result.result';
+import { ConfigurationService } from '../../infrastructure/configuration/configuration.service';
 
 export type JwtPayload = {
   sub: string;
@@ -35,11 +36,11 @@ export interface RequestWithUser extends Request {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(config: ConfigurationService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'secret',
+      secretOrKey: config.jwtSecret,
     });
   }
 

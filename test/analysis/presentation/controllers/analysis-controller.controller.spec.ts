@@ -10,6 +10,31 @@ import { StartAnalysisResult } from '../../../../src/analysis/application/result
 
 import type { StartAnalysisUseCase } from '../../../../src/analysis/application/use-case/start-analysis.uc';
 
+import { JwtStrategy } from '../../../../src/analysis/presentation/controllers/analysis-controller.controller';
+import { ConfigurationService } from '../../../../src/analysis/infrastructure/configuration/configuration.service';
+
+describe('JwtStrategy', () => {
+  it('should validate payload and return user object', async () => {
+    const mockConfig = {
+      jwtSecret: 'test-secret',
+    } as ConfigurationService;
+
+    const strategy = new JwtStrategy(mockConfig);
+
+    const payload = {
+      sub: 'user-id',
+      email: 'test@mail.com',
+    };
+
+    const result = await strategy.validate(payload);
+
+    expect(result).toEqual({
+      userId: payload.sub,
+      email: payload.email,
+    });
+  });
+});
+
 describe('AnalysisController', () => {
   let controller: AnalysisController;
 
@@ -23,6 +48,8 @@ describe('AnalysisController', () => {
     'password123',
     'main',
     'a'.repeat(40),
+    true,
+    true,
     true,
   );
 
@@ -135,6 +162,8 @@ describe('AnalysisController', () => {
         undefined,
         undefined,
         false,
+        true,
+        true,
       );
 
       mockStartAnalysis.execute.mockResolvedValue(

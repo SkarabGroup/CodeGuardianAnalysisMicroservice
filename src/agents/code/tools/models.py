@@ -23,10 +23,10 @@ class StaticIssue:
 
 @dataclass
 class StaticAnalysisReport:
-    language:   str
-    tool:       str
-    issues:     list[dict]
-    total:      int
+    language:           str
+    tool:               str
+    issues:             list[dict]
+    total:              int
 
     def to_dict(self) -> dict:
         return asdict(self)

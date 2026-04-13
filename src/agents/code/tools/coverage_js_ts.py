@@ -15,7 +15,7 @@ class PackageManagerDetector:
         if os.path.exists(os.path.join(repo_path, "pnpm-lock.yaml")): return "pnpm"
         if os.path.exists(os.path.join(repo_path, "yarn.lock")): return "yarn"
         if os.path.exists(os.path.join(repo_path, "package-lock.json")): return "npm"
-        return "npm" # Fallback sicuro
+        return "npm"
 
 class TestFrameworkDetector:
     SUPPORTED = ("jest", "vitest")
@@ -62,6 +62,12 @@ class JSTSCoverageRunner:
             with open(summary_path) as f: return json.load(f)
         raise FileNotFoundError("Coverage summary not found or empty.")
 
+    def load_coverage_final(self, repo_path: str) -> dict:
+        final_path = os.path.join(repo_path, "coverage", "coverage-final.json")
+        if os.path.exists(final_path):
+            with open(final_path) as f: return json.load(f)
+        return {}
+
     def load_test_results(self, repo_path: str) -> dict:
         path = os.path.join(repo_path, "test-results.json")
         if os.path.exists(path):
@@ -70,7 +76,18 @@ class JSTSCoverageRunner:
 
 class IstanbulMapper:
     @staticmethod
-    def map_file(path: str, data: dict, repo_path: str) -> FileCoverage:
+    def map_file(path: str, data: dict, final_data: dict, repo_path: str) -> FileCoverage:
+        missing_lines = []
+        if final_data:
+            s_map = final_data.get("s", {})
+            stmt_map = final_data.get("statementMap", {})
+            for key, count in s_map.items():
+                if count == 0 and str(key) in stmt_map:
+                    line = stmt_map[str(key)].get("start", {}).get("line")
+                    if line and line not in missing_lines:
+                        missing_lines.append(int(line))
+            missing_lines.sort()
+
         lines = data.get("lines", {}) if isinstance(data.get("lines"), dict) else {}
         branches = data.get("branches", {}) if isinstance(data.get("branches"), dict) else {}
         functions = data.get("functions", {}) if isinstance(data.get("functions"), dict) else {}
@@ -80,7 +97,7 @@ class IstanbulMapper:
             line_coverage_pct=float(lines.get("pct", 0.0)),
             branch_coverage_pct=float(branches.get("pct", 0.0)),
             function_coverage_pct=float(functions.get("pct", 0.0)),
-            missing_lines=[],
+            missing_lines=missing_lines,
             missing_branches=int(branches.get("total", 0)) - int(branches.get("covered", 0)),
             total_lines=int(lines.get("total", 0)),
             total_branches=int(branches.get("total", 0)),
@@ -101,7 +118,6 @@ def js_ts_coverage_analysis(repo_path: str) -> str:
         framework = TestFrameworkDetector.detect(repo_path)
         runner = JSTSCoverageRunner()
         
-        # ORA installa di nuovo i pacchetti, così i test possono girare!
         runner.install_deps(repo_path, pkg_manager)
 
         if framework == "vitest":
@@ -111,10 +127,14 @@ def js_ts_coverage_analysis(repo_path: str) -> str:
             runner.run_jest(repo_path)
 
         summary = runner.load_coverage_summary(repo_path)
+        final_cov = runner.load_coverage_final(repo_path)
         test_results = runner.load_test_results(repo_path)
 
         mapper = IstanbulMapper()
-        files = [mapper.map_file(path, data, repo_path).to_dict() for path, data in summary.items() if path != "total" and isinstance(data, dict)]
+        files = [
+            mapper.map_file(path, data, final_cov.get(path, {}), repo_path).to_dict() 
+            for path, data in summary.items() if path != "total" and isinstance(data, dict)
+        ]
         
         total = summary.get("total", {}) if isinstance(summary.get("total"), dict) else {}
         test_summary = mapper.map_test_summary(test_results).to_dict() if test_results else None

@@ -14,9 +14,8 @@ services:
       - /app/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
       - analysis_tmp_data:/tmp
-    environment:
-      - MONGO_URI=mongodb://mongodb:27017/analysis_db
-      - NODE_ENV=development
+    env_file:
+      - ../../.env
     networks:
       - analysis_network
 

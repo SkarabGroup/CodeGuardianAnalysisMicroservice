@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -50,14 +49,14 @@ import {
 } from './application/services/analysis-orchestrator-service.as';
 import {
   CODE_AGENT,
-  CodeAnalysisAdapter,
-} from './infrastructure/adapters/externals/code-agent.adapter';
+  LocalCodeAnalysisAdapter,
+} from './infrastructure/adapters/externals/local-code-agent.adapter';
+import { ConfigurationService } from './infrastructure/configuration/configuration.service';
+import { ConfigurationModule } from './infrastructure/configuration/configuration.module';
+import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-code-agent.adapter';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
     MongooseModule.forFeature(
       [
         {
@@ -68,9 +67,14 @@ import {
       'DatabaseConnection',
     ),
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secret',
+    JwtModule.registerAsync({
+      useFactory: (config: ConfigurationService) => ({
+        secret: config.jwtSecret,
+        signOptions: { expiresIn: '1h' },
+      }),
+      inject: [ConfigurationService],
     }),
+    ConfigurationModule,
   ],
   providers: [
     JwtStrategy,
@@ -136,7 +140,13 @@ import {
     },
     {
       provide: CODE_AGENT,
-      useClass: CodeAnalysisAdapter,
+      useFactory: (configService: ConfigurationService) => {
+        if (process.env.NODE_ENV === 'production') {
+          console.log('Creato correttamente un LocalCode dal blocco if di production');
+          return new AWSCodeAnalysisAdapter(configService);
+        } else return new LocalCodeAnalysisAdapter();
+      },
+      inject: [ConfigurationService],
     },
   ],
   controllers: [AnalysisController, PatController],

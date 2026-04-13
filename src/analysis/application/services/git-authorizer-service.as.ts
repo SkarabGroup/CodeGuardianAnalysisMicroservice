@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 import { PATPassword } from '../../domain/value-objects/pat-password.vo';
 import { PersonalAccessToken } from '../../domain/value-objects/personal-access-token.vo';
@@ -11,6 +10,8 @@ import { GetGitCredentialRequest } from '../DTOs/models/requests/get-git-credent
 import { GetGitCredentialResponse } from '../DTOs/models/responses/get-git-credential-response.model';
 
 import type { IGitCredentialReadPort } from '../ports/repositories/git-credential-read-port.repository';
+import { ConfigurationService } from '../../infrastructure/configuration/configuration.service';
+
 import { GIT_CREDENTIAL_READ_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 interface AuthorizationStrategy {
@@ -40,15 +41,10 @@ class PrivateAuthorizationStrategy implements AuthorizationStrategy {
 }
 
 class PublicAuthorizationStrategy implements AuthorizationStrategy {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigurationService) {}
 
   getPersonalAccessToken(): Promise<string> {
-    const pat = this.configService.get<string>('CODE_GUARDIAN_TOKEN');
-    if (!pat) {
-      throw new Error('Public analysis requested but GITHUB_PUBLIC_TOKEN is not configured');
-    }
-
-    return Promise.resolve(pat);
+    return Promise.resolve(this.configService.codeGuardianToken);
   }
 }
 
@@ -57,7 +53,7 @@ export class GitAuthorizerService implements IRepositoryAuthorizer {
   constructor(
     @Inject(GIT_CREDENTIAL_READ_PORT)
     private readonly credentialPort: IGitCredentialReadPort,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigurationService,
   ) {}
 
   public async authorize(url: RepoURL, password?: PATPassword): Promise<PersonalAccessToken> {

@@ -85,15 +85,15 @@ class BiomeIssueMapper:
             description = str(msg_parts)
         
         return StaticIssue(
-            file=os.path.relpath(file_path, repo_path) if file_path else "unknown",
-            location=cls.get_location(diagnostic),
-            rule=cat_raw,
-            category=category,
-            severity=severity,
-            description=description,
-            suggested_fix=cls.get_suggested_fix(diagnostic),
-            url=f"{BIOME_DOCS_BASE}/{cat_raw.split('/')[-1]}"
-        )
+                    file=os.path.relpath(file_path, repo_path) if file_path else "unknown",
+                    location=cls.get_location(diagnostic),
+                    rule=cat_raw,
+                    category=category,
+                    severity=severity,
+                    description=description,
+                    suggested_fix=cls.get_suggested_fix(diagnostic),
+                    url=f"{BIOME_DOCS_BASE}/{cat_raw.split('/')[-1]}"
+                )  
 
 @tool
 def js_ts_static_analysis(repo_path: str) -> str:
@@ -103,7 +103,6 @@ def js_ts_static_analysis(repo_path: str) -> str:
         
         stdout_raw = result.stdout.strip()
         
-        # Pulisce i warning di npm trovando il primo blocco JSON valido
         idx_array = stdout_raw.find('[')
         idx_obj = stdout_raw.find('{')
         
