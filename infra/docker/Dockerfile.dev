@@ -7,7 +7,11 @@ RUN npm ci && npm cache clean --force
 
 RUN apk add --no-cache python3 py3-pip git curl docker-cli
 
-COPY requirements-dev.txt ./
+RUN python3 -m venv /venv
+
+ENV PATH="/venv/bin:$PATH"
+
+COPY requirements-dev.txt .
 RUN pip3 install --no-cache-dir -r requirements-dev.txt
 
 COPY . .
