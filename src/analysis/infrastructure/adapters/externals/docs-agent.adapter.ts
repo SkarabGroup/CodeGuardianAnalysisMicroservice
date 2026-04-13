@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { AgentRequest } from '../../../application/DTOs/models/requests/agent-request-model.model';
-import { AgentResponse } from '../../../application/DTOs/models/responses/agent-response-model.model';
-import { IDocumentationAgentPort } from '../../../application/ports/externals/dosc-agent-port.port';
+import { DocsAgentResponse } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
+import { IDocumentationAgentPort } from '../../../application/ports/externals/docs-agent-port.port';
 
 @Injectable()
 export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
-  public async runAnalysis(model: AgentRequest): Promise<AgentResponse> {
+  public async runAnalysis(model: AgentRequest): Promise<DocsAgentResponse> {
     const projectRoot = process.cwd();
     const envFilePath = join(projectRoot, 'src', 'agents', 'documentation', '.env');
     const sharedVolumeName = 'analysis_tmp_data';
@@ -48,10 +48,10 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
         });
       });
 
-      return new AgentResponse();
+      return new DocsAgentResponse(true, [], [], [], null);
     } catch (error) {
       console.error(`[Adapter] Analisi fallita:`, error);
-      return new AgentResponse();
+      return new DocsAgentResponse(false, [], [], [], null, (error as Error).message);
     }
   }
 }

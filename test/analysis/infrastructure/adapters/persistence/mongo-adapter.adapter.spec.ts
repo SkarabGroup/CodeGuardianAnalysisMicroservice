@@ -19,6 +19,7 @@ import { CommitHash } from '../../../../../src/analysis/domain/value-objects/com
 import { AnalysisStatus } from '../../../../../src/analysis/domain/enums/analysis-status.enum';
 import { v7 as uuid } from 'uuid';
 import { DocumentationReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/docs-report.schema';
+import { ReportId } from '../../../../../src/analysis/domain/value-objects/report-id.vo';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -388,6 +389,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
   });
 
   describe('saveAnalysis', () => {
+    const reportId = ReportId.create(uuid());
     const mockRequest = new SaveGitHubAnalysisRequest(
       AnalysisId.create(uuid()),
       UserId.create(uuid()),
@@ -395,6 +397,9 @@ describe('MongoDBAdapter (Unit Test)', () => {
       BranchName.create('main'),
       CommitHash.create('a'.repeat(40)),
       AnalysisStatus.PENDING,
+      reportId,
+      null,
+      null,
     );
 
     it('should return success when analysis is saved correctly', async () => {
@@ -410,6 +415,9 @@ describe('MongoDBAdapter (Unit Test)', () => {
         branch: mockRequest.branch.value,
         commit: mockRequest.commit.value,
         status: mockRequest.status,
+        codeReportId: reportId.value,
+        docsReportId: null,
+        securityReportId: null,
       });
     });
 

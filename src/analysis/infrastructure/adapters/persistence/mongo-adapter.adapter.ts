@@ -133,6 +133,9 @@ export class MongoDBAdapter
         repoURL: request.repoURL.value,
         branch: request.branch.value,
         commit: request.commit.value,
+        codeReportId: request.codeReportId?.value ?? null,
+        docsReportId: request.docsReportId?.value ?? null,
+        securityReportId: request.securityReportId?.value ?? null,
         status: request.status,
       });
 
