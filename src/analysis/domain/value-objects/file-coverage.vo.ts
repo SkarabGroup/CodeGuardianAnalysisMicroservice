@@ -1,74 +1,63 @@
-import { CoveragePercentage } from './coverage-percentage.vo';
 import { PathFinding } from './path-finding.vo';
+import { CoveragePercentage } from './coverage-percentage.vo';
+import { DescriptionFinding } from './description-finding.vo';
 
 export class FileCoverage {
   private constructor(
     private readonly _pathFinding: PathFinding,
     private readonly _linesPercentage: CoveragePercentage,
-    private readonly _branchesPercentage: CoveragePercentage,
-    private readonly _missedLines: number[],
+    private readonly _missingLines: number[],
+    private readonly _missingBranches: number,
+    private readonly _aiReasoning: DescriptionFinding,
   ) {
     this.validate();
   }
 
   private validate(): void {
-    if (this._missedLines.some((line) => line <= 0)) {
-      throw new Error('Line numbers must be greater than 0');
-    }
+    if (!Number.isInteger(this._missingBranches) || this._missingBranches < 0)
+      throw new Error('missingBranches must be a non-negative integer');
 
-    if (this._missedLines.some((line) => !Number.isInteger(line))) {
-      throw new Error('Line numbers must be integers');
-    }
+    if (this._missingLines.some((l) => !Number.isInteger(l) || l <= 0))
+      throw new Error('Line numbers must be positive integers');
 
-    const unique = new Set(this._missedLines);
-    if (unique.size !== this._missedLines.length) {
-      throw new Error('Missed lines must not contain duplicates');
-    }
+    const unique = new Set(this._missingLines);
+    if (unique.size !== this._missingLines.length)
+      throw new Error('Missing lines must not contain duplicates');
 
-    if (this._linesPercentage.value === 1 && this._missedLines.length > 0) {
-      throw new Error('Missed lines must be empty when coverage is 100%');
-    }
-  }
-
-  public equals(other: FileCoverage): boolean {
-    if (!(other instanceof FileCoverage)) {
-      throw new Error('Invalid argument');
-    }
-    return (
-      this._pathFinding.equals(other._pathFinding) &&
-      this._linesPercentage.equals(other._linesPercentage) &&
-      this._branchesPercentage.equals(other._branchesPercentage) &&
-      this.arraysEqual(this._missedLines, other._missedLines)
-    );
-  }
-
-  private arraysEqual(a: number[], b: number[]): boolean {
-    if (a.length !== b.length) return false;
-    return a.every((val, i) => val === b[i]);
-  }
-
-  public getPath(): PathFinding {
-    return this._pathFinding;
-  }
-
-  public getLinesPercentage(): CoveragePercentage {
-    return this._linesPercentage;
-  }
-
-  public getBranchesPercentage(): CoveragePercentage {
-    return this._branchesPercentage;
-  }
-
-  public getMissedLines(): number[] {
-    return [...this._missedLines];
+    if (this._linesPercentage.value === 1 && this._missingLines.length > 0)
+      throw new Error('Missing lines must be empty when line coverage is 100%');
   }
 
   public static create(
     pathFinding: PathFinding,
     linesPercentage: CoveragePercentage,
-    branchesPercentage: CoveragePercentage,
-    missedLines: number[],
+    missingLines: number[],
+    missingBranches: number,
+    aiReasoning: DescriptionFinding,
   ): FileCoverage {
-    return new FileCoverage(pathFinding, linesPercentage, branchesPercentage, missedLines);
+    if (!(pathFinding instanceof PathFinding)) throw new Error('Invalid PathFinding');
+    if (!(linesPercentage instanceof CoveragePercentage)) throw new Error('Invalid linesPercentage');
+    if (!Array.isArray(missingLines)) throw new Error('missingLines must be an array');
+    if (typeof missingBranches !== 'number') throw new Error('missingBranches must be a number');
+    if (!(aiReasoning instanceof DescriptionFinding)) throw new Error('Invalid aiReasoning');
+
+    return new FileCoverage(pathFinding, linesPercentage, missingLines, missingBranches, aiReasoning);
+  }
+
+  public getPathFinding(): PathFinding { return this._pathFinding; }
+  public getLinesPercentage(): CoveragePercentage { return this._linesPercentage; }
+  public getMissingLines(): number[] { return [...this._missingLines]; }
+  public getMissingBranches(): number { return this._missingBranches; }
+  public getAiReasoning(): DescriptionFinding { return this._aiReasoning; }
+
+  public equals(other: FileCoverage): boolean {
+    if (!(other instanceof FileCoverage)) throw new Error('Invalid argument');
+    return (
+      this._pathFinding.equals(other._pathFinding) &&
+      this._linesPercentage.equals(other._linesPercentage) &&
+      this._missingBranches === other._missingBranches &&
+      this._missingLines.length === other._missingLines.length &&
+      this._missingLines.every((l, i) => l === other._missingLines[i])
+    );
   }
 }
