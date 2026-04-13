@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { FilterQuery } from 'mongoose';
 
 import { GitCredential } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
 import { MongoDBAdapter } from '../../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
@@ -19,11 +18,7 @@ import { BranchName } from '../../../../../src/analysis/domain/value-objects/bra
 import { CommitHash } from '../../../../../src/analysis/domain/value-objects/commit-hash.vo';
 import { AnalysisStatus } from '../../../../../src/analysis/domain/enums/analysis-status.enum';
 import { v7 as uuid } from 'uuid';
-import { CodeReportRecord } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/code-report.schema';
-import { SaveCodeReportRequest } from '../../../../../src/analysis/application/DTOs/models/requests/save-code-report-request-model.model';
-import { ReportId } from '../../../../../src/analysis/domain/value-objects/report-id.vo';
-import { CoverageFinding } from '../../../../../src/analysis/domain/value-objects/coverage-finding.vo';
-import { StaticAnalysisFinding } from '../../../../../src/analysis/domain/value-objects/static-analysis-finding.vo';
+import { DocumentationReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/docs-report.schema';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -31,12 +26,12 @@ interface MockQuery {
 }
 
 interface MockModel {
-  findOne: jest.Mock<MockQuery, [FilterQuery<GitCredential>]>;
+  findOne: jest.Mock<MockQuery, [Record<string, unknown>]>;
   create: jest.Mock<Promise<Partial<GitCredential>>, [Partial<GitCredential>]>;
-  deleteOne: jest.Mock<Promise<{ deletedCount: number }>, [FilterQuery<GitCredential>]>;
+  deleteOne: jest.Mock<Promise<{ deletedCount: number }>, [Record<string, unknown>]>;
   updateOne: jest.Mock<
     Promise<{ matchedCount: number; modifiedCount: number }>,
-    [FilterQuery<GitCredential>, Partial<GitCredential>]
+    [Record<string, unknown>, Partial<GitCredential>]
   >;
 }
 interface MockAnalysisModel {
@@ -47,7 +42,7 @@ interface MongoError extends Error {
   code: number;
 }
 
-interface MockCodeReportModel {
+interface MockDocsReportModel {
   create: jest.Mock;
 }
 
@@ -60,7 +55,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
   let mockQuery: MockQuery;
   let consoleLogSpy: jest.SpyInstance;
   let mockAnalysisModel: MockAnalysisModel;
-  let mockCodeReportModel: MockCodeReportModel;
+  let mockDocsReportModel: MockDocsReportModel;
 
   beforeEach(async () => {
     mockQuery = {
@@ -71,16 +66,16 @@ describe('MongoDBAdapter (Unit Test)', () => {
     mockModel = {
       findOne: jest.fn().mockReturnValue(mockQuery) as jest.Mock<
         MockQuery,
-        [FilterQuery<GitCredential>]
+        [Record<string, unknown>]
       >,
       create: jest.fn() as jest.Mock<Promise<Partial<GitCredential>>, [Partial<GitCredential>]>,
       deleteOne: jest.fn() as jest.Mock<
         Promise<{ deletedCount: number }>,
-        [FilterQuery<GitCredential>]
+        [Record<string, unknown>]
       >,
       updateOne: jest.fn() as jest.Mock<
         Promise<{ matchedCount: number; modifiedCount: number }>,
-        [FilterQuery<GitCredential>, Partial<GitCredential>]
+        [Record<string, unknown>, Partial<GitCredential>]
       >,
     };
 
@@ -90,7 +85,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
       create: jest.fn(),
     };
 
-    mockCodeReportModel = {
+    mockDocsReportModel = {
       create: jest.fn(),
     };
 
@@ -106,8 +101,8 @@ describe('MongoDBAdapter (Unit Test)', () => {
           useValue: mockAnalysisModel,
         },
         {
-          provide: getModelToken(CodeReportRecord.name, 'DatabaseConnection'),
-          useValue: mockCodeReportModel,
+          provide: getModelToken(DocumentationReport.name, 'DatabaseConnection'),
+          useValue: mockDocsReportModel,
         },
       ],
     }).compile();
@@ -447,105 +442,164 @@ describe('MongoDBAdapter (Unit Test)', () => {
     });
   });
 
-  describe('saveCodeReport', () => {
-    const mockCoverageFinding = {
-      getTotalLinesPercentage: jest.fn().mockReturnValue({ value: 80 }),
-      getTotalBranchesPercentage: jest.fn().mockReturnValue({ value: 75 }),
-      getAnalyzedLanguage: jest.fn().mockReturnValue('TypeScript'),
-      getCoverageFiles: jest.fn().mockReturnValue([
-        {
-          getPath: jest.fn().mockReturnValue({ value: 'src/main.ts' }),
-          getLinesPercentage: jest.fn().mockReturnValue({ value: 90 }),
-          getBranchesPercentage: jest.fn().mockReturnValue({ value: 85 }),
-          getMissedLines: jest.fn().mockReturnValue([10, 12, 14]),
-        },
-      ]),
-    } as unknown as CoverageFinding;
+  describe('saveDocsReport', () => {
+    const buildDocsRequest = (withDependencyAudit: boolean) => {
+      const dependencyAudit = withDependencyAudit
+        ? {
+            getReadmeDefined: jest.fn().mockReturnValue([
+              {
+                getName: jest.fn().mockReturnValue('nestjs'),
+                getVersionClaimed: jest.fn().mockReturnValue('10.0.0'),
+              },
+            ]),
+            getConfigDefined: jest.fn().mockReturnValue([
+              {
+                getName: jest.fn().mockReturnValue('nestjs'),
+                getVersionPinned: jest.fn().mockReturnValue('10.0.1'),
+                getPathFinding: jest.fn().mockReturnValue({ value: 'package.json' }),
+              },
+            ]),
+            getMissingInConfig: jest.fn().mockReturnValue([
+              {
+                getName: jest.fn().mockReturnValue('rxjs'),
+                getPathFinding: jest.fn().mockReturnValue({ value: 'README.md' }),
+                getSeverityFinding: jest.fn().mockReturnValue({ value: 'MEDIUM' }),
+              },
+            ]),
+            getUndocumentedInReadme: jest.fn().mockReturnValue([
+              {
+                getName: jest.fn().mockReturnValue('class-validator'),
+                getPathFinding: jest.fn().mockReturnValue({ value: 'package.json' }),
+              },
+            ]),
+            getVersionMismatches: jest.fn().mockReturnValue([
+              {
+                getName: jest.fn().mockReturnValue('typescript'),
+                getReadmeVersion: jest.fn().mockReturnValue('5.5.0'),
+                getConfigVersion: jest.fn().mockReturnValue('5.6.2'),
+                getPathFinding: jest.fn().mockReturnValue({ value: 'package.json' }),
+              },
+            ]),
+          }
+        : null;
 
-    const mockStaticAnalysisError = {
-      getPathFinding: jest.fn().mockReturnValue({ value: 'src/app.ts' }),
-      getErrorCategory: jest.fn().mockReturnValue('Security'),
-      getErrorFinding: jest.fn().mockReturnValue({
-        getErrorLine: jest.fn().mockReturnValue(42),
-        getDescriptionFinding: jest.fn().mockReturnValue({ value: 'Insecure crypto usage' }),
-        getSeverityFinding: jest.fn().mockReturnValue({ value: 'High' }),
-      }),
-      getAnalyzedLanguage: jest.fn().mockReturnValue('TypeScript'),
-    } as unknown as StaticAnalysisFinding;
+      return {
+        reportId: { value: uuid() },
+        analysisId: { value: uuid() },
+        apiViolations: [
+          {
+            getPathFinding: jest.fn().mockReturnValue({ value: '/openapi.yaml' }),
+            getRule: jest.fn().mockReturnValue('operation-operationId'),
+            getSeverityFinding: jest.fn().mockReturnValue({ value: 'HIGH' }),
+            getDescriptionFinding: jest
+              .fn()
+              .mockReturnValue({ value: 'operationId is missing for one endpoint' }),
+          },
+        ],
+        docsDiscrepancies: [
+          {
+            getPathFinding: jest.fn().mockReturnValue({ value: '/README.md' }),
+            getDiscrepancyCategory: jest.fn().mockReturnValue('OUTDATED_DOCS'),
+            getSeverityFinding: jest.fn().mockReturnValue({ value: 'LOW' }),
+            getDocsClaim: jest.fn().mockReturnValue({ value: 'Uses Node 20' }),
+            getActualFinding: jest.fn().mockReturnValue({ value: 'CI uses Node 22' }),
+          },
+        ],
+        missingFiles: [
+          {
+            getReferencedPath: jest.fn().mockReturnValue({ value: '/docs/api.md' }),
+            getReferencedIn: jest.fn().mockReturnValue({ value: '/README.md' }),
+            getDescriptionFinding: jest.fn().mockReturnValue({ value: 'Referenced but missing' }),
+            getStatusMissing: jest.fn().mockReturnValue('NOT_FOUND'),
+          },
+        ],
+        dependencyAudit,
+      };
+    };
 
-    const mockRequest = new SaveCodeReportRequest(
-      ReportId.create(uuid()),
-      AnalysisId.create(uuid()),
-      [mockCoverageFinding],
-      [mockStaticAnalysisError],
-    );
+    it('should return success and persist full mapped payload when dependencyAudit is present', async () => {
+      const request = buildDocsRequest(true);
+      mockDocsReportModel.create.mockResolvedValue({});
 
-    it('should return success when code report is saved correctly', async () => {
-      mockCodeReportModel.create.mockResolvedValue({});
-
-      const result = await adapter.saveCodeReport(mockRequest);
+      const result = await adapter.saveDocsReport(request as never);
 
       expect(result.isSuccess).toBe(true);
-
-      expect(mockCodeReportModel.create).toHaveBeenCalledWith({
-        reportId: mockRequest.reportId.value,
-        analysisId: mockRequest.analysisId.value,
-        coverageFinding: [
+      expect(mockDocsReportModel.create).toHaveBeenCalledTimes(1);
+      expect(mockDocsReportModel.create).toHaveBeenCalledWith({
+        reportId: request.reportId.value,
+        analysisId: request.analysisId.value,
+        apiViolations: [
           {
-            totalLinesPercentage: 80,
-            totalBranchesPercentage: 75,
-            analyzedLanguage: 'TypeScript',
-            coverageFiles: [
-              {
-                path: 'src/main.ts',
-                linesPercentage: 90,
-                branchesPercentage: 85,
-                missedLines: [10, 12, 14],
-              },
-            ],
+            path: '/openapi.yaml',
+            rule: 'operation-operationId',
+            severity: 'HIGH',
+            description: 'operationId is missing for one endpoint',
           },
         ],
-        staticAnalysisErrors: [
+        docsDiscrepancies: [
           {
-            path: 'src/app.ts',
-            category: 'Security',
-            error: {
-              line: 42,
-              description: 'Insecure crypto usage',
-              severity: 'High',
+            path: '/README.md',
+            discrepancyCategory: 'OUTDATED_DOCS',
+            severity: 'LOW',
+            docsClaim: 'Uses Node 20',
+            actualFinding: 'CI uses Node 22',
+          },
+        ],
+        missingFiles: [
+          {
+            referencedPath: '/docs/api.md',
+            referencedIn: '/README.md',
+            description: 'Referenced but missing',
+            status: 'NOT_FOUND',
+          },
+        ],
+        dependencyAudit: {
+          readmeDefined: [{ name: 'nestjs', versionClaimed: '10.0.0' }],
+          configDefined: [{ name: 'nestjs', versionPinned: '10.0.1', path: 'package.json' }],
+          missingInConfig: [{ name: 'rxjs', path: 'README.md', severity: 'MEDIUM' }],
+          undocumentedInReadme: [{ name: 'class-validator', path: 'package.json' }],
+          versionMismatches: [
+            {
+              name: 'typescript',
+              readmeVersion: '5.5.0',
+              configVersion: '5.6.2',
+              path: 'package.json',
             },
-            language: 'TypeScript',
-          },
-        ],
+          ],
+        },
       });
     });
 
-    it('should return failure for generic database errors', async () => {
-      mockCodeReportModel.create.mockRejectedValue(new Error('Connection lost'));
+    it('should persist dependencyAudit as null when not provided', async () => {
+      const request = buildDocsRequest(false);
+      mockDocsReportModel.create.mockResolvedValue({});
 
-      const result = await adapter.saveCodeReport(mockRequest);
+      const result = await adapter.saveDocsReport(request as never);
 
-      expect(result.isSuccess).toBe(false);
-      expect(result.errorMessage).toContain('Connection lost');
+      expect(result.isSuccess).toBe(true);
+      expect(mockDocsReportModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ dependencyAudit: null }),
+      );
     });
 
-    it('should return failure when a non-Error object is thrown', async () => {
-      mockCodeReportModel.create.mockRejectedValue('stringa di errore');
+    it('should return failure message for Error thrown by persistence', async () => {
+      const request = buildDocsRequest(true);
+      mockDocsReportModel.create.mockRejectedValue(new Error('docs write failed'));
 
-      const result = await adapter.saveCodeReport(mockRequest);
+      const result = await adapter.saveDocsReport(request as never);
 
       expect(result.isSuccess).toBe(false);
-      expect(result.errorMessage).toContain('Unknown error');
+      expect(result.errorMessage).toContain('docs write failed');
     });
 
-    it('should return failure with correct message prefix', async () => {
-      mockCodeReportModel.create.mockRejectedValue(new Error('Timeout'));
+    it('should return unknown error message for non-Error thrown by persistence', async () => {
+      const request = buildDocsRequest(true);
+      mockDocsReportModel.create.mockRejectedValue('random failure');
 
-      const result = await adapter.saveCodeReport(mockRequest);
+      const result = await adapter.saveDocsReport(request as never);
 
       expect(result.isSuccess).toBe(false);
-      expect(result.errorMessage).toContain('Error saving code report');
-      expect(result.errorMessage).toContain('Timeout');
+      expect(result.errorMessage).toBe('Unknown error during Documentation Report save');
     });
   });
 });
