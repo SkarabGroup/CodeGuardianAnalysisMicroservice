@@ -26,6 +26,15 @@ export class GitHubAnalysisRecord {
 
   @Prop({ type: String, enum: AnalysisStatus })
   status!: AnalysisStatus;
+
+  @Prop({ type: String, default: null })
+  codeReportId: string | null = null;
+
+  @Prop({ type: String, default: null })
+  docsReportId: string | null = null;
+
+  @Prop({ type: String, default: null })
+  securityReportId: string | null = null;
 }
 
 export const GitHubAnalysisSchema = SchemaFactory.createForClass(GitHubAnalysisRecord);
