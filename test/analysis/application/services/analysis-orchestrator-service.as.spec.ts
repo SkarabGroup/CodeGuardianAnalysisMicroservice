@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AnalysisOrchestratorService } from '../../../../src/analysis/application/services/analysis-orchestrator-service.as';
 import { GitHubAnalysis } from '../../../../src/analysis/domain/entities/github-analysis.entity';
-import { CODE_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/code-agent.adapter';
+import { DOCS_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/docs-agent.adapter';
 describe('AnalysisOrchestratorService', () => {
   let service: AnalysisOrchestratorService;
 
   // Mock dell'adapter iniettato
-  const codeAgentMock = {
+  const docsAgentMock = {
     runAnalysis: jest.fn(),
   };
 
@@ -21,9 +21,9 @@ describe('AnalysisOrchestratorService', () => {
       providers: [
         AnalysisOrchestratorService,
         {
-          provide: CODE_AGENT,
+          provide: DOCS_AGENT,
           // Usiamo un oggetto che implementa l'interfaccia necessaria
-          useValue: codeAgentMock,
+          useValue: docsAgentMock,
         },
       ],
     }).compile();
@@ -44,7 +44,7 @@ describe('AnalysisOrchestratorService', () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {
       /* noop */
     });
-    codeAgentMock.runAnalysis.mockResolvedValue({ success: true });
+    docsAgentMock.runAnalysis.mockResolvedValue({ success: true });
 
     service.analyze(mockAnalysis, '/tmp/repo', true, false, true);
 
@@ -57,7 +57,7 @@ describe('AnalysisOrchestratorService', () => {
     );
 
     // Verifichiamo che l'adapter sia stato chiamato con l'ID corretto
-    expect(codeAgentMock.runAnalysis).toHaveBeenCalledWith(
+    expect(docsAgentMock.runAnalysis).toHaveBeenCalledWith(
       expect.objectContaining({
         id: mockAnalysisId,
       }),
