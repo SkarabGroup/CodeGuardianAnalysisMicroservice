@@ -50,59 +50,69 @@ COVERAGE_TOOLS = {
     "java": java_coverage_analysis
 }
 
+MAX_ISSUES_TO_MODEL   = 300
+MAX_COVERAGE_TO_MODEL = 100
+
 def build_agent_payload(static: dict, coverage: dict) -> dict:
     payload = {}
 
     if static.get("status") == "error":
-        payload["static_analysis_tool_error"] = static.get("message")
-    elif isinstance(static, dict) and "issues" in static:
-        issues = static.get("issues", [])
-        payload["static_analysis_report"] = {
+        payload["static_analysis_error"] = static.get("message")
+    elif "issues" in static:
+        payload["static_analysis"] = {
             "language": static.get("language"),
-            "tool": static.get("tool"),
-            "total": static.get("total"),
-            "issues": issues[:50],
-            "visible_issues": len(issues[:50])
+            "tool":     static.get("tool"),
+            "total":    static.get("total"),
+            "issues":   static.get("issues", [])[:MAX_ISSUES_TO_MODEL],
         }
 
     if coverage.get("status") == "error":
-        payload["coverage_tool_error"] = coverage.get("message")
-    elif isinstance(coverage, dict) and "files" in coverage:
+        payload["coverage_error"] = coverage.get("message")
+    elif "files" in coverage:
         files = coverage.get("files", [])
-        sorted_files = sorted(files, key=lambda f: f.get("line_coverage_pct", 0))
-
-        payload["coverage_report"] = {
-            "language": coverage.get("language"),
-            "tool": coverage.get("tool"),
-            "overall_line_pct": coverage.get("overall_line_pct"),
-            "overall_branch_pct": coverage.get("overall_branch_pct"),
+        sorted_files = sorted(
+            files,
+            key=lambda f: (-f.get("missing_branches", 0), f.get("line_coverage_pct", 100))
+        )
+        payload["coverage"] = {
+            "language":             coverage.get("language"),
+            "tool":                 coverage.get("tool"),
+            "overall_line_pct":     coverage.get("overall_line_pct"),
+            "overall_branch_pct":   coverage.get("overall_branch_pct"),
             "overall_function_pct": coverage.get("overall_function_pct"),
-            "files": sorted_files[:50],
-            "uncovered_files": coverage.get("uncovered_files", [])[:25]
+            "test_summary":         coverage.get("test_summary"),
+            "files":                sorted_files[:MAX_COVERAGE_TO_MODEL],
+            "uncovered_files":      coverage.get("uncovered_files", []),
         }
 
     return payload
 
 SYSTEM_PROMPT = """
-You are a Senior Code Quality Analyst.
+You are an elite Principal Software Engineer and Security Researcher performing a brutal, no-nonsense code review.
 
 INPUT FORMAT:
-You will receive a JSON object containing `static_analysis_report` and `coverage_report`.
+You will receive a JSON payload containing `static_analysis` (from tools like Biome/Ruff/PMD) and `coverage` (from Istanbul/Coverage.py/JaCoCo).
 
 OUTPUT FORMAT:
-Return ONLY a valid JSON object:
+Return ONLY a raw, valid JSON object matching this exact schema. DO NOT wrap it in markdown blockquotes (no ```json).
 {
   "verdict": "Critical|Poor|Fair|Good|Excellent",
-  "executive_summary": "Detailed technical overview",
+  "executive_summary": "A brutally honest, highly technical summary of the codebase health. No fluff. Cite concrete metrics.",
   "static_analysis_evaluation": {
     "total_issues_analyzed": int,
     "key_issues_reasoning": [
       {
         "file": "string",
+        "location": {
+          "line_start": int,
+          "line_end": int,
+          "column": int
+        },
         "rule": "string",
         "severity": "string",
         "original_description": "string",
-        "ai_reasoning": "Deep technical reasoning"
+        "ai_reasoning": "Deeply technical explanation of the underlying vulnerability, memory leak, or architectural bottleneck.",
+        "suggested_resolution": "Exact refactoring strategy, design pattern, or code-level fix."
       }
     ]
   },
@@ -112,22 +122,21 @@ Return ONLY a valid JSON object:
       {
         "file": "string",
         "line_coverage_pct": float,
+        "missing_lines": [int],
         "missing_branches": int,
-        "ai_reasoning": "Risk + testing strategy"
+        "ai_reasoning": "Analysis of the specific missing test execution paths (e.g., unhandled Promise rejections, missing auth branches) and their production impact."
       }
     ]
-  },
-  "action_plan": [
-    {"priority": 1, "action": "string", "reason": "string"}
-  ]
+  }
 }
 
-STRICT RULES:
-- total_issues_analyzed MUST equal static_analysis_report.total
-- You MUST extract and analyze EXACTLY 10 distinct files in `critical_files_reasoning` (or all available if less than 5 are provided).
-- You MUST extract and analyze EXACTLY 5 distinct issues in `key_issues_reasoning` (or all available if less than 5 are provided). Do NOT stop early.
-- Use ONLY provided data. Do NOT hallucinate.
-- Be highly technical. Mention undefined behavior, memory leaks, security, or branch risks based on the specific metrics.
+STRICT ENGINEERING RULES - PENALTY FOR NON-COMPLIANCE:
+1. NO DUPLICATE RULES: You MUST extract EXACTLY 10 distinct issues in `key_issues_reasoning` (or all if less than 10). YOU ARE STRICTLY FORBIDDEN from repeating the same `rule` (e.g., do not output `noUnusedFunctionParameters` more than once). Group similar issues mentally, pick the worst offender, and use the remaining slots for DIFFERENT rules.
+2. MAXIMIZE SEVERITY: Ignore stylistic warnings unless absolutely necessary. Hunt for bugs, security flaws, and high-complexity issues.
+3. BE SPECIFIC: In `suggested_resolution`, do not write "fix the issue". Tell the developer exactly what to do (e.g., "Implement early returns", "Use an optional chain `?.` to prevent TypeError").
+4. FILE DIVERSITY: Extract EXACTLY 15 distinct files for `critical_files_reasoning` (or all if less than 15). Focus on files with high complexity, 0% coverage, or missing branches in core logic.
+5. MATH ACCURACY: `total_issues_analyzed` MUST exactly match the `total` field provided in the static analysis input.
+6. NO HALLUCINATIONS: Use ONLY the provided JSON data. Never invent files, rules, locations, or metrics.
 """
 
 def safe_parse_ai_output(response: str):
@@ -158,7 +167,7 @@ def main():
 
         agent = Agent(
             system_prompt=SYSTEM_PROMPT,
-            model=os.getenv("AGENT_MODEL_ID")
+            model=os.getenv("CODE_AGENT_MODEL_ID")
         )
 
         response = agent(json.dumps(payload))
@@ -171,8 +180,6 @@ def main():
                 "language": language,
                 "status": "success"
             },
-            "static_analysis": static_data,
-            "coverage": coverage_data,
             "ai_interpretation": ai_output
         }))
 

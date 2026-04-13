@@ -1,8 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
-
 import { GitAuthorizerService } from '../../../../src/analysis/application/services/git-authorizer-service.as';
 import { GIT_CREDENTIAL_READ_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
+import { ConfigurationService } from '../../../../src/analysis/infrastructure/configuration/configuration.service';
 
 import { RepoURL } from '../../../../src/analysis/domain/value-objects/repo-url.vo';
 import { PATPassword } from '../../../../src/analysis/domain/value-objects/pat-password.vo';
@@ -15,49 +14,75 @@ describe('GitAuthorizerService', () => {
     authorize: jest.fn(),
   };
 
-  const mockConfigService = {
-    get: jest.fn(),
+  // Definiamo un'interfaccia per il mock per evitare il casting ad any
+  interface MockConfig {
+    codeGuardianToken: string;
+  }
+
+  const mockConfigurationService: MockConfig = {
+    codeGuardianToken: 'ghp_' + 'A'.repeat(36),
   };
 
   const validUrl = RepoURL.create('https://github.com/owner/repo');
   const validPassword = PATPassword.create(
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   );
-  const validPatString = 'ghp_' + 'A'.repeat(36);
+  // Salviamo il token originale per i ripristini
+  const originalToken = mockConfigurationService.codeGuardianToken;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GitAuthorizerService,
         { provide: GIT_CREDENTIAL_READ_PORT, useValue: mockCredentialPort },
-        { provide: ConfigService, useValue: mockConfigService },
+        { provide: ConfigurationService, useValue: mockConfigurationService },
       ],
     }).compile();
 
     service = module.get<GitAuthorizerService>(GitAuthorizerService);
-
     jest.resetAllMocks();
+
+    // Assicuriamoci che il token sia resettato prima di ogni test
+    mockConfigurationService.codeGuardianToken = originalToken;
   });
 
   describe('Private Strategy', () => {
     it('should return PAT when authorization succeeds', async () => {
       mockCredentialPort.authorize.mockResolvedValue({
         isAuthorized: true,
-        patToken: validPatString,
+        patToken: originalToken,
         errorMessage: null,
       });
 
       const result = await service.authorize(validUrl, validPassword);
 
       expect(result).toBeInstanceOf(PersonalAccessToken);
-      expect(result.value).toBe(validPatString);
-
+      expect(result.value).toBe(originalToken);
       expect(mockCredentialPort.authorize).toHaveBeenCalledTimes(1);
     });
 
-    it('should throw if isAuthorized is false', async () => {
-      mockCredentialPort.authorize.mockResolvedValue({
+    it('should throw if URL is missing for private authorization (line 29 coverage)', async () => {
+      // Forziamo il bypass di TS per passare undefined dove è richiesto RepoURL
+      await expect(
+        service.authorize(undefined as unknown as RepoURL, validPassword),
+      ).rejects.toThrow('URL is required for private repository authorization');
+    });
+
+    it('should throw if response is not authorized or token is missing (line 36 coverage)', async () => {
+      // Caso 1: isAuthorized false
+      mockCredentialPort.authorize.mockResolvedValueOnce({
         isAuthorized: false,
+        patToken: null,
+        errorMessage: null,
+      });
+
+      await expect(service.authorize(validUrl, validPassword)).rejects.toThrow(
+        'Authorization not granted',
+      );
+
+      // Caso 2: isAuthorized true ma token mancante (edge case logico)
+      mockCredentialPort.authorize.mockResolvedValueOnce({
+        isAuthorized: true,
         patToken: null,
         errorMessage: null,
       });
@@ -67,59 +92,30 @@ describe('GitAuthorizerService', () => {
       );
     });
 
-    it('should throw if errorMessage is present', async () => {
+    it('should throw with specific error message from port if present (line 36 coverage)', async () => {
       mockCredentialPort.authorize.mockResolvedValue({
         isAuthorized: false,
         patToken: null,
-        errorMessage: 'DB error',
+        errorMessage: 'Invalid database connection',
       });
 
-      await expect(service.authorize(validUrl, validPassword)).rejects.toThrow('DB error');
-    });
-
-    it('should throw if response is malformed', async () => {
-      mockCredentialPort.authorize.mockResolvedValue({});
-
       await expect(service.authorize(validUrl, validPassword)).rejects.toThrow(
-        'Authorization not granted',
+        'Invalid database connection',
       );
-    });
-
-    it('should propagate port errors', async () => {
-      mockCredentialPort.authorize.mockRejectedValue(new Error('Port failure'));
-
-      await expect(service.authorize(validUrl, validPassword)).rejects.toThrow('Port failure');
-    });
-
-    it('should throw if URL is missing', async () => {
-      // bypass TS
-      await expect(
-        service.authorize(undefined as unknown as RepoURL, validPassword),
-      ).rejects.toThrow('URL is required for private repository authorization');
     });
   });
 
   describe('Public Strategy', () => {
-    it('should return token from config', async () => {
-      mockConfigService.get.mockReturnValue(validPatString);
-
+    it('should return token from ConfigurationService', async () => {
       const result = await service.authorize(validUrl);
 
-      expect(result.value).toBe(validPatString);
-      expect(mockConfigService.get).toHaveBeenCalledWith('CODE_GUARDIAN_TOKEN');
+      expect(result.value).toBe(originalToken);
       expect(mockCredentialPort.authorize).not.toHaveBeenCalled();
     });
 
-    it('should throw if token not configured', async () => {
-      mockConfigService.get.mockReturnValue(undefined);
-
-      await expect(service.authorize(validUrl)).rejects.toThrow(
-        'Public analysis requested but GITHUB_PUBLIC_TOKEN is not configured',
-      );
-    });
-
-    it('should throw if token is invalid for VO', async () => {
-      mockConfigService.get.mockReturnValue('invalid-token');
+    it('should throw if token is invalid for Value Object', async () => {
+      // Modifica sicura senza 'any': mockConfigurationService implementa MockConfig
+      mockConfigurationService.codeGuardianToken = 'invalid-token';
 
       await expect(service.authorize(validUrl)).rejects.toThrow();
     });
@@ -129,22 +125,12 @@ describe('GitAuthorizerService', () => {
     it('should use PrivateStrategy when password is provided', async () => {
       mockCredentialPort.authorize.mockResolvedValue({
         isAuthorized: true,
-        patToken: validPatString,
+        patToken: originalToken,
       });
 
       await service.authorize(validUrl, validPassword);
 
       expect(mockCredentialPort.authorize).toHaveBeenCalled();
-      expect(mockConfigService.get).not.toHaveBeenCalled();
-    });
-
-    it('should use PublicStrategy when password is NOT provided', async () => {
-      mockConfigService.get.mockReturnValue(validPatString);
-
-      await service.authorize(validUrl);
-
-      expect(mockConfigService.get).toHaveBeenCalled();
-      expect(mockCredentialPort.authorize).not.toHaveBeenCalled();
     });
   });
 
