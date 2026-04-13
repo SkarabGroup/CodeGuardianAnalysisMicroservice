@@ -16,7 +16,6 @@ import {
   GIT_CREDENTIAL_DELETE_PORT,
   GIT_CREDENTIAL_READ_PORT,
   GITHUB_ANALYSIS_SAVE_PORT,
-  CODE_REPORT_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -55,17 +54,17 @@ import {
   GitHubAnalysisSchema,
 } from './infrastructure/adapters/persistence/schema/github-analysis.schema';
 import {
+  DOCS_AGENT,
+  DocumentationAnalysisAdapter,
+} from './infrastructure/adapters/externals/docs-agent.adapter';
+import {
   CODE_AGENT,
   CodeAnalysisAdapter,
 } from './infrastructure/adapters/externals/code-agent.adapter';
 import {
-  DOCS_AGENT,
-  DocumentationAnalysisAdapter,
-} from './infrastructure/adapters/externals/docs-agent.adapter';
-  CodeReportRecord,
-  CodeReportSchema,
-} from './infrastructure/adapters/persistence/schema/code-report.schema';
-
+  DocumentationReport,
+  DocumentationReportSchema,
+} from './infrastructure/adapters/persistence/schema/docs-report.schema';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -82,8 +81,8 @@ import {
           schema: GitHubAnalysisSchema,
         },
         {
-          name: CodeReportRecord.name,
-          schema: CodeReportSchema,
+          name: DocumentationReport.name,
+          schema: DocumentationReportSchema,
         },
       ],
       'DatabaseConnection',
@@ -166,10 +165,6 @@ import {
     {
       provide: DOCS_AGENT,
       useClass: DocumentationAnalysisAdapter,
-    },
-    {
-      provide: CODE_REPORT_SAVE_PORT,
-      useClass: MongoDBAdapter,
     },
   ],
   controllers: [AnalysisController, PatController],
