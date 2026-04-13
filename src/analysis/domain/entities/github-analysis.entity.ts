@@ -4,6 +4,7 @@ import { RepoURL } from '../value-objects/repo-url.vo';
 import { BranchName } from '../value-objects/branch-name.vo';
 import { CommitHash } from '../value-objects/commit-hash.vo';
 import { AnalysisStatus } from '../enums/analysis-status.enum';
+import { ReportId } from '../value-objects/report-id.vo';
 
 export type GitHubAnalysisProps = {
   id: AnalysisId;
@@ -11,6 +12,9 @@ export type GitHubAnalysisProps = {
   url: RepoURL;
   branch: BranchName;
   commit: CommitHash;
+  codeReportId?: ReportId | null;
+  docsReportId?: ReportId | null;
+  securityReportId?: ReportId | null;
 };
 
 export class GitHubAnalysis {
@@ -20,6 +24,9 @@ export class GitHubAnalysis {
     private readonly repoURL: RepoURL,
     private readonly branch: BranchName,
     private readonly commit: CommitHash,
+    private readonly codeReportId: ReportId | null,
+    private readonly docsReportId: ReportId | null,
+    private readonly securityReportId: ReportId | null,
     private status = AnalysisStatus.PENDING,
   ) {}
 
@@ -30,19 +37,10 @@ export class GitHubAnalysis {
       properties.url,
       properties.branch,
       properties.commit,
+      properties.codeReportId ?? null,
+      properties.docsReportId ?? null,
+      properties.securityReportId ?? null,
     );
-  }
-
-  public getRepoURL(): RepoURL {
-    return this.repoURL;
-  }
-
-  public getBranch(): BranchName {
-    return this.branch;
-  }
-
-  public getCommit(): CommitHash {
-    return this.commit;
   }
 
   public equals(other: GitHubAnalysis): boolean {
@@ -87,5 +85,29 @@ export class GitHubAnalysis {
 
   public getStatus(): AnalysisStatus {
     return this.status;
+  }
+
+  public getRepoURL(): RepoURL {
+    return this.repoURL;
+  }
+
+  public getBranch(): BranchName {
+    return this.branch;
+  }
+
+  public getCommit(): CommitHash {
+    return this.commit;
+  }
+
+  public getCodeReportId(): ReportId | null {
+    return this.codeReportId;
+  }
+
+  public getDocsReportId(): ReportId | null {
+    return this.docsReportId;
+  }
+
+  public getSecurityReportId(): ReportId | null {
+    return this.securityReportId;
   }
 }

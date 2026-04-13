@@ -393,35 +393,76 @@ describe('MongoDBAdapter (Unit Test)', () => {
   });
 
   describe('saveAnalysis', () => {
-    const mockRequest = new SaveGitHubAnalysisRequest(
+    const mockRequestWithNulls = new SaveGitHubAnalysisRequest(
       AnalysisId.create(uuid()),
       UserId.create(uuid()),
       RepoURL.create('https://github.com/owner/repo'),
       BranchName.create('main'),
       CommitHash.create('a'.repeat(40)),
       AnalysisStatus.PENDING,
+      null, // codeReportId
+      null, // docsReportId
+      null, // securityReportId
     );
 
-    it('should return success when analysis is saved correctly', async () => {
+    const mockCodeReportId = ReportId.create(uuid());
+    const mockDocsReportId = ReportId.create(uuid());
+    const mockSecurityReportId = ReportId.create(uuid());
+
+    const mockRequestWithReports = new SaveGitHubAnalysisRequest(
+      AnalysisId.create(uuid()),
+      UserId.create(uuid()),
+      RepoURL.create('https://github.com/owner/repo'),
+      BranchName.create('main'),
+      CommitHash.create('a'.repeat(40)),
+      AnalysisStatus.PENDING,
+      mockCodeReportId,
+      mockDocsReportId,
+      mockSecurityReportId,
+    );
+
+    it('should return success and save correctly with null report IDs', async () => {
       mockAnalysisModel.create.mockResolvedValue({});
 
-      const result = await adapter.saveAnalysis(mockRequest);
+      const result = await adapter.saveAnalysis(mockRequestWithNulls);
 
       expect(result.isSuccess).toBe(true);
       expect(mockAnalysisModel.create).toHaveBeenCalledWith({
-        analysisId: mockRequest.analysisId.value,
-        userId: mockRequest.userId.value,
-        repoURL: mockRequest.repoURL.value,
-        branch: mockRequest.branch.value,
-        commit: mockRequest.commit.value,
-        status: mockRequest.status,
+        analysisId: mockRequestWithNulls.analysisId.value,
+        userId: mockRequestWithNulls.userId.value,
+        repoURL: mockRequestWithNulls.repoURL.value,
+        branch: mockRequestWithNulls.branch.value,
+        commit: mockRequestWithNulls.commit.value,
+        status: mockRequestWithNulls.status,
+        codeReportId: null,
+        docsReportId: null,
+        securityReportId: null,
+      });
+    });
+
+    it('should return success and save correctly with populated report IDs', async () => {
+      mockAnalysisModel.create.mockResolvedValue({});
+
+      const result = await adapter.saveAnalysis(mockRequestWithReports);
+
+      expect(result.isSuccess).toBe(true);
+      expect(mockAnalysisModel.create).toHaveBeenCalledWith({
+        analysisId: mockRequestWithReports.analysisId.value,
+        userId: mockRequestWithReports.userId.value,
+        repoURL: mockRequestWithReports.repoURL.value,
+        branch: mockRequestWithReports.branch.value,
+        commit: mockRequestWithReports.commit.value,
+        status: mockRequestWithReports.status,
+        codeReportId: mockCodeReportId.value,
+        docsReportId: mockDocsReportId.value,
+        securityReportId: mockSecurityReportId.value,
       });
     });
 
     it('should return failure for generic database errors', async () => {
       mockAnalysisModel.create.mockRejectedValue(new Error('Connection lost'));
 
-      const result = await adapter.saveAnalysis(mockRequest);
+      const result = await adapter.saveAnalysis(mockRequestWithNulls);
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toContain('Connection lost');
@@ -430,7 +471,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     it('should return failure when a non-Error object is thrown', async () => {
       mockAnalysisModel.create.mockRejectedValue('error string');
 
-      const result = await adapter.saveAnalysis(mockRequest);
+      const result = await adapter.saveAnalysis(mockRequestWithNulls);
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toContain('Unknown error');
@@ -439,7 +480,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     it('should return failure with correct message prefix', async () => {
       mockAnalysisModel.create.mockRejectedValue(new Error('Timeout'));
 
-      const result = await adapter.saveAnalysis(mockRequest);
+      const result = await adapter.saveAnalysis(mockRequestWithNulls);
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toContain('Error saving analysis');

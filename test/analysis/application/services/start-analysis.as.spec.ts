@@ -47,7 +47,7 @@ describe('StartAnalysisService', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  it('should orchestrate full flow and call orchestrator correctly', async () => {
+  it('should orchestrate full flow and generate proper report IDs', async () => {
     const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
     const branch = BranchName.create('main');
     const commit = CommitHash.create('a'.repeat(40));
@@ -72,6 +72,12 @@ describe('StartAnalysisService', () => {
 
     expect(result.success).toBe(true);
 
+    // Verifichiamo che i report ID siano stati generati e passati correttamente al DB
+    const saveRequestCall = mockAnalysisSavePort.saveAnalysis.mock.calls[0][0];
+    expect(saveRequestCall.codeReportId).not.toBeNull();
+    expect(saveRequestCall.docsReportId).toBeNull(); // È null perché command.docs è false
+    expect(saveRequestCall.securityReportId).not.toBeNull();
+
     // Casting sicuro per evitare l'errore di unsafe member access su any
     const [calledAnalysis, calledPath, code, docs, security] = mockOrchestrator.analyze.mock
       .calls[0] as [GitHubAnalysis, string, boolean, boolean, boolean];
@@ -84,7 +90,7 @@ describe('StartAnalysisService', () => {
     expect(security).toBe(true);
   });
 
-  it('should handle public repo (no password)', async () => {
+  it('should handle public repo (no password) and no reports requested', async () => {
     const token = PersonalAccessToken.create('ghp_' + 'A'.repeat(36));
     mockAuthorizer.authorize.mockResolvedValue(token);
     mockValidator.check.mockResolvedValue({
@@ -96,18 +102,33 @@ describe('StartAnalysisService', () => {
     const command = new StartAnalysisCommand({
       url: VALID_URL,
       user: VALID_USER,
+      code: false,
+      docs: false,
+      security: false,
     });
 
     await service.execute(command);
 
     expect(mockAuthorizer.authorize).toHaveBeenCalledWith(expect.any(RepoURL), undefined);
+
+    // Nessun report richiesto, quindi tutti gli ID devono essere null
+    const saveRequestCall = mockAnalysisSavePort.saveAnalysis.mock.calls[0][0];
+    expect(saveRequestCall.codeReportId).toBeNull();
+    expect(saveRequestCall.docsReportId).toBeNull();
+    expect(saveRequestCall.securityReportId).toBeNull();
   });
 
   it('should propagate validator errors and not call orchestrator', async () => {
     mockAuthorizer.authorize.mockResolvedValue(PersonalAccessToken.create('ghp_' + 'A'.repeat(36)));
     mockValidator.check.mockRejectedValue(new Error('Validation failed'));
 
-    const command = new StartAnalysisCommand({ url: VALID_URL, user: VALID_USER });
+    const command = new StartAnalysisCommand({
+      url: VALID_URL,
+      user: VALID_USER,
+      code: true,
+      docs: true,
+      security: true,
+    });
 
     await expect(service.execute(command)).rejects.toThrow('Validation failed');
     expect(mockOrchestrator.analyze).not.toHaveBeenCalled();
@@ -121,7 +142,13 @@ describe('StartAnalysisService', () => {
     });
     mockCloner.clone.mockResolvedValue('/tmp/path');
 
-    const command = new StartAnalysisCommand({ url: VALID_URL, user: VALID_USER });
+    const command = new StartAnalysisCommand({
+      url: VALID_URL,
+      user: VALID_USER,
+      code: true,
+      docs: true,
+      security: true,
+    });
 
     await service.execute(command);
 
