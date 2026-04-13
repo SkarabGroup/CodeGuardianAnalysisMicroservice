@@ -14,10 +14,25 @@ lerna-debug.log*
 
 # OS
 .DS_Store
+Thumbs.db 
 
 # Tests
 /coverage
 /.nyc_output
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Tests/Coverage (Python)
+.coverage
+htmlcov/
 
 # IDEs and editors
 /.idea
@@ -41,6 +56,7 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+.env.*
 
 # temp directory
 .temp
