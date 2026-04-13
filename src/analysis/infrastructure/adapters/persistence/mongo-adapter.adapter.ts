@@ -18,11 +18,10 @@ import { IGitHubAnalysisSavePort } from '../../../application/ports/repositories
 import { SaveGitHubAnalysisRequest } from '../../../application/DTOs/models/requests/save-git-analysis-request-model.model';
 import { SaveGitHubAnalysisResponse } from '../../../application/DTOs/models/responses/save-git-analysis-response-model.model';
 import { GitHubAnalysisRecord, GitHubAnalysisDocument } from './schema/github-analysis.schema';
-import { ICodeReportSavePort } from '../../../application/ports/repositories/code-report-save-port.repository';
-import { SaveCodeReportRequest } from '../../../application/DTOs/models/requests/save-code-report-request-model.model';
-import { SaveCodeReportResponse } from '../../../application/DTOs/models/responses/save-code-report-response-model.model';
-import { CodeReportRecord, CodeReportDocument } from './schema/code-report.schema';
-
+//DocsReport related imports
+import { SaveDocsReportRequest } from '../../../application/DTOs/models/requests/save-docs-report-request-model.model';
+import { SaveDocsReportResponse } from '../../../application/DTOs/models/responses/save-docs-report-response-model.model';
+import { DocumentationReport, DocumentationReportDocument } from './schema/docs-report.schema';
 @Injectable() //Get
 //Post
 // Delete
@@ -33,16 +32,15 @@ export class MongoDBAdapter
     IGitCredentialSavePort,
     IGitCredentialDeletePort,
     IGitCredentialUpdatePort,
-    IGitHubAnalysisSavePort,
-    ICodeReportSavePort
+    IGitHubAnalysisSavePort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
     private readonly credentialModel: Model<GitCredentialDocument>,
     @InjectModel(GitHubAnalysisRecord.name, 'DatabaseConnection')
     private readonly analysisModel: Model<GitHubAnalysisDocument>,
-    @InjectModel(CodeReportRecord.name, 'DatabaseConnection')
-    private readonly codeReportModel: Model<CodeReportDocument>,
+    @InjectModel(DocumentationReport.name, 'DatabaseConnection')
+    private readonly docsReportModel: Model<DocumentationReportDocument>,
   ) {}
 
   async authorize(model: GetGitCredentialRequest): Promise<GetGitCredentialResponse> {
@@ -145,6 +143,77 @@ export class MongoDBAdapter
     }
   }
 
+  async saveDocsReport(model: SaveDocsReportRequest): Promise<SaveDocsReportResponse> {
+    try {
+      await this.docsReportModel.create({
+        reportId: model.reportId.value,
+        analysisId: model.analysisId.value,
+
+        // Mappatura API Violations
+        apiViolations: model.apiViolations.map((v) => ({
+          path: v.getPathFinding().value,
+          rule: v.getRule(),
+          severity: v.getSeverityFinding().value,
+          description: v.getDescriptionFinding().value,
+        })),
+
+        // Mappatura Docs Discrepancies
+        docsDiscrepancies: model.docsDiscrepancies.map((d) => ({
+          path: d.getPathFinding().value,
+          discrepancyCategory: d.getDiscrepancyCategory(),
+          severity: d.getSeverityFinding().value,
+          docsClaim: d.getDocsClaim().value,
+          actualFinding: d.getActualFinding().value,
+        })),
+
+        // Mappatura Missing Files
+        missingFiles: model.missingFiles.map((mf) => ({
+          referencedPath: mf.getReferencedPath().value,
+          referencedIn: mf.getReferencedIn().value,
+          description: mf.getDescriptionFinding().value,
+          status: mf.getStatusMissing(),
+        })),
+
+        // Mappatura Dependency Audit (se presente)
+        dependencyAudit: model.dependencyAudit
+          ? {
+              readmeDefined: model.dependencyAudit.getReadmeDefined().map((dep) => ({
+                name: dep.getName(),
+                versionClaimed: dep.getVersionClaimed(),
+              })),
+              configDefined: model.dependencyAudit.getConfigDefined().map((dep) => ({
+                name: dep.getName(),
+                versionPinned: dep.getVersionPinned(),
+                path: dep.getPathFinding().value,
+              })),
+              missingInConfig: model.dependencyAudit.getMissingInConfig().map((dep) => ({
+                name: dep.getName(),
+                path: dep.getPathFinding().value,
+                severity: dep.getSeverityFinding().value,
+              })),
+              undocumentedInReadme: model.dependencyAudit.getUndocumentedInReadme().map((dep) => ({
+                name: dep.getName(),
+                path: dep.getPathFinding().value,
+              })),
+              versionMismatches: model.dependencyAudit.getVersionMismatches().map((dep) => ({
+                name: dep.getName(),
+                readmeVersion: dep.getReadmeVersion(),
+                configVersion: dep.getConfigVersion(),
+                path: dep.getPathFinding().value,
+              })),
+            }
+          : null,
+      });
+
+      return SaveDocsReportResponse.success();
+    } catch (error) {
+      // Logga l'errore se necessario e restituisci il fallimento
+      return SaveDocsReportResponse.failure(
+        error instanceof Error ? error.message : 'Unknown error during Documentation Report save',
+      );
+    }
+  }
+  /*
   async saveCodeReport(request: SaveCodeReportRequest): Promise<SaveCodeReportResponse> {
     try {
       await this.codeReportModel.create({
@@ -179,6 +248,7 @@ export class MongoDBAdapter
       return SaveCodeReportResponse.failure(`Error saving code report: ${message}`);
     }
   }
+*/
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
