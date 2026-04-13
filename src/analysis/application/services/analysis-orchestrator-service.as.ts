@@ -7,12 +7,21 @@ import { CodeAgentRequest } from '../DTOs/models/requests/code-agent-request-mod
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+//import type { IAgentPort } from '../ports/externals/agent-port.port';
+//import { CODE_AGENT } from '../../infrastructure/adapters/externals/code-agent.adapter';
+import { AgentRequest } from '../DTOs/models/requests/agent-request-model.model';
+import { DOCS_AGENT } from '../../infrastructure/adapters/externals/docs-agent.adapter';
+import type { IDocumentationAgentPort } from '../ports/externals/dosc-agent-port.port';
 
 @Injectable()
 export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
   constructor(
     @Inject(CODE_AGENT)
     private readonly codeAgent: ICodeAgentPort,
+    //@Inject(CODE_AGENT)
+    //private readonly codeAgent: IAgentPort,
+    @Inject(DOCS_AGENT)
+    private readonly documentationAgent: IDocumentationAgentPort,
   ) {}
 
   private async orchestrateAnalysis(
@@ -42,6 +51,8 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     } else {
       console.log('Neither one of the topic of the analysis was selected');
     }
+    //await this.codeAgent.runAnalysis(new AgentRequest(analysis.getAnalysisId()));
+    await this.documentationAgent.runAnalysis(new AgentRequest(analysis.getAnalysisId()));
   }
 
   public analyze(

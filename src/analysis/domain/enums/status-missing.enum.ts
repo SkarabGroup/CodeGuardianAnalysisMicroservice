@@ -1,0 +1,5 @@
+export enum StatusMissing {
+  NOT_FOUND = 'NOT_FOUND',
+  POSSIBLY_RENAMED = 'POSSIBLY_RENAMED',
+  WRONG_PATH = 'WRONG_PATH',
+}

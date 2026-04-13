@@ -14,6 +14,8 @@ import {
   GIT_CREDENTIAL_UPDATE_PORT,
   GIT_CREDENTIAL_DELETE_PORT,
   GIT_CREDENTIAL_READ_PORT,
+  GITHUB_ANALYSIS_SAVE_PORT,
+  CODE_REPORT_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -48,12 +50,20 @@ import {
   AnalysisOrchestratorService,
 } from './application/services/analysis-orchestrator-service.as';
 import {
+  GitHubAnalysisRecord,
+  GitHubAnalysisSchema,
+} from './infrastructure/adapters/persistence/schema/github-analysis.schema';
+import {
   CODE_AGENT,
-  LocalCodeAnalysisAdapter,
-} from './infrastructure/adapters/externals/local-code-agent.adapter';
-import { ConfigurationService } from './infrastructure/configuration/configuration.service';
-import { ConfigurationModule } from './infrastructure/configuration/configuration.module';
-import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-code-agent.adapter';
+  CodeAnalysisAdapter,
+} from './infrastructure/adapters/externals/code-agent.adapter';
+import {
+  DOCS_AGENT,
+  DocumentationAnalysisAdapter,
+} from './infrastructure/adapters/externals/docs-agent.adapter';
+  CodeReportRecord,
+  CodeReportSchema,
+} from './infrastructure/adapters/persistence/schema/code-report.schema';
 
 @Module({
   imports: [
@@ -62,6 +72,14 @@ import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-
         {
           name: GitCredential.name,
           schema: GitCredentialSchema,
+        },
+        {
+          name: GitHubAnalysisRecord.name,
+          schema: GitHubAnalysisSchema,
+        },
+        {
+          name: CodeReportRecord.name,
+          schema: CodeReportSchema,
         },
       ],
       'DatabaseConnection',
@@ -139,6 +157,10 @@ import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-
       useClass: GitHubAdapter,
     },
     {
+      provide: GITHUB_ANALYSIS_SAVE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
       provide: CODE_AGENT,
       useFactory: (configService: ConfigurationService) => {
         if (process.env.NODE_ENV === 'production') {
@@ -147,6 +169,14 @@ import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-
         } else return new LocalCodeAnalysisAdapter();
       },
       inject: [ConfigurationService],
+    },
+    {
+      provide: DOCS_AGENT,
+      useClass: DocumentationAnalysisAdapter,
+    },
+    {
+      provide: CODE_REPORT_SAVE_PORT,
+      useClass: MongoDBAdapter,
     },
   ],
   controllers: [AnalysisController, PatController],
