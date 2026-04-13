@@ -5,7 +5,7 @@ import { IAnalysisOrchestrator } from './interfaces/analysis-orchestrator.as.int
 //import { CODE_AGENT } from '../../infrastructure/adapters/externals/code-agent.adapter';
 import { AgentRequest } from '../DTOs/models/requests/agent-request-model.model';
 import { DOCS_AGENT } from '../../infrastructure/adapters/externals/docs-agent.adapter';
-import type { IDocumentationAgentPort } from '../ports/externals/dosc-agent-port.port';
+import type { IDocumentationAgentPort } from '../ports/externals/docs-agent-port.port';
 
 @Injectable()
 export class AnalysisOrchestratorService implements IAnalysisOrchestrator {

@@ -3,7 +3,7 @@ import { DocumentationAnalysisAdapter } from '../../../../../src/analysis/infras
 import * as childProcess from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { AgentRequest } from '../../../../../src/analysis/application/DTOs/models/requests/agent-request-model.model';
-import { AgentResponse } from '../../../../../src/analysis/application/DTOs/models/responses/agent-response-model.model';
+import { DocsAgentResponse } from '../../../../../src/analysis/application/DTOs/models/responses/docs-agent-response-model.model';
 
 // Mock del modulo child_process
 jest.mock('node:child_process');
@@ -48,7 +48,7 @@ describe('DocumentationAnalysisAdapter', () => {
 
       const result = await analysisPromise;
 
-      expect(result).toBeInstanceOf(AgentResponse);
+      expect(result).toBeInstanceOf(DocsAgentResponse);
       expect(spawnSpy).toHaveBeenCalledWith(
         'docker',
         expect.arrayContaining([
@@ -74,7 +74,7 @@ describe('DocumentationAnalysisAdapter', () => {
       const result = await analysisPromise;
 
       // L'adapter corrente cattura l'errore e ritorna comunque un AgentResponse
-      expect(result).toBeInstanceOf(AgentResponse);
+      expect(result).toBeInstanceOf(DocsAgentResponse);
     });
 
     it('should handle non-zero exit codes', async () => {
@@ -89,7 +89,7 @@ describe('DocumentationAnalysisAdapter', () => {
 
       const result = await analysisPromise;
 
-      expect(result).toBeInstanceOf(AgentResponse);
+      expect(result).toBeInstanceOf(DocsAgentResponse);
     });
   });
 });

@@ -48,10 +48,10 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
         });
       });
 
-      return new AgentResponse();
+      return new DocsAgentResponse(true, [], [], [], null);
     } catch (error) {
       console.error(`[Adapter] Analisi fallita:`, error);
-      return new AgentResponse();
+      return new DocsAgentResponse(false, [], [], [], null, (error as Error).message);
     }
   }
 }
