@@ -59,6 +59,9 @@ import {
   CodeAnalysisAdapter,
 } from './infrastructure/adapters/externals/code-agent.adapter';
 import {
+  DOCS_AGENT,
+  DocumentationAnalysisAdapter,
+} from './infrastructure/adapters/externals/docs-agent.adapter';
   CodeReportRecord,
   CodeReportSchema,
 } from './infrastructure/adapters/persistence/schema/code-report.schema';
@@ -159,6 +162,10 @@ import {
     {
       provide: CODE_AGENT,
       useClass: CodeAnalysisAdapter,
+    },
+    {
+      provide: DOCS_AGENT,
+      useClass: DocumentationAnalysisAdapter,
     },
     {
       provide: CODE_REPORT_SAVE_PORT,
