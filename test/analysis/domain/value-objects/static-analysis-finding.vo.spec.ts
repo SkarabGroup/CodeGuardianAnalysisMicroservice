@@ -1,145 +1,129 @@
 import { StaticAnalysisFinding } from '../../../../src/analysis/domain/value-objects/static-analysis-finding.vo';
+import { StaticAnalysisIssue } from '../../../../src/analysis/domain/value-objects/static-analysis-issue.vo';
 import { PathFinding } from '../../../../src/analysis/domain/value-objects/path-finding.vo';
-import { ErrorFinding } from '../../../../src/analysis/domain/value-objects/error-finding.vo';
-import { DescriptionFinding } from '../../../../src/analysis/domain/value-objects/description-finding.vo';
+import { PositionFinding } from '../../../../src/analysis/domain/value-objects/position-finding.vo';
 import { SeverityFinding } from '../../../../src/analysis/domain/value-objects/severity-finding.vo';
-import { SupportedLanguages } from '../../../../src/analysis/domain/enums/supported-languages.enum';
+import { DescriptionFinding } from '../../../../src/analysis/domain/value-objects/description-finding.vo';
+import { SeverityLevel } from '../../../../src/analysis/domain/enums/severity-level.enum';
 
 describe('StaticAnalysisFinding (Value Object)', () => {
-  const VALID_PATH = PathFinding.create('src/app.ts');
-  const VALID_DESC = DescriptionFinding.create('Variable never used');
-  const VALID_SEVERITY = SeverityFinding.create('LOW');
+  const VALID_PATH_1 = PathFinding.create('src/file1.ts');
+  const VALID_PATH_2 = PathFinding.create('src/file2.ts');
+  const VALID_POSITION = PositionFinding.create(1, 5, 0);
+  const VALID_SEVERITY = SeverityFinding.create(SeverityLevel.HIGH);
+  const VALID_ORIGINAL = DescriptionFinding.create('Unused variable detected');
+  const VALID_REASONING = DescriptionFinding.create('Variable x is declared but never used');
+  const VALID_RESOLUTION = DescriptionFinding.create('Remove the variable or use it');
 
-  const VALID_ERROR = ErrorFinding.create(15, VALID_DESC, VALID_SEVERITY);
-
-  const VALID_CATEGORY = 'Code Quality';
-  const VALID_LANGUAGE_INPUT = 'typescript';
-  const EXPECTED_LANGUAGE = SupportedLanguages.TYPESCRIPT;
+  const VALID_ISSUE_1 = StaticAnalysisIssue.create(
+    VALID_PATH_1, VALID_POSITION, 'no-unused-vars', VALID_SEVERITY,
+    VALID_ORIGINAL, VALID_REASONING, VALID_RESOLUTION,
+  );
+  const VALID_ISSUE_2 = StaticAnalysisIssue.create(
+    VALID_PATH_2, VALID_POSITION, 'no-explicit-any', VALID_SEVERITY,
+    VALID_ORIGINAL, VALID_REASONING, VALID_RESOLUTION,
+  );
 
   describe('Success cases', () => {
-    it('should create a valid StaticAnalysisFinding instance', () => {
-      const staticAnalysis = StaticAnalysisFinding.create(
-        VALID_PATH,
-        VALID_CATEGORY,
-        VALID_ERROR,
-        VALID_LANGUAGE_INPUT,
-      );
-
-      expect(staticAnalysis).toBeDefined();
-      expect(staticAnalysis.getPathFinding()).toBe(VALID_PATH);
-      expect(staticAnalysis.getErrorCategory()).toBe(VALID_CATEGORY);
-      expect(staticAnalysis.getErrorFinding()).toBe(VALID_ERROR);
-      expect(staticAnalysis.getAnalyzedLanguage()).toBe(EXPECTED_LANGUAGE);
+    it('should create a valid StaticAnalysisFinding', () => {
+      const finding = StaticAnalysisFinding.create(2, [VALID_ISSUE_1, VALID_ISSUE_2]);
+      expect(finding).toBeDefined();
     });
 
-    it('should normalize category (trim) and language (trim + uppercase)', () => {
-      const finding = StaticAnalysisFinding.create(
-        VALID_PATH,
-        '  Security  ',
-        VALID_ERROR,
-        '  javascript  ',
-      );
+    it('should return correct values from getters', () => {
+      const finding = StaticAnalysisFinding.create(2, [VALID_ISSUE_1, VALID_ISSUE_2]);
 
-      expect(finding.getErrorCategory()).toBe('Security');
-      expect(finding.getAnalyzedLanguage()).toBe(SupportedLanguages.JAVASCRIPT);
+      expect(finding.getTotalIssues()).toBe(2);
+      expect(finding.getIssues()).toEqual([VALID_ISSUE_1, VALID_ISSUE_2]);
     });
 
-    it('should return true for equal objects', () => {
-      const f1 = StaticAnalysisFinding.create(
-        VALID_PATH,
-        VALID_CATEGORY,
-        VALID_ERROR,
-        'TYPESCRIPT',
-      );
-      const f2 = StaticAnalysisFinding.create(
-        PathFinding.create('src/app.ts'),
-        VALID_CATEGORY,
-        ErrorFinding.create(
-          15,
-          DescriptionFinding.create('Variable never used'),
-          SeverityFinding.create('LOW'),
-        ),
-        'typescript',
-      );
+    it('should protect internal issues array (immutability)', () => {
+      const finding = StaticAnalysisFinding.create(1, [VALID_ISSUE_1]);
 
-      expect(f1.equals(f2)).toBe(true);
+      const issues = finding.getIssues();
+      issues.push(VALID_ISSUE_2);
+
+      expect(finding.getIssues()).toEqual([VALID_ISSUE_1]);
+    });
+
+    it('should allow totalIssues of 0 with empty array', () => {
+      const finding = StaticAnalysisFinding.create(0, []);
+      expect(finding.getTotalIssues()).toBe(0);
+      expect(finding.getIssues()).toEqual([]);
+    });
+
+    it('should allow totalIssues greater than issues array length', () => {
+      const finding = StaticAnalysisFinding.create(100, [VALID_ISSUE_1]);
+      expect(finding.getTotalIssues()).toBe(100);
+    });
+  });
+
+  describe('Equality check', () => {
+    it('should return true for identical objects', () => {
+      const a = StaticAnalysisFinding.create(2, [VALID_ISSUE_1, VALID_ISSUE_2]);
+      const b = StaticAnalysisFinding.create(2, [VALID_ISSUE_1, VALID_ISSUE_2]);
+
+      expect(a.equals(b)).toBe(true);
+    });
+
+    it('should return false for different totalIssues', () => {
+      const a = StaticAnalysisFinding.create(2, [VALID_ISSUE_1]);
+      const b = StaticAnalysisFinding.create(5, [VALID_ISSUE_1]);
+
+      expect(a.equals(b)).toBe(false);
+    });
+
+    it('should return false for different issues array length', () => {
+      const a = StaticAnalysisFinding.create(2, [VALID_ISSUE_1, VALID_ISSUE_2]);
+      const b = StaticAnalysisFinding.create(2, [VALID_ISSUE_1]);
+
+      expect(a.equals(b)).toBe(false);
+    });
+
+    it('should return false for different issues content', () => {
+      const a = StaticAnalysisFinding.create(1, [VALID_ISSUE_1]);
+      const b = StaticAnalysisFinding.create(1, [VALID_ISSUE_2]);
+
+      expect(a.equals(b)).toBe(false);
+    });
+
+    it('should throw if equals is called with invalid argument', () => {
+      const finding = StaticAnalysisFinding.create(1, [VALID_ISSUE_1]);
+
+      expect(() => finding.equals(null as any)).toThrow('Invalid argument');
+      expect(() => finding.equals({} as any)).toThrow('Invalid argument');
     });
   });
 
   describe('Failure cases', () => {
-    it('should throw if path is not a PathFinding instance', () => {
+    it('should throw if totalIssues is not a number', () => {
       expect(() =>
-        StaticAnalysisFinding.create(
-          {} as unknown as PathFinding,
-          VALID_CATEGORY,
-          VALID_ERROR,
-          VALID_LANGUAGE_INPUT,
-        ),
-      ).toThrow('Invalid PathFinding');
+        StaticAnalysisFinding.create('2' as any, [VALID_ISSUE_1]),
+      ).toThrow('totalIssues must be a number');
     });
 
-    it('should throw if category is empty string', () => {
+    it('should throw if totalIssues is negative', () => {
       expect(() =>
-        StaticAnalysisFinding.create(VALID_PATH, ' ', VALID_ERROR, VALID_LANGUAGE_INPUT),
-      ).toThrow('Category must be a non-empty string');
+        StaticAnalysisFinding.create(-1, [VALID_ISSUE_1]),
+      ).toThrow('totalIssues must be a non-negative integer');
     });
 
-    it('should throw if error is not an ErrorFinding instance', () => {
+    it('should throw if totalIssues is not an integer', () => {
       expect(() =>
-        StaticAnalysisFinding.create(
-          VALID_PATH,
-          VALID_CATEGORY,
-          {} as unknown as ErrorFinding,
-          VALID_LANGUAGE_INPUT,
-        ),
-      ).toThrow('Invalid ErrorFinding');
+        StaticAnalysisFinding.create(1.5, [VALID_ISSUE_1]),
+      ).toThrow('totalIssues must be a non-negative integer');
     });
 
-    it('should throw if language string is empty', () => {
+    it('should throw if issues is not an array', () => {
       expect(() =>
-        StaticAnalysisFinding.create(VALID_PATH, VALID_CATEGORY, VALID_ERROR, '  '),
-      ).toThrow('Language cannot be empty');
+        StaticAnalysisFinding.create(1, null as any),
+      ).toThrow('issues must be an array');
     });
 
-    it('should throw if language is not a string', () => {
+    it('should throw if issues array contains invalid elements', () => {
       expect(() =>
-        StaticAnalysisFinding.create(
-          VALID_PATH,
-          VALID_CATEGORY,
-          VALID_ERROR,
-          123 as unknown as string,
-        ),
-      ).toThrow('Language must be a string');
-    });
-
-    it('should throw if language is not supported by the enum', () => {
-      expect(() =>
-        StaticAnalysisFinding.create(VALID_PATH, VALID_CATEGORY, VALID_ERROR, 'CSHARP'),
-      ).toThrow('Invalid analyzed language');
-    });
-
-    it('should return false when comparing with a different object', () => {
-      const f1 = StaticAnalysisFinding.create(
-        VALID_PATH,
-        VALID_CATEGORY,
-        VALID_ERROR,
-        'TYPESCRIPT',
-      );
-      const f2 = StaticAnalysisFinding.create(
-        VALID_PATH,
-        'Different Category',
-        VALID_ERROR,
-        'TYPESCRIPT',
-      );
-
-      expect(f1.equals(f2)).toBe(false);
-    });
-
-    it('should throw when comparing with null or invalid type', () => {
-      const f = StaticAnalysisFinding.create(VALID_PATH, VALID_CATEGORY, VALID_ERROR, 'TYPESCRIPT');
-
-      expect(() => f.equals(null)).toThrow('Invalid argument');
-      expect(() => f.equals({})).toThrow('Invalid argument');
+        StaticAnalysisFinding.create(1, [{ invalid: 'object' } as any]),
+      ).toThrow('Invalid StaticAnalysisIssue');
     });
   });
 });
