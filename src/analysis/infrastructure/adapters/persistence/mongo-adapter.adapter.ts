@@ -214,53 +214,55 @@ export class MongoDBAdapter
   }
 
   async saveCodeReport(model: SaveCodeReportRequest): Promise<SaveCodeReportResponse> {
-  try {
-    await this.codeReportModel.create({
-      reportId: model.reportId.value,
-      analysisId: model.analysisId.value,
-      
-      metadata: {
-        language: model.codeAgentMetadata.language,
-        status: model.codeAgentMetadata.status,
-      },
+    try {
+      await this.codeReportModel.create({
+        reportId: model.reportId.value,
+        analysisId: model.analysisId.value,
 
-      interpretation: {
-        verdict: model.aiInterpretation.verdict,
-        executiveSummary: model.aiInterpretation.executiveSummary.value,
-
-        staticAnalysisEvaluation: {
-          totalIssuesAnalyzed: model.aiInterpretation.staticAnalysisEvaluation.totalIssuesAnalyzed,
-          keyIssuesReasoning: model.aiInterpretation.staticAnalysisEvaluation.keyIssuesReasoning.map((k) => ({
-            file: k.file.value,
-            location: {
-              lineStart: k.location.lineStart,
-              lineEnd: k.location.lineEnd,
-              column: k.location.column
-            },
-            rule: k.rule,
-            severity: k.severity.value,
-            originalDescription: k.originalDescription.value,
-            aiReasoning: k.aiReasoning.value,
-            suggestedResolution: k.suggestedResolution.value
-          })), 
+        metadata: {
+          language: model.codeAgentMetadata.language,
+          status: model.codeAgentMetadata.status,
         },
 
-        coverageEvaluation: {
-          overallHealth: model.aiInterpretation.coverageEvaluation.overallHealth,
-          criticalFilesReasoning: model.aiInterpretation.coverageEvaluation.criticalFilesReasoning.map((c) => ({
-            file: c.file.value,
-            lineCoveragePct: c.lineCoveragePct.value,
-            missingLines: c.missingLines,
-            missingBranches: c.missingBranches,
-            aiReasoning: c.aiReasoning.value
-          }))
+        interpretation: {
+          verdict: model.aiInterpretation.verdict,
+          executiveSummary: model.aiInterpretation.executiveSummary.value,
+
+          staticAnalysisEvaluation: {
+            totalIssuesAnalyzed:
+              model.aiInterpretation.staticAnalysisEvaluation.totalIssuesAnalyzed,
+            keyIssuesReasoning:
+              model.aiInterpretation.staticAnalysisEvaluation.keyIssuesReasoning.map((k) => ({
+                file: k.file.value,
+                location: {
+                  lineStart: k.location.lineStart,
+                  lineEnd: k.location.lineEnd,
+                  column: k.location.column,
+                },
+                rule: k.rule,
+                severity: k.severity.value,
+                originalDescription: k.originalDescription.value,
+                aiReasoning: k.aiReasoning.value,
+                suggestedResolution: k.suggestedResolution.value,
+              })),
+          },
+
+          coverageEvaluation: {
+            overallHealth: model.aiInterpretation.coverageEvaluation.overallHealth,
+            criticalFilesReasoning:
+              model.aiInterpretation.coverageEvaluation.criticalFilesReasoning.map((c) => ({
+                file: c.file.value,
+                lineCoveragePct: c.lineCoveragePct.value,
+                missingLines: c.missingLines,
+                missingBranches: c.missingBranches,
+                aiReasoning: c.aiReasoning.value,
+              })),
+          },
         },
-      },
-      
       });
 
       return SaveCodeReportResponse.success();
-      } catch (error) {
+    } catch (error) {
       return SaveCodeReportResponse.failure(
         error instanceof Error ? error.message : 'Unknown error during Code Report save',
       );

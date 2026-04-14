@@ -20,6 +20,7 @@ import { AnalysisStatus } from '../../../../../src/analysis/domain/enums/analysi
 import { v7 as uuid } from 'uuid';
 import { DocumentationReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/docs-report.schema';
 import { ReportId } from '../../../../../src/analysis/domain/value-objects/report-id.vo';
+import { CodeReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/code-report.schema';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -57,6 +58,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
   let consoleLogSpy: jest.SpyInstance;
   let mockAnalysisModel: MockAnalysisModel;
   let mockDocsReportModel: MockDocsReportModel;
+  let mockCodeReportModel: MockDocsReportModel;
 
   beforeEach(async () => {
     mockQuery = {
@@ -90,6 +92,10 @@ describe('MongoDBAdapter (Unit Test)', () => {
       create: jest.fn(),
     };
 
+    mockCodeReportModel = {
+      create: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MongoDBAdapter,
@@ -104,6 +110,10 @@ describe('MongoDBAdapter (Unit Test)', () => {
         {
           provide: getModelToken(DocumentationReport.name, 'DatabaseConnection'),
           useValue: mockDocsReportModel,
+        },
+        {
+          provide: getModelToken(CodeReport.name, 'DatabaseConnection'),
+          useValue: mockCodeReportModel,
         },
       ],
     }).compile();
@@ -608,6 +618,129 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toBe('Unknown error during Documentation Report save');
+    });
+  });
+
+  describe('saveCodeReport', () => {
+    const buildCodeReportRequest = () => {
+      return {
+        reportId: { value: uuid() },
+        analysisId: { value: uuid() },
+
+        codeAgentMetadata: {
+          language: 'javascript/typescript',
+          status: 'success',
+        },
+
+        aiInterpretation: {
+          verdict: 'Poor',
+          executiveSummary: { value: 'Codebase has 265 static analysis issues.' },
+
+          staticAnalysisEvaluation: {
+            totalIssuesAnalyzed: 265,
+            keyIssuesReasoning: [
+              {
+                file: { value: 'src/analysis/application/services/start-analysis.as.ts' },
+                location: { lineStart: 54, lineEnd: 54, column: 16 },
+                rule: 'lint/suspicious/useIterableCallbackReturn',
+                severity: { value: 'high' },
+                originalDescription: {
+                  value: 'This callback passed to forEach() should not return a value.',
+                },
+                aiReasoning: { value: 'Returning values inside forEach is a common anti-pattern.' },
+                suggestedResolution: { value: 'Replace forEach with map, filter, or for-of.' },
+              },
+            ],
+          },
+
+          coverageEvaluation: {
+            overallHealth: 'Poor',
+            criticalFilesReasoning: [
+              {
+                file: {
+                  value: 'src/analysis/presentation/controllers/pat-controller.controller.ts',
+                },
+                lineCoveragePct: { value: 100 },
+                missingLines: [],
+                missingBranches: 6,
+                aiReasoning: { value: 'Despite full line coverage, 6 branches are untested.' },
+              },
+            ],
+          },
+        },
+      };
+    };
+
+    it('should return success and persist the full mapped payload', async () => {
+      const request = buildCodeReportRequest();
+      mockCodeReportModel.create.mockResolvedValue({});
+
+      const result = await adapter.saveCodeReport(request as never);
+
+      expect(result.isSuccess).toBe(true);
+      expect(mockCodeReportModel.create).toHaveBeenCalledTimes(1);
+      expect(mockCodeReportModel.create).toHaveBeenCalledWith({
+        reportId: request.reportId.value,
+        analysisId: request.analysisId.value,
+
+        metadata: {
+          language: 'javascript/typescript',
+          status: 'success',
+        },
+
+        interpretation: {
+          verdict: 'Poor',
+          executiveSummary: 'Codebase has 265 static analysis issues.',
+
+          staticAnalysisEvaluation: {
+            totalIssuesAnalyzed: 265,
+            keyIssuesReasoning: [
+              {
+                file: 'src/analysis/application/services/start-analysis.as.ts',
+                location: { lineStart: 54, lineEnd: 54, column: 16 },
+                rule: 'lint/suspicious/useIterableCallbackReturn',
+                severity: 'high',
+                originalDescription: 'This callback passed to forEach() should not return a value.',
+                aiReasoning: 'Returning values inside forEach is a common anti-pattern.',
+                suggestedResolution: 'Replace forEach with map, filter, or for-of.',
+              },
+            ],
+          },
+
+          coverageEvaluation: {
+            overallHealth: 'Poor',
+            criticalFilesReasoning: [
+              {
+                file: 'src/analysis/presentation/controllers/pat-controller.controller.ts',
+                lineCoveragePct: 100,
+                missingLines: [],
+                missingBranches: 6,
+                aiReasoning: 'Despite full line coverage, 6 branches are untested.',
+              },
+            ],
+          },
+        },
+      });
+    });
+
+    it('should return failure message for Error thrown by persistence', async () => {
+      const request = buildCodeReportRequest();
+      mockCodeReportModel.create.mockRejectedValue(new Error('code report write failed'));
+
+      const result = await adapter.saveCodeReport(request as never);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('code report write failed');
+    });
+
+    it('should return unknown error message for non-Error thrown by persistence', async () => {
+      const request = buildCodeReportRequest();
+      mockCodeReportModel.create.mockRejectedValue('random failure');
+
+      const result = await adapter.saveCodeReport(request as never);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toBe('Unknown error during Code Report save');
     });
   });
 });

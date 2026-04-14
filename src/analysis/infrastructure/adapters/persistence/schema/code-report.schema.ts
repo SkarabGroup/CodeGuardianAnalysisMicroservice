@@ -54,8 +54,8 @@ class KeyIssueReasoning {
   @Prop({ required: true, trim: true })
   aiReasoning: string = '';
 
-  @Prop({ required: true, trim: true })
-  suggestedResolution: string = '';
+  @Prop({ required: false, trim: true })
+  suggestedResolution?: string = '';
 }
 
 @Schema({ _id: false })
@@ -69,8 +69,8 @@ class StaticAnalysisEvaluation {
 
 @Schema({ _id: false })
 class CodeAgentMetadata {
-  @Prop({ required: true, trim: true })
-  language: string = '';
+  @Prop({ required: false, trim: true })
+  language?: string = '';
 
   @Prop({ required: true, trim: true })
   status: string = '';

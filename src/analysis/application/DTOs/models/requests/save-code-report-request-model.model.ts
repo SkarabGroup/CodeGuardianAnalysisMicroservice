@@ -8,6 +8,6 @@ export class SaveCodeReportRequest {
     public readonly reportId: ReportId,
     public readonly analysisId: AnalysisId,
     public readonly codeAgentMetadata: CodeAgentMetadata,
-    public readonly aiInterpretation: AIInterpretation, 
+    public readonly aiInterpretation: AIInterpretation,
   ) {}
 }
