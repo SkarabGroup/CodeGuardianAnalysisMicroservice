@@ -39,9 +39,9 @@ export interface DocsUndocumentedDependencyDTO {
 export interface DocsDependencyAuditDTO {
   readme_defined: DocsDependencyEntryDTO[];
   config_defined: DocsDependencyEntryDTO[];
-  missing_in_config: DocsDependencyEntryDTO[];
+  missing_in_config: DocsMissingInConfigDTO[];
   undocumented_in_readme: DocsUndocumentedDependencyDTO[];
-  version_mismatches: DocsDependencyEntryDTO[];
+  version_mismatches: DocsVersionMismatchDTO[];
 }
 
 export interface DocsAnalysisReportDTO {
@@ -62,4 +62,15 @@ export class DocsAgentResponse {
   constructor(data: DocsAgentResponsePayload) {
     this.analysis_report = data.analysis_report;
   }
+}
+
+export interface DocsMissingInConfigDTO {
+  name: string;
+  source_file?: string;
+  documented_in?: string;
+  severity: string;
+}
+
+export interface DocsVersionMismatchDTO extends DocsDependencyEntryDTO {
+  config_version?: string;
 }

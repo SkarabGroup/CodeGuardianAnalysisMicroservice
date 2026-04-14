@@ -129,7 +129,9 @@ def run_documentation_analysis():
     CRITICAL WORKFLOW:
     1. Call `spectral_analyze_repo(repo_path="{repo_path}")` to do the study on the API standard violations
     2. Audit XML content: Cross-check README/docs against file tree, dependencies, API routes, and env vars.
-    3. Return ONLY a JSON report. No markdown, no prose. Fill all sections of the report based on findings. ONLY if no issues, return empty arrays.
+    3. Return ONLY a JSON report. No markdown, no prose. Fill ALL sections of the report based on findings. ONLY if no issues, return empty arrays. THe API_standard_violations must be filled from the tool response
+    the other sections must be filled based on the analysis of the XML content and the repo structure. Do not leave any section empty if you have information to fill it. If you don't have 
+    information to fill a section, return an empty array for that section.
 
     SCHEMA:
     {

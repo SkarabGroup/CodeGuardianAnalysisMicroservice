@@ -1,8 +1,4 @@
-import {
-  DocsAgentResponse,
-  DocsDependencyEntryDTO,
-  DocsUndocumentedDependencyDTO,
-} from '../../application/DTOs/models/responses/docs-agent-response-model.model';
+import { DocsAgentResponse } from '../../application/DTOs/models/responses/docs-agent-response-model.model';
 import { DocumentationReport } from '../../domain/entities/documentation-report.entity';
 import { ReportId } from '../../domain/value-objects/report-id.vo';
 import { AnalysisId } from '../../domain/value-objects/analysis-id.vo';
@@ -20,7 +16,7 @@ import { UndocumentedDependency } from '../../domain/value-objects/undocumented-
 import { VersionMismatchDependency } from '../../domain/value-objects/version-mismatch-dependency.vo';
 import { StatusMissing } from '../../domain/enums/status-missing.enum';
 import { SeverityLevel } from '../../domain/enums/severity-level.enum';
-import { IDocsReportEntityProvider } from './interfaces/docs-report-entity-provider.ds';
+import { IDocsReportEntityProvider } from './interfaces/docs-report-entity-provider.interface';
 import { Injectable } from '@nestjs/common';
 
 const STATUS_MISSING_ALIASES: Record<string, StatusMissing> = {
@@ -119,7 +115,8 @@ function mapDependencyAudit(
     ),
   );
 
-  const missingInConfig = (dto.missing_in_config || []).map((entry: any) =>
+  // Rimossi i cast 'any': ora 'entry' è di tipo DocsMissingInConfigDTO
+  const missingInConfig = (dto.missing_in_config || []).map((entry) =>
     MissingInConfigDependency.create(
       entry.name,
       PathFinding.create(entry.source_file || entry.documented_in || 'UNKNOWN'),
@@ -127,18 +124,17 @@ function mapDependencyAudit(
     ),
   );
 
-  const undocumentedInReadme = (dto.undocumented_in_readme || []).map(
-    (entry: DocsUndocumentedDependencyDTO) =>
-      UndocumentedDependency.create(entry.name, PathFinding.create(entry.found_in || 'UNKNOWN')),
+  const undocumentedInReadme = (dto.undocumented_in_readme || []).map((entry) =>
+    UndocumentedDependency.create(entry.name, PathFinding.create(entry.found_in || 'UNKNOWN')),
   );
 
   const versionMismatches = (dto.version_mismatches || [])
-    .filter((entry: DocsDependencyEntryDTO) => entry.version_pinned !== null)
-    .map((entry: DocsDependencyEntryDTO) =>
+    .filter((entry) => entry.version_pinned !== null)
+    .map((entry) =>
       VersionMismatchDependency.create(
         entry.name,
         entry.version_pinned as string,
-        (entry as any).config_version || (entry.version_pinned as string),
+        entry.config_version || (entry.version_pinned as string),
         PathFinding.create(entry.source_file || 'UNKNOWN'),
       ),
     );

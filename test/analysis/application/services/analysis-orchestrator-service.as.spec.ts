@@ -5,6 +5,8 @@ import { GitHubAnalysis } from '../../../../src/analysis/domain/entities/github-
 import { DOCS_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/docs-agent.adapter';
 import { CODE_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/local-code-agent.adapter';
 import { ConfigurationService } from '../../../../src/analysis/infrastructure/configuration/configuration.service';
+import { REPORT_ENTITIES_PROVIDER } from '../../../../src/analysis/domain/services/report-entities-provider.ds';
+import { DOCS_REPORT_SAVE_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 jest.mock('node:fs/promises');
 
@@ -17,6 +19,14 @@ describe('AnalysisOrchestratorService', () => {
 
   const docsAgentMock = {
     runAnalysis: jest.fn(),
+  };
+
+  const reportEntitiesProviderMock = {
+    fromDocsAgentResponse: jest.fn(),
+  };
+
+  const docsReportSavePortMock = {
+    saveDocsReport: jest.fn(),
   };
 
   const mockConfigService = {
@@ -45,6 +55,14 @@ describe('AnalysisOrchestratorService', () => {
         {
           provide: ConfigurationService,
           useValue: mockConfigService,
+        },
+        {
+          provide: REPORT_ENTITIES_PROVIDER,
+          useValue: reportEntitiesProviderMock,
+        },
+        {
+          provide: DOCS_REPORT_SAVE_PORT,
+          useValue: docsReportSavePortMock,
         },
       ],
     }).compile();

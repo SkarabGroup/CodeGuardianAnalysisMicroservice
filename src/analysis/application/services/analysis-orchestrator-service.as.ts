@@ -12,7 +12,7 @@ import { DOCS_AGENT } from '../../infrastructure/adapters/externals/docs-agent.a
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
-import type { IDocsReportEntityProvider } from '../../domain/services/interfaces/docs-report-entity-provider.ds';
+import type { IDocsReportEntityProvider } from '../../domain/services/interfaces/docs-report-entity-provider.interface';
 import { REPORT_ENTITIES_PROVIDER } from '../../domain/services/report-entities-provider.ds';
 
 import { v7 as uuidv7 } from 'uuid';
