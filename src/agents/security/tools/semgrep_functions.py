@@ -27,7 +27,7 @@ def run_semgrep_scan(repo_path: str, output_file: str) -> dict | None:
             timeout=250
         )
 
-        return None  # success
+        return None
 
     except subprocess.TimeoutExpired:
         return {"error": "Timeout during Semgrep execution"}
