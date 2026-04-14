@@ -7,7 +7,6 @@ import {
   DocsAgentResponsePayload,
 } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
 import { IDocumentationAgentPort } from '../../../application/ports/externals/docs-agent-port.port';
-import * as fs from 'node:fs';
 
 @Injectable()
 export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
@@ -22,6 +21,7 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
     const dockerArgs = [
       'run',
       '--rm',
+      '--env-file',
       envFilePath,
       '-v',
       `${sharedVolumeName}:/tmp`,
@@ -29,16 +29,9 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       'sh',
       'strands-documentation-analyzer',
       '-c',
+      // Quote every interpolated path so the shell never word-splits them
       `python3 /app/test.py "${repoPathInContainer}"`,
     ];
-
-    if (fs.existsSync(envFilePath)) {
-      dockerArgs.push('--env-file', envFilePath);
-    } else {
-      console.log(
-        `[Adapter] File ${envFilePath} not found. Agent might not have requested credentials.`,
-      );
-    }
 
     console.log(
       `[Adapter] Starting analysis on volume: ${sharedVolumeName}, repo: ${repoPathInContainer}`,
@@ -49,7 +42,7 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       const parsed = this.extractJson(rawOutput);
       if (!parsed['analysis_report']) {
         console.debug('Raw container output:', rawOutput);
-        throw new Error('Expected analysis_report field not found in output JSON.');
+        throw new Error(rawOutput || 'Container did not return a valid analysis report.');
       }
 
       console.log('[Adapter] Analysis result successfully extracted.');

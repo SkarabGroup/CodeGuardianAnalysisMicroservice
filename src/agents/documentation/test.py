@@ -229,10 +229,6 @@ Remember: Call the spectral_analyze_repo tool FIRST with repo_path="{repo_path}"
         report_data = json.loads(clean_json)
 
         output_path = "analysis-report.json"
-        with open(output_path, "w", encoding="utf-8") as out_file:
-            json.dump(report_data, out_file, indent=2, ensure_ascii=False)
-
-        print(f"\nReport saved in: {output_path}")
         print(json.dumps(report_data, indent=2, ensure_ascii=False))
 
     except json.JSONDecodeError as e:

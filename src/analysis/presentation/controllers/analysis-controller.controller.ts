@@ -77,7 +77,7 @@ export class AnalysisController {
       branch: dto.branch || undefined,
       commit: dto.commit || undefined,
       code: dto.requestedCode,
-      docs: dto.requestDocumentation,
+      docs: dto.requestedDocumentation,
       security: dto.requestedSecurity,
     });
 
