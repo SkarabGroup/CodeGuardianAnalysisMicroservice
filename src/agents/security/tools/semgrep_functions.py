@@ -144,6 +144,40 @@ def run_semgrep(repo_path: str) -> dict:
 
     error = run_semgrep_scan(repo_path, output_file)
     if error:
-        return error
+        return {
+            "status": "error",
+            "findings_to_analyze": [],
+            "errors": [
+                {
+                    "type": "SemgrepError",
+                    "message": error.get("error"),
+                    "details": error.get("details"),
+                    "repo_path": error.get("repo_path")
+                }
+            ],
+            "meta": {}
+        }
 
-    return parse_semgrep_report(output_file)
+    result = parse_semgrep_report(output_file)
+
+    if "error" in result:
+        return {
+            "status": "error",
+            "findings_to_analyze": [],
+            "errors": [
+                {
+                    "type": "SemgrepParseError",
+                    "message": result.get("error")
+                }
+            ],
+            "meta": {}
+        }
+
+    return {
+        "status": "success",
+        "findings_to_analyze": result.get("findings_to_analyze", []),
+        "errors": result.get("scan_errors", []),
+        "meta": {
+            "report_path": result.get("full_report_path")
+        }
+    }

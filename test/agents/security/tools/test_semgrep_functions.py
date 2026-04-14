@@ -1,3 +1,16 @@
+import sys
+import types
+
+# Mock del modulo strands
+mock_strands = types.ModuleType("strands")
+
+def tool(func):
+    return func
+
+mock_strands.tool = tool
+
+sys.modules["strands"] = mock_strands
+
 import os
 import json
 import subprocess
@@ -8,16 +21,13 @@ from src.agents.security.tools.semgrep_functions import (
     run_semgrep,
 )
 
-
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
-
 
 def get_fixture_path(name):
     return os.path.join(FIXTURES_DIR, name)
 
-
 # -------------------------
-# PARSER TESTS (NO MOCK)
+# PARSER TESTS
 # -------------------------
 
 def test_parser_valid():
@@ -76,7 +86,6 @@ def test_parser_no_owasp():
 def test_run_semgrep_success(mock_run, tmp_path):
     output_file = tmp_path / "report.json"
 
-    # crea file fake
     output_file.write_text('{"results": [], "errors": []}')
 
     error = run_semgrep_scan("repo", str(output_file))
@@ -126,7 +135,7 @@ def test_run_semgrep_failure_no_file(mock_run):
 
 
 # -------------------------
-# STRAND TOOL TESTS (MOCK)
+# STRANDS TOOL TESTS
 # -------------------------
 
 @patch("src.agents.security.tools.semgrep_functions.run_semgrep_scan")
@@ -137,7 +146,9 @@ def test_run_semgrep_tool(mock_parse, mock_run):
 
     result = run_semgrep("repo")
 
-    assert result == {"ok": True}
+    assert result["status"] == "success"
+    assert "findings_to_analyze" in result
+    assert "errors" in result
 
 @patch("src.agents.security.tools.semgrep_functions.run_semgrep_scan")
 def test_run_semgrep_tool_error(mock_run):
@@ -145,4 +156,17 @@ def test_run_semgrep_tool_error(mock_run):
 
     result = run_semgrep("repo")
 
-    assert "error" in result
+    assert result["status"] == "error"
+    assert result["errors"][0]["type"] == "SemgrepError"
+
+@patch("src.agents.security.tools.semgrep_functions.run_semgrep_scan")
+@patch("src.agents.security.tools.semgrep_functions.parse_semgrep_report")
+def test_run_semgrep_parser_error(mock_parse, mock_run):
+    mock_run.return_value = None
+
+    mock_parse.return_value = {"error": "broken json"}
+
+    result = run_semgrep("repo")
+
+    assert result["status"] == "error"
+    assert result["errors"][0]["type"] == "SemgrepParseError"
