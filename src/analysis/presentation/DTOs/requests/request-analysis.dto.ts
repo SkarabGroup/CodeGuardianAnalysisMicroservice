@@ -5,7 +5,7 @@ export class StartAnalysisRequestDTO {
     public readonly branch: string | undefined,
     public readonly commit: string | undefined,
     public readonly requestedCode: boolean,
-    public readonly requestDocumentation: boolean,
+    public readonly requestedDocumentation: boolean,
     public readonly requestedSecurity: boolean,
   ) {}
 }

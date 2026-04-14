@@ -15,6 +15,7 @@ import {
   GIT_CREDENTIAL_DELETE_PORT,
   GIT_CREDENTIAL_READ_PORT,
   GITHUB_ANALYSIS_SAVE_PORT,
+  DOCS_REPORT_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -67,6 +68,11 @@ import {
 import { ConfigurationService } from './infrastructure/configuration/configuration.service';
 import { ConfigurationModule } from './infrastructure/configuration/configuration.module';
 import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-code-agent.adapter';
+
+import {
+  ReportEntitiesProvider,
+  REPORT_ENTITIES_PROVIDER,
+} from './domain/services/report-entities-provider.ds';
 
 @Module({
   imports: [
@@ -164,6 +170,10 @@ import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-
       useClass: MongoDBAdapter,
     },
     {
+      provide: DOCS_REPORT_SAVE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
       provide: CODE_AGENT,
       useFactory: (configService: ConfigurationService) => {
         if (process.env.NODE_ENV === 'production') {
@@ -176,6 +186,10 @@ import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-
     {
       provide: DOCS_AGENT,
       useClass: DocumentationAnalysisAdapter,
+    },
+    {
+      provide: REPORT_ENTITIES_PROVIDER,
+      useClass: ReportEntitiesProvider,
     },
   ],
   controllers: [AnalysisController, PatController],

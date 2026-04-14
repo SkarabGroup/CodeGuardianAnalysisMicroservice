@@ -1,16 +1,43 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DocumentationAnalysisAdapter } from '../../../../../src/analysis/infrastructure/adapters/externals/docs-agent.adapter';
 import * as childProcess from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { DocumentationAnalysisAdapter } from '../../../../../src/analysis/infrastructure/adapters/externals/docs-agent.adapter';
 import { AgentRequest } from '../../../../../src/analysis/application/DTOs/models/requests/agent-request-model.model';
 import { DocsAgentResponse } from '../../../../../src/analysis/application/DTOs/models/responses/docs-agent-response-model.model';
-
-// Mock del modulo child_process
+// Mock di child_process
 jest.mock('node:child_process');
+
+// Definiamo un'interfaccia per il mock del processo che estenda EventEmitter
+// Questo risolve i problemi di "Unsafe member access" senza usare any
+interface MockChildProcess extends EventEmitter {
+  stdout: EventEmitter;
+  stderr: EventEmitter;
+}
 
 describe('DocumentationAnalysisAdapter', () => {
   let adapter: DocumentationAnalysisAdapter;
-  let spawnSpy: jest.SpyInstance;
+  let consoleLogSpy: jest.SpyInstance;
+
+  // FIX: mockRequest tipizzato correttamente senza cast pericolosi
+  const mockRequest = {
+    id: { value: 'test-repo' },
+  } as AgentRequest;
+
+  const validReport = {
+    analysis_report: {
+      metadata: {},
+      API_standard_violations: [],
+      docs_discrepancies: [],
+      missing_files: [],
+      dependency_audit: {
+        readme_defined: [],
+        config_defined: [],
+        missing_in_config: [],
+        undocumented_in_readme: [],
+        version_mismatches: [],
+      },
+    },
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -18,78 +45,88 @@ describe('DocumentationAnalysisAdapter', () => {
     }).compile();
 
     adapter = module.get<DocumentationAnalysisAdapter>(DocumentationAnalysisAdapter);
-    spawnSpy = jest.spyOn(childProcess, 'spawn');
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
-  it('should be defined', () => {
-    expect(adapter).toBeDefined();
+  // Helper per creare un mock tipizzato del processo figlio
+  const createMockProcess = (): MockChildProcess => {
+    const proc = new EventEmitter() as MockChildProcess;
+    proc.stdout = new EventEmitter();
+    proc.stderr = new EventEmitter();
+    return proc;
+  };
+
+  describe('runAnalysis & extractJson logic', () => {
+    it('should extract JSON correctly even with leading/trailing noise', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
+
+      const rawOutput = `Some random logs... \n ${JSON.stringify(validReport)} \n More logs...`;
+
+      const promise = adapter.runAnalysis(mockRequest);
+
+      // Usiamo nextTick per assicurarci che l'adapter stia ascoltando
+      process.nextTick(() => {
+        proc.stdout.emit('data', Buffer.from(rawOutput));
+        proc.emit('close', 0);
+      });
+
+      const result = await promise;
+      expect(result).toBeInstanceOf(DocsAgentResponse);
+      expect(result.analysis_report.metadata.status).toBe('success');
+    });
+
+    it('should handle agent error token correctly', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
+
+      const errorJson = '{"status": "error", "message": "Python script failed"}';
+
+      const promise = adapter.runAnalysis(mockRequest);
+
+      process.nextTick(() => {
+        proc.stdout.emit('data', Buffer.from(errorJson));
+        proc.emit('close', 0);
+      });
+
+      const result = await promise;
+      expect(result.analysis_report.metadata.status).toBe('error');
+    });
   });
 
-  describe('runAnalysis', () => {
-    const mockRequest: AgentRequest = {
-      id: { value: 'test-repo-id' },
-    };
+  describe('Container Error Handling', () => {
+    it('should return fallback when Docker exits with code 1', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
 
-    it('should resolve successfully when docker exit code is 0', async () => {
-      // Creiamo un finto processo che emette l'evento 'close' con codice 0
-      const mockProcess = new EventEmitter();
-      spawnSpy.mockReturnValue(mockProcess);
+      const promise = adapter.runAnalysis(mockRequest);
 
-      const analysisPromise = adapter.runAnalysis(mockRequest);
-
-      // Simuliamo la chiusura del processo in modo asincrono
       process.nextTick(() => {
-        mockProcess.emit('close', 0);
+        proc.stderr.emit('data', Buffer.from('Docker connection lost'));
+        proc.emit('close', 1);
       });
 
-      const result = await analysisPromise;
-
-      expect(result).toBeInstanceOf(DocsAgentResponse);
-      expect(spawnSpy).toHaveBeenCalledWith(
-        'docker',
-        expect.arrayContaining([
-          'run',
-          '--rm',
-          expect.stringContaining('analysis_tmp_data:/tmp'),
-          expect.stringContaining('python3 /app/test.py "/tmp/test-repo-id"'),
-        ]),
-        { stdio: 'inherit' },
-      );
+      const result = await promise;
+      expect(result.analysis_report.metadata.status).toBe('error');
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Docker exit code 1'));
     });
 
-    it('should handle process errors (spawn error)', async () => {
-      const mockProcess = new EventEmitter();
-      spawnSpy.mockReturnValue(mockProcess);
+    it('should return fallback when spawn throws an error event', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
 
-      const analysisPromise = adapter.runAnalysis(mockRequest);
-
-      process.nextTick(() => {
-        mockProcess.emit('error', new Error('Spawn failed'));
-      });
-
-      const result = await analysisPromise;
-
-      // L'adapter corrente cattura l'errore e ritorna comunque un AgentResponse
-      expect(result).toBeInstanceOf(DocsAgentResponse);
-    });
-
-    it('should handle non-zero exit codes', async () => {
-      const mockProcess = new EventEmitter();
-      spawnSpy.mockReturnValue(mockProcess);
-
-      const analysisPromise = adapter.runAnalysis(mockRequest);
+      const promise = adapter.runAnalysis(mockRequest);
 
       process.nextTick(() => {
-        mockProcess.emit('close', 1); // Errore nel container
+        proc.emit('error', new Error('Spawn failed'));
       });
 
-      const result = await analysisPromise;
-
-      expect(result).toBeInstanceOf(DocsAgentResponse);
+      const result = await promise;
+      expect(result.analysis_report.metadata.status).toBe('error');
     });
   });
 });

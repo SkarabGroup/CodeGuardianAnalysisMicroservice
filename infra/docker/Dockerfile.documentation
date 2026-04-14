@@ -14,5 +14,4 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 ENV PYTHONUNBUFFERED=1
 
-# Nessun ENTRYPOINT fisso: lo override l'adapter con sh -c "..."
 CMD ["python3", "/app/test.py"]
