@@ -1,7 +1,6 @@
 import sys
 import types
 
-# Mock del modulo strands
 mock_strands = types.ModuleType("strands")
 
 def tool(func):
