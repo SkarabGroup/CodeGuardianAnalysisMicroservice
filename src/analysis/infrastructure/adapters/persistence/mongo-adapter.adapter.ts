@@ -18,14 +18,10 @@ import { IGitHubAnalysisSavePort } from '../../../application/ports/repositories
 import { SaveGitHubAnalysisRequest } from '../../../application/DTOs/models/requests/save-git-analysis-request-model.model';
 import { SaveGitHubAnalysisResponse } from '../../../application/DTOs/models/responses/save-git-analysis-response-model.model';
 import { GitHubAnalysisRecord, GitHubAnalysisDocument } from './schema/github-analysis.schema';
-//DocsReport related imports
 import { SaveDocsReportRequest } from '../../../application/DTOs/models/requests/save-docs-report-request-model.model';
 import { SaveDocsReportResponse } from '../../../application/DTOs/models/responses/save-docs-report-response-model.model';
 import { DocumentationReport, DocumentationReportDocument } from './schema/docs-report.schema';
-@Injectable() //Get
-//Post
-// Delete
-// Update
+@Injectable()
 export class MongoDBAdapter
   implements
     IGitCredentialReadPort,
@@ -152,7 +148,6 @@ export class MongoDBAdapter
         reportId: model.reportId.value,
         analysisId: model.analysisId.value,
 
-        // Mappatura API Violations
         apiViolations: model.apiViolations.map((v) => ({
           path: v.getPathFinding().value,
           rule: v.getRule(),
@@ -160,7 +155,6 @@ export class MongoDBAdapter
           description: v.getDescriptionFinding().value,
         })),
 
-        // Mappatura Docs Discrepancies
         docsDiscrepancies: model.docsDiscrepancies.map((d) => ({
           path: d.getPathFinding().value,
           discrepancyCategory: d.getDiscrepancyCategory(),
@@ -169,7 +163,6 @@ export class MongoDBAdapter
           actualFinding: d.getActualFinding().value,
         })),
 
-        // Mappatura Missing Files
         missingFiles: model.missingFiles.map((mf) => ({
           referencedPath: mf.getReferencedPath().value,
           referencedIn: mf.getReferencedIn().value,
@@ -177,7 +170,6 @@ export class MongoDBAdapter
           status: mf.getStatusMissing(),
         })),
 
-        // Mappatura Dependency Audit (se presente)
         dependencyAudit: model.dependencyAudit
           ? {
               readmeDefined: model.dependencyAudit.getReadmeDefined().map((dep) => ({
@@ -210,48 +202,11 @@ export class MongoDBAdapter
 
       return SaveDocsReportResponse.success();
     } catch (error) {
-      // Logga l'errore se necessario e restituisci il fallimento
       return SaveDocsReportResponse.failure(
         error instanceof Error ? error.message : 'Unknown error during Documentation Report save',
       );
     }
   }
-  /*
-  async saveCodeReport(request: SaveCodeReportRequest): Promise<SaveCodeReportResponse> {
-    try {
-      await this.codeReportModel.create({
-        reportId: request.reportId.value,
-        analysisId: request.analysisId.value,
-        coverageFinding: request.coverageFinding.map((f) => ({
-          totalLinesPercentage: f.getTotalLinesPercentage().value,
-          totalBranchesPercentage: f.getTotalBranchesPercentage().value,
-          analyzedLanguage: f.getAnalyzedLanguage(),
-          coverageFiles: f.getCoverageFiles().map((file) => ({
-            path: file.getPath().value,
-            linesPercentage: file.getLinesPercentage().value,
-            branchesPercentage: file.getBranchesPercentage().value,
-            missedLines: file.getMissedLines(),
-          })),
-        })),
-        staticAnalysisErrors: request.staticAnalysisErrors.map((e) => ({
-          path: e.getPathFinding().value,
-          category: e.getErrorCategory(),
-          error: {
-            line: e.getErrorFinding().getErrorLine(),
-            description: e.getErrorFinding().getDescriptionFinding().value,
-            severity: e.getErrorFinding().getSeverityFinding().value,
-          },
-          language: e.getAnalyzedLanguage(),
-        })),
-      });
-
-      return SaveCodeReportResponse.success();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return SaveCodeReportResponse.failure(`Error saving code report: ${message}`);
-    }
-  }
-*/
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');

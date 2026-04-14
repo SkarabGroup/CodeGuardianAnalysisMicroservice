@@ -12,7 +12,6 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
     const envFilePath = join(projectRoot, 'src', 'agents', 'documentation', '.env');
     const sharedVolumeName = 'analysis_tmp_data';
 
-    // Trim to guard against stray whitespace / newlines in the id value
     const repoSubPath = model.id.value.trim();
     const repoPathInContainer = `/tmp/${repoSubPath}`;
 
@@ -27,7 +26,6 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       'sh',
       'strands-documentation-analyzer',
       '-c',
-      // Quote every interpolated path so the shell never word-splits them
       `python3 /app/test.py "${repoPathInContainer}"`,
     ];
 
