@@ -1,12 +1,12 @@
 from strands import Agent
 from strands.models import BedrockModel
-from tools.semgrep_tool import run_semgrep
-from tools.trivy_tool import run_trivy
-from tools.syft_grype_tool import run_grype
+from tools.semgrep_functions import run_semgrep
+from tools.trivy_functions import run_trivy
+from tools.grype_functions import run_grype
 
 
 model = BedrockModel(
-    model_id="us.nova.micro",
+    model_id="amazon.nova-pro-v1:0",
     region_name="eu-north-1"
 )
 
@@ -14,9 +14,9 @@ SYSTEM_PROMPT = """
 You are a security analysis agent for software repositories.
 You should use all available tools:
 - run_semgrep
-- run_trivy_secrets
+- run_trivy
 - run_grype
-After collecting results, produce:
+If "status"="success" after collecting results, add remediation by thinking.
 
 Structure every finding taken from grype like this:
 {
@@ -53,9 +53,7 @@ Then in the final report, group every finding into an array based on the type of
 {
   "semgrep": {...},
   "trivy": {...},
-  "grype": {...}
-  "critical_findings": [...],
-  "recommendations": [...]
+  "grype": {...},
 }
 
 Rules:

@@ -50,7 +50,6 @@ def test_parse_grype_empty_file(tmp_path):
     result = parse_grype_report(str(file))
 
     assert result["findings_to_analyze"] == []
-    assert result["full_report_path"] == str(file)
 
 def test_parse_grype_no_matches(tmp_path):
     file = tmp_path / "report.json"
@@ -59,7 +58,6 @@ def test_parse_grype_no_matches(tmp_path):
     result = parse_grype_report(str(file))
 
     assert result["findings_to_analyze"] == []
-    assert result["full_report_path"] == str(file)
 
 def test_parse_grype_filters_only_critical(tmp_path):
     file = tmp_path / "report.json"
@@ -460,8 +458,6 @@ def test_run_grype_success(mock_syft, mock_grype, mock_parse):
     assert result["status"] == "success"
     assert result["findings_to_analyze"] == [{"id": "1"}]
     assert result["errors"] == []
-    assert result["meta"]["report_path"] == "raw_grype_report.json"
-    assert result["meta"]["sbom_path"] == "sbom.json"
 
 @patch("src.agents.security.tools.grype_functions.run_syft_scan")
 def test_run_grype_syft_error(mock_syft):

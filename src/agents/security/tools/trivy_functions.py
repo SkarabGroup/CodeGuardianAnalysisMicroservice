@@ -52,7 +52,7 @@ def run_trivy_scan(repo_path: str, output_file: str) -> dict | None:
             "details": (e.stderr or b"").decode(),
             "repo_path": repo_path
         }
-    
+
 
 # -------------------------
 # PARSER FUNCTION
@@ -80,8 +80,7 @@ def parse_trivy_report(output_file: str) -> dict:
         if not secrets:
             continue
 
-        for secret in item.get("Secrets", []):
-            
+        for secret in secrets: 
             if secret.get("Severity") not in {"HIGH", "CRITICAL"}:
                 continue
 
@@ -109,9 +108,9 @@ def parse_trivy_report(output_file: str) -> dict:
     findings_for_agent = deduped
 
     return {
-        "findings_to_analyze": findings_for_agent,
-        "full_report_path": output_file
+        "findings_to_analyze": findings_for_agent
     }
+
 
 # -------------------------
 # STRANDS AGENT TOOL
@@ -119,7 +118,31 @@ def parse_trivy_report(output_file: str) -> dict:
 @tool
 def run_trivy(repo_path: str) -> dict:
     """
-    Run Trivy scan on a repository and return summarized findings.
+    Run Trivy scan on a repository and return summarized secret findings.
+
+    When to use:
+    - Use this tool when you need to detect secrets in filesystem contents.
+    - Especially useful for identifying high and critical severity secret leaks across repository files.
+
+    Args:
+        repo_path (str): Absolute path to the repository to scan.
+
+    Returns:
+        dict: A structured result containing:
+            - "status": "success" or "error"
+            - "findings_to_analyze": list of detected issues with:
+                "rule_id": id of the secret rule,
+                "path": path of the finding,
+                "line": starting line of the finding,
+                "description": description of the finding,
+                "severity": severity of the finding,
+                "category": category of the finding,
+                "remediation": Empty field you have to fill
+            - "errors": list of errors (empty list on success, execution or parsing error on failure).
+              Every error object always has exactly these three fields:
+                "type": one of "TrivyError", "TrivyParseError", or a Trivy internal type,
+                "message": human-readable description of the error,
+                "details": additional context string, or null if not available
     """
 
     output_file = "raw_trivy_report.json"
@@ -133,11 +156,9 @@ def run_trivy(repo_path: str) -> dict:
                 {
                     "type": "TrivyError",
                     "message": error.get("error"),
-                    "details": error.get("details"),
-                    "repo_path": error.get("repo_path")
+                    "details": error.get("details")  
                 }
             ],
-            "meta": {}
         }
 
     result = parse_trivy_report(output_file)
@@ -149,17 +170,14 @@ def run_trivy(repo_path: str) -> dict:
             "errors": [
                 {
                     "type": "TrivyParseError",
-                    "message": result.get("error")
+                    "message": result.get("error"),
+                    "details": None  
                 }
             ],
-            "meta": {}
         }
 
     return {
         "status": "success",
         "findings_to_analyze": result.get("findings_to_analyze", []),
         "errors": [],
-        "meta": {
-            "report_path": result.get("full_report_path")
-        }
     }

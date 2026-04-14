@@ -1,18 +1,27 @@
-FROM python:3.12-slim
-ARG REPO_FOLDER=.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl \
-        ca-certificates \
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-    | sh -s -- -b /usr/local/bin
-RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-    | sh -s -- -b /usr/local/bin
-RUN curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
-    | sh -s -- -b /usr/local/bin
-WORKDIR /securityAgent 
-COPY src/agents/security .
+
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin \
+ && curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+RUN pip install --no-cache-dir semgrep
+
+WORKDIR /app
+
+COPY src/agents/security/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-COPY ${REPO_FOLDER} ./repo
-CMD ["main.py"]
+
+COPY src/agents/security/ /app/
+
+CMD ["python", "/app/main.py"]

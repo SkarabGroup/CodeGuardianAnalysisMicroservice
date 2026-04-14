@@ -30,7 +30,7 @@ def run_syft_scan(repo_path: str, sbom_file: str) -> dict | None:
                 "repo_path": repo_path
             }
 
-        return None 
+        return None
 
     except subprocess.TimeoutExpired:
         return {
@@ -140,10 +140,7 @@ def parse_grype_report(output_file: str) -> dict:
     matches = full_data.get("matches", [])
 
     if not matches:
-        return {
-            "findings_to_analyze": [],
-            "full_report_path": output_file,
-        }
+        return {"findings_to_analyze": []}  
 
     findings_for_agent = []
 
@@ -193,10 +190,7 @@ def parse_grype_report(output_file: str) -> dict:
 
         findings_for_agent.append(finding)
 
-    return {
-        "findings_to_analyze": findings_for_agent,
-        "full_report_path":    output_file
-    }
+    return {"findings_to_analyze": findings_for_agent}
 
 
 # -------------------------
@@ -224,20 +218,21 @@ def run_grype(repo_path: str) -> dict:
 
     Returns:
         dict: A structured result containing:
+            - "status": "success" or "error"
             - "findings_to_analyze": list of Critical findings, each with:
-                "path":            file-system path where the package was found,
-                "packagename":     name of the vulnerable package,
-                "packageversion":  currently installed version,
+                "path": file-system path where the package was found,
+                "packagename": name of the vulnerable package,
+                "packageversion": currently installed version,
                 "vulnerabilityid": CVE or GHSA identifier,
-                "severity":        severity tier (Critical),
-                "description":     short description of the vulnerability,
-                "fix_hint":        Grype-derived upgrade suggestion (use this
-                                   to inform the remediation text you write),
-                "remediation":     None — to be filled by the agent.
-            - "errors": list of scan or execution errors (if any)
-            - "meta":
-                "report_path": path to the full Grype JSON report,
-                "sbom_path":   path to the Syft SBOM (kept for downstream use).
+                "severity": severity tier (Critical),
+                "description": short description of the vulnerability,
+                "fix_hint": Grype-derived upgrade suggestion (use this to inform the remediation text you write),
+                "remediation": None — to be filled by the agent.
+            - "errors": list of errors (empty list on success, execution or parsing error on failure).
+              Every error object always has exactly these three fields:
+                "type": one of "SyftError", "GrypeError", "GrypeParseError", or an internal type,
+                "message": human-readable description of the error,
+                "details": additional context string, or null if not available
     """
     sbom_file   = "sbom.json"
     output_file = "raw_grype_report.json"
@@ -249,13 +244,11 @@ def run_grype(repo_path: str) -> dict:
             "findings_to_analyze": [],
             "errors": [
                 {
-                    "type":      "SyftError",
-                    "message":   syft_error.get("error"),
-                    "details":   syft_error.get("details"),
-                    "repo_path": syft_error.get("repo_path")
+                    "type":    "SyftError",
+                    "message": syft_error.get("error"),
+                    "details": syft_error.get("details") 
                 }
             ],
-            "meta": {}
         }
 
     grype_error = run_grype_scan(sbom_file, output_file)
@@ -265,13 +258,11 @@ def run_grype(repo_path: str) -> dict:
             "findings_to_analyze": [],
             "errors": [
                 {
-                    "type":      "GrypeError",
-                    "message":   grype_error.get("error"),
-                    "details":   grype_error.get("details"),
-                    "sbom_file": grype_error.get("sbom_file")
+                    "type":    "GrypeError",
+                    "message": grype_error.get("error"),
+                    "details": grype_error.get("details") 
                 }
             ],
-            "meta": {}
         }
 
     result = parse_grype_report(output_file)
@@ -283,18 +274,14 @@ def run_grype(repo_path: str) -> dict:
             "errors": [
                 {
                     "type":    "GrypeParseError",
-                    "message": result.get("error")
+                    "message": result.get("error"),
+                    "details": None  
                 }
             ],
-            "meta": {}
         }
 
     return {
         "status": "success",
         "findings_to_analyze": result.get("findings_to_analyze", []),
         "errors": [],
-        "meta": {
-            "report_path": result.get("full_report_path"),
-            "sbom_path":   sbom_file,
-        }
     }
