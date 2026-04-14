@@ -1,56 +1,65 @@
+export interface DocsAgentMetadataDTO {
+  repository: string;
+  status: string;
+}
+
+export interface DocsApiViolationDTO {
+  file: string;
+  rule: string;
+  severity: string;
+  message: string;
+}
+
+export interface DocsDiscrepancyDTO {
+  category: string;
+  documentation_source: string;
+  docs_claim: string;
+  actual_finding: string;
+  severity: string;
+}
+
+export interface DocsMissingFileDTO {
+  referenced_path: string;
+  referenced_in: string;
+  context: string;
+  status: string;
+}
+
+export interface DocsDependencyEntryDTO {
+  name: string;
+  version_pinned: string | null;
+  source_file: string;
+}
+
+export interface DocsUndocumentedDependencyDTO {
+  name: string;
+  found_in: string;
+}
+
+export interface DocsDependencyAuditDTO {
+  readme_defined: DocsDependencyEntryDTO[];
+  config_defined: DocsDependencyEntryDTO[];
+  missing_in_config: DocsDependencyEntryDTO[];
+  undocumented_in_readme: DocsUndocumentedDependencyDTO[];
+  version_mismatches: DocsDependencyEntryDTO[];
+}
+
+export interface DocsAnalysisReportDTO {
+  metadata: DocsAgentMetadataDTO;
+  API_standard_violations: DocsApiViolationDTO[];
+  docs_discrepancies: DocsDiscrepancyDTO[];
+  missing_files: DocsMissingFileDTO[];
+  dependency_audit: DocsDependencyAuditDTO;
+}
+
+export interface DocsAgentResponsePayload {
+  analysis_report: DocsAnalysisReportDTO;
+}
+
 export class DocsAgentResponse {
-  constructor(
-    public readonly isSuccess: boolean,
-    public readonly apiViolations: {
-      file: string;
-      rule: string;
-      severity: string;
-      message: string;
-    }[],
-    public readonly docsDiscrepancies: {
-      path: string;
-      category: string;
-      severity: string;
-      docsClaim: string;
-      actualFinding: string;
-    }[],
-    public readonly missingFiles: {
-      referencedPath: string;
-      referencedIn: string;
-      status: string;
-      description: string;
-    }[],
-    public readonly dependencyAudit: {
-      readmeDefined: { name: string; versionClaimed: string | null }[];
-      configDefined: { name: string; versionPinned: string | null; sourceFile: string }[];
-      missingInConfig: { name: string; sourceFile: string; severity: string }[];
-      undocumentedInReadme: { name: string; foundIn: string }[];
-      versionMismatches: {
-        name: string;
-        readmeVersion: string;
-        configVersion: string;
-        sourceFile: string;
-      }[];
-    } | null,
-    public readonly errorMessage?: string,
-  ) {}
+  public readonly analysis_report: DocsAnalysisReportDTO;
 
-  public static success(
-    apiViolations: DocsAgentResponse['apiViolations'],
-    docsDiscrepancies: DocsAgentResponse['docsDiscrepancies'],
-    missingFiles: DocsAgentResponse['missingFiles'],
-    dependencyAudit: DocsAgentResponse['dependencyAudit'],
-  ): DocsAgentResponse {
-    return new DocsAgentResponse(
-      true,
-      apiViolations,
-      docsDiscrepancies,
-      missingFiles,
-      dependencyAudit,
-    );
-  }
-
-  public static failure(message: string): DocsAgentResponse {
-    return new DocsAgentResponse(false, [], [], [], null, message);
+  constructor(data: DocsAgentResponsePayload) {
+    this.analysis_report = data.analysis_report;
   }
 }

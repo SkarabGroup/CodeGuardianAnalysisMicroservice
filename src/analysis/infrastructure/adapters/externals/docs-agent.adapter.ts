@@ -2,8 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { AgentRequest } from '../../../application/DTOs/models/requests/agent-request-model.model';
-import { DocsAgentResponse } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
+import {
+  DocsAgentResponse,
+  DocsAgentResponsePayload,
+} from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
 import { IDocumentationAgentPort } from '../../../application/ports/externals/docs-agent-port.port';
+import * as fs from 'node:fs';
 
 @Injectable()
 export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
@@ -18,7 +22,6 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
     const dockerArgs = [
       'run',
       '--rm',
-      '--env-file',
       envFilePath,
       '-v',
       `${sharedVolumeName}:/tmp`,
@@ -29,28 +32,135 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       `python3 /app/test.py "${repoPathInContainer}"`,
     ];
 
+    if (fs.existsSync(envFilePath)) {
+      dockerArgs.push('--env-file', envFilePath);
+    } else {
+      console.log(
+        `[Adapter] File ${envFilePath} not found. Agent might not have requested credentials.`,
+      );
+    }
+
     console.log(
-      `[Adapter] Lancio analisi su volume: ${sharedVolumeName}, repo: ${repoPathInContainer}`,
+      `[Adapter] Starting analysis on volume: ${sharedVolumeName}, repo: ${repoPathInContainer}`,
     );
 
     try {
-      await new Promise<void>((resolve, reject) => {
-        const dockerProcess = spawn('docker', dockerArgs, { stdio: 'inherit' });
-        dockerProcess.on('error', reject);
-        dockerProcess.on('close', (code) => {
-          if (code === 0) {
-            resolve();
-          } else {
-            reject(new Error(`Exit code: ${code}`));
-          }
-        });
+      const rawOutput = await this.runContainer(dockerArgs);
+      const parsed = this.extractJson(rawOutput);
+      if (!parsed['analysis_report']) {
+        console.debug('Raw container output:', rawOutput);
+        throw new Error('Expected analysis_report field not found in output JSON.');
+      }
+
+      console.log('[Adapter] Analysis result successfully extracted.');
+
+      const report = parsed['analysis_report'] as Record<string, unknown>;
+      report['metadata'] = {
+        ...(report['metadata'] as Record<string, unknown>),
+        repository: model.id.value,
+        status: 'success',
+      };
+
+      return new DocsAgentResponse(parsed as unknown as DocsAgentResponsePayload);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(`[Adapter] Critical error during execution: ${errorMessage}`);
+      return this.createFallbackResponse(model.id.value);
+    }
+  }
+
+  private createFallbackResponse(repository: string): DocsAgentResponse {
+    return new DocsAgentResponse({
+      analysis_report: {
+        metadata: {
+          repository: repository,
+          status: 'error',
+        },
+        API_standard_violations: [],
+        docs_discrepancies: [],
+        missing_files: [],
+        dependency_audit: {
+          readme_defined: [],
+          config_defined: [],
+          missing_in_config: [],
+          undocumented_in_readme: [],
+          version_mismatches: [],
+        },
+      },
+    });
+  }
+
+  private runContainer(dockerArgs: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const docker = spawn('docker', dockerArgs);
+      let stdout = '';
+      let stderr = '';
+
+      docker.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+      docker.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
       });
 
-      return new DocsAgentResponse(true, [], [], [], null);
-    } catch (error) {
-      console.error(`[Adapter] Analisi fallita:`, error);
-      return new DocsAgentResponse(false, [], [], [], null, (error as Error).message);
+      docker.on('error', (err: Error) => reject(err));
+
+      docker.on('close', (code: number | null) => {
+        if (code === 0) resolve(stdout);
+        else reject(new Error(`Docker exit code ${String(code)}.\nStderr: ${stderr}`));
+      });
+    });
+  }
+
+  private extractJson(raw: string): Record<string, unknown> {
+    const errorToken = '{"status": "error"';
+    const errorIndex = raw.lastIndexOf(errorToken);
+
+    if (errorIndex !== -1) {
+      const closingBrace = raw.indexOf('}', errorIndex);
+      if (closingBrace !== -1) {
+        try {
+          const errString = raw.substring(errorIndex, closingBrace + 1);
+          return JSON.parse(errString) as Record<string, unknown>;
+        } catch (e) {
+          console.debug('Failed JSON Extraction', String(e));
+        }
+      }
     }
+
+    let startIndex = raw.indexOf('{');
+    if (startIndex === -1) throw new Error('No JSON found in the container output.');
+
+    let bestCandidate: Record<string, unknown> | null = null;
+
+    while (startIndex !== -1) {
+      let depth = 0;
+      for (let i = startIndex; i < raw.length; i++) {
+        if (raw[i] === '{') depth++;
+        else if (raw[i] === '}') depth--;
+
+        if (depth === 0) {
+          const candidate = raw.substring(startIndex, i + 1);
+          try {
+            const parsed = JSON.parse(candidate) as Record<string, unknown>;
+
+            if (parsed['analysis_report']) {
+              return parsed;
+            }
+
+            bestCandidate = parsed;
+          } catch {
+            /* Iterative scanning: ignore malformed JSON chunks and continue searching */
+          }
+          break;
+        }
+      }
+      startIndex = raw.indexOf('{', startIndex + 1);
+    }
+
+    if (bestCandidate) return bestCandidate;
+
+    throw new Error('Unterminated JSON in container output.');
   }
 }
 
