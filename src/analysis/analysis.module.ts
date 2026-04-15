@@ -80,6 +80,7 @@ import {
   GET_ANALYSIS_SERVICE,
   GetAnalysisService,
 } from './application/services/get-analysis-service.as';
+import { CodeReport, CodeReportSchema } from './infrastructure/adapters/persistence/schema/code-report.schema';
 @Module({
   imports: [
     MongooseModule.forFeature(
@@ -96,6 +97,10 @@ import {
           name: DocumentationReport.name,
           schema: DocumentationReportSchema,
         },
+        {
+          name: CodeReport.name,
+          schema: CodeReportSchema,
+        }
       ],
       'DatabaseConnection',
     ),
