@@ -21,6 +21,19 @@ import { GitHubAnalysisRecord, GitHubAnalysisDocument } from './schema/github-an
 import { SaveDocsReportRequest } from '../../../application/DTOs/models/requests/save-docs-report-request-model.model';
 import { SaveDocsReportResponse } from '../../../application/DTOs/models/responses/save-docs-report-response-model.model';
 import { DocumentationReport, DocumentationReportDocument } from './schema/docs-report.schema';
+import { AddReportsToAnalysisRequest } from '../../../application/DTOs/models/requests/add-reports-request-model.model';
+import { AddReportsToAnalysisResult } from '../../../application/DTOs/models/responses/add-reports-result-model.model';
+import {
+  GitHubAnalysisGeneralDataDTO,
+  GitHubAnalysisDetailedResult,
+} from '../../../application/DTOs/models/responses/get-github-analysis-from-id-result-model.model';
+import { AnalysisId } from '../../../domain/value-objects/analysis-id.vo';
+
+import { DocsAnalysisReportDTO } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
+import { IGetAnalysisFromIdPort } from '../../../application/ports/repositories/get-analysis-from-id-port.repository';
+
+import { IUpdateAnalysisPort } from '../../../application/ports/repositories/update-analysis-port.port';
+import { IDocsReportSavePort } from '../../../application/ports/repositories/docs-report-save-port.port';
 import { SaveCodeReportRequest } from '../../../application/DTOs/models/requests/save-code-report-request-model.model';
 import { SaveCodeReportResponse } from '../../../application/DTOs/models/responses/save-code-report-response-model.model';
 import { CodeReport, CodeReportDocument } from './schema/code-report.schema';
@@ -31,7 +44,10 @@ export class MongoDBAdapter
     IGitCredentialSavePort,
     IGitCredentialDeletePort,
     IGitCredentialUpdatePort,
-    IGitHubAnalysisSavePort
+    IGitHubAnalysisSavePort,
+    IGetAnalysisFromIdPort,
+    IDocsReportSavePort,
+    IUpdateAnalysisPort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
@@ -213,6 +229,129 @@ export class MongoDBAdapter
     }
   }
 
+  async addReportsToAnalysis(
+    model: AddReportsToAnalysisRequest,
+  ): Promise<AddReportsToAnalysisResult> {
+    try {
+      await this.analysisModel.updateOne(
+        { analysisId: model.analysisId },
+        {
+          $set: {
+            status: 'completed',
+            codeReportId: model.codeReportId,
+            docsReportId: model.documentationReportId,
+            securityReportId: model.securityReportId,
+          },
+        },
+      );
+      return AddReportsToAnalysisResult.success();
+    } catch (error) {
+      return AddReportsToAnalysisResult.failure(
+        error instanceof Error ? error.message : 'Unknown error during adding reports to analysis',
+      );
+    }
+  }
+
+  async getAnalysisFromId(analysisId: AnalysisId): Promise<GitHubAnalysisDetailedResult | null> {
+    try {
+      // 1. Recupero il record dell'analisi
+      const analysisRecord = await this.analysisModel
+        .findOne({ analysisId: analysisId.value })
+        .lean()
+        .exec();
+
+      if (!analysisRecord) return null;
+
+      let docsReportDTO: DocsAnalysisReportDTO | null = null;
+
+      // 2. Se esiste un report di documentazione, lo recupero e lo mappo
+      if (analysisRecord.docsReportId) {
+        console.log(`Fetching Docs Report with ID: ${analysisRecord.docsReportId}`);
+        const reportDoc = await this.docsReportModel
+          .findOne({ reportId: analysisRecord.docsReportId })
+          .lean()
+          .exec();
+
+        if (reportDoc) {
+          docsReportDTO = {
+            metadata: {
+              repository: analysisRecord.repoURL,
+              status: analysisRecord.status,
+            },
+            // Mapping da CamelCase (DB) a Snake/PascalCase (DTO)
+            API_standard_violations: reportDoc.apiViolations.map((v) => ({
+              file: v.path,
+              rule: v.rule,
+              severity: v.severity,
+              message: v.description,
+            })),
+            docs_discrepancies: reportDoc.docsDiscrepancies.map((d) => ({
+              category: d.discrepancyCategory,
+              documentation_source: d.path,
+              docs_claim: d.docsClaim,
+              actual_finding: d.actualFinding,
+              severity: d.severity,
+            })),
+            missing_files: reportDoc.missingFiles.map((mf) => ({
+              referenced_path: mf.referencedPath,
+              referenced_in: mf.referencedIn,
+              context: mf.description,
+              status: mf.status,
+            })),
+            dependency_audit: {
+              readme_defined:
+                reportDoc.dependencyAudit?.readmeDefined.map((rd) => ({
+                  name: rd.name,
+                  version_pinned: rd.versionClaimed,
+                  source_file: rd.name,
+                })) || [],
+              config_defined:
+                reportDoc.dependencyAudit?.configDefined.map((cd) => ({
+                  name: cd.name,
+                  version_pinned: cd.versionPinned,
+                  source_file: cd.path,
+                })) || [],
+              missing_in_config:
+                reportDoc.dependencyAudit?.missingInConfig.map((mic) => ({
+                  name: mic.name,
+                  severity: mic.severity,
+                  source_file: mic.path,
+                })) || [],
+              undocumented_in_readme:
+                reportDoc.dependencyAudit?.undocumentedInReadme.map((uir) => ({
+                  name: uir.name,
+                  found_in: uir.path,
+                })) || [],
+              version_mismatches:
+                reportDoc.dependencyAudit?.versionMismatches.map((vm) => ({
+                  name: vm.name,
+                  version_pinned: vm.readmeVersion,
+                  config_version: vm.configVersion,
+                  source_file: vm.path,
+                })) || [],
+            },
+          };
+        }
+      }
+
+      const generalData: GitHubAnalysisGeneralDataDTO = {
+        analysisId: analysisRecord.analysisId,
+        userId: analysisRecord.userId,
+        repoURL: analysisRecord.repoURL,
+        branch: analysisRecord.branch,
+        commit: analysisRecord.commit,
+        status: analysisRecord.status,
+        createdAt: analysisRecord.createdAt!,
+        updatedAt: analysisRecord.updatedAt!,
+      };
+      console.log('Docs Report DTO:', docsReportDTO);
+
+      return new GitHubAnalysisDetailedResult(generalData, docsReportDTO);
+    } catch (error) {
+      console.error('Error fetching detailed analysis:', error);
+      throw new Error('Could not retrieve detailed analysis');
+    }
+  }
   async saveCodeReport(model: SaveCodeReportRequest): Promise<SaveCodeReportResponse> {
     try {
       await this.codeReportModel.create({
@@ -277,3 +416,5 @@ export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
 export const GITHUB_ANALYSIS_SAVE_PORT = Symbol('IGitHubAnalysisSavePort');
 export const CODE_REPORT_SAVE_PORT = Symbol('ICodeReportSavePort');
 export const DOCS_REPORT_SAVE_PORT = Symbol('IDocsReportSavePort');
+export const ADD_REPORTS_TO_ANALYSIS_PORT = Symbol('IUpdateAnalysisPort');
+export const GET_DETAILED_ANALYSIS_PORT = Symbol('IGetAnalysisFromIdPort');
