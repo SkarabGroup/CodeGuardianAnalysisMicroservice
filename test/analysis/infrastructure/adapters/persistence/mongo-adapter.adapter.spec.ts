@@ -20,6 +20,7 @@ import { AnalysisStatus } from '../../../../../src/analysis/domain/enums/analysi
 import { v7 as uuid } from 'uuid';
 import { DocumentationReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/docs-report.schema';
 import { ReportId } from '../../../../../src/analysis/domain/value-objects/report-id.vo';
+import { SaveDocsReportRequest } from '../../../../../src/analysis/application/DTOs/models/requests/save-docs-report-request-model.model';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -608,6 +609,100 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toBe('Unknown error during Documentation Report save');
+    });
+
+    describe('saveDocsReport', () => {
+      it('should return failure if the database fails to create the report', async () => {
+        mockDocsReportModel.create.mockRejectedValue(new Error('Mongoose Error'));
+
+        const emptyRequest = new SaveDocsReportRequest(
+          ReportId.create(uuid()),
+          AnalysisId.create(uuid()),
+          [],
+          [],
+          [],
+          null,
+        );
+
+        const result = await adapter.saveDocsReport(emptyRequest);
+
+        expect(result.isSuccess).toBe(false);
+        expect(result.errorMessage).toBe('Mongoose Error');
+      });
+    });
+
+    describe('getAnalysisFromId', () => {
+      const mockAnalysisUuid = uuid();
+      const analysisIdVo = AnalysisId.create(mockAnalysisUuid);
+
+      it('should return null if analysis is not found', async () => {
+        const mockAnalysisModelInternal = adapter['analysisModel'];
+        mockAnalysisModelInternal.findOne = jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue(null),
+        });
+
+        const result = await adapter.getAnalysisFromId(analysisIdVo);
+        expect(result).toBeNull();
+      });
+
+      it('should return detailed result with mapped docs report when found', async () => {
+        const mockAnalysisRecord = {
+          analysisId: mockAnalysisUuid,
+          repoURL: 'https://github.com/test',
+          status: 'completed',
+          docsReportId: 'docs-rep-uuid',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        const mockDocsReport = {
+          reportId: 'docs-rep-uuid',
+          apiViolations: [{ path: 'file.ts', rule: 'R1', severity: 'high', description: 'desc' }],
+          docsDiscrepancies: [],
+          missingFiles: [],
+          dependencyAudit: {
+            readmeDefined: [],
+            configDefined: [],
+            missingInConfig: [],
+            undocumentedInReadme: [],
+            versionMismatches: [],
+          },
+        };
+
+        // Mock chain per AnalysisModel
+        const mockAnalysisModelInternal = adapter['analysisModel'];
+        mockAnalysisModelInternal.findOne = jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
+        });
+
+        // Mock chain per DocsReportModel
+        const mockDocsModelInternal = adapter['docsReportModel'];
+        mockDocsModelInternal.findOne = jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue(mockDocsReport),
+        });
+
+        const result = await adapter.getAnalysisFromId(analysisIdVo);
+
+        expect(result).toBeDefined();
+        expect(result?.generalData.analysisId).toBe(mockAnalysisUuid);
+        expect(result?.docsReport?.API_standard_violations[0].file).toBe('file.ts');
+        expect(result?.docsReport?.metadata.repository).toBe('https://github.com/test');
+      });
+
+      it('should throw Error if database connection fails during fetch', async () => {
+        const mockAnalysisModelInternal = adapter['analysisModel'];
+        mockAnalysisModelInternal.findOne = jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockRejectedValue(new Error('Fetch failed')),
+        });
+
+        await expect(adapter.getAnalysisFromId(analysisIdVo)).rejects.toThrow(
+          'Could not retrieve detailed analysis',
+        );
+      });
     });
   });
 });

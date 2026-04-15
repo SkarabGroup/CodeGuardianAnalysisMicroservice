@@ -36,6 +36,9 @@ export class GitHubAnalysisRecord {
 
   @Prop({ type: String, default: null })
   securityReportId: string | null = null;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const GitHubAnalysisSchema = SchemaFactory.createForClass(GitHubAnalysisRecord);

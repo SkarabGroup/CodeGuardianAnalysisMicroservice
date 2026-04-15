@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-//import { spawn } from 'node:child_process';
-//import { join } from 'node:path';
+import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 import { AgentRequest } from '../../../application/DTOs/models/requests/agent-request-model.model';
 import {
   DocsAgentResponse,
   DocsAgentResponsePayload,
 } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
 import { IDocumentationAgentPort } from '../../../application/ports/externals/docs-agent-port.port';
-
+/*
 const HARDCODED_RESPONSE: DocsAgentResponsePayload = {
   analysis_report: {
     metadata: {
@@ -45,8 +45,7 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
     });
   }
 }
-
-/*
+*/
 @Injectable()
 export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
   public async runAnalysis(model: AgentRequest): Promise<DocsAgentResponse> {
@@ -76,9 +75,6 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       `[Adapter] Starting analysis on volume: ${sharedVolumeName}, repo: ${repoPathInContainer}`,
     );
 
-  }
-}
-    
     try {
       const rawOutput = await this.runContainer(dockerArgs);
       const parsed = this.extractJson(rawOutput);
@@ -102,7 +98,6 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       console.log(`[Adapter] Critical error during execution: ${errorMessage}`);
       return this.createFallbackResponse(model.id.value);
     }
-      
   }
 
   private createFallbackResponse(repository: string): DocsAgentResponse {
@@ -186,7 +181,7 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
 
             bestCandidate = parsed;
           } catch {
-            // Iterative scanning: ignore malformed JSON chunks and continue searching 
+            // Iterative scanning: ignore malformed JSON chunks and continue searching
           }
           break;
         }
@@ -199,5 +194,5 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
     throw new Error('Unterminated JSON in container output.');
   }
 }
-*/
+
 export const DOCS_AGENT = Symbol('DocumentationAgentPort');

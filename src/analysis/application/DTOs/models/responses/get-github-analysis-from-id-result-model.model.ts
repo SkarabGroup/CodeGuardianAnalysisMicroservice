@@ -16,7 +16,7 @@ export interface GitHubAnalysisGeneralDataDTO {
   createdAt: Date;
   updatedAt: Date;
 }
-export class GitHubAnalysisDetailedDTO {
+export class GitHubAnalysisDetailedResult {
   generalData: GitHubAnalysisGeneralDataDTO;
   docsReport: DocsAnalysisReportDTO | null;
 

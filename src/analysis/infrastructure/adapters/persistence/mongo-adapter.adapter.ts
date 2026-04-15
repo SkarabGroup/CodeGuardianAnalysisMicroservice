@@ -24,10 +24,16 @@ import { DocumentationReport, DocumentationReportDocument } from './schema/docs-
 import { AddReportsToAnalysisRequest } from '../../../application/DTOs/models/requests/add-reports-request-model.model';
 import { AddReportsToAnalysisResult } from '../../../application/DTOs/models/responses/add-reports-result-model.model';
 import {
-  GitHubAnalysisDetailedDTO,
   GitHubAnalysisGeneralDataDTO,
+  GitHubAnalysisDetailedResult,
 } from '../../../application/DTOs/models/responses/get-github-analysis-from-id-result-model.model';
+import { AnalysisId } from '../../../domain/value-objects/analysis-id.vo';
+
 import { DocsAnalysisReportDTO } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
+import { IGetAnalysisFromIdPort } from '../../../application/ports/repositories/get-analysis-from-id-port.repository';
+
+import { IUpdateAnalysisPort } from '../../../application/ports/repositories/update-analysis-port.port';
+import { IDocsReportSavePort } from '../../../application/ports/repositories/docs-report-save-port.port';
 @Injectable()
 export class MongoDBAdapter
   implements
@@ -35,7 +41,10 @@ export class MongoDBAdapter
     IGitCredentialSavePort,
     IGitCredentialDeletePort,
     IGitCredentialUpdatePort,
-    IGitHubAnalysisSavePort
+    IGitHubAnalysisSavePort,
+    IGetAnalysisFromIdPort,
+    IDocsReportSavePort,
+    IUpdateAnalysisPort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
@@ -223,6 +232,7 @@ export class MongoDBAdapter
         { analysisId: model.analysisId },
         {
           $set: {
+            status: 'completed',
             codeReportId: model.codeReportId,
             docsReportId: model.documentationReportId,
             securityReportId: model.securityReportId,
@@ -237,10 +247,13 @@ export class MongoDBAdapter
     }
   }
 
-  async getDetailedAnalysis(analysisId: string): Promise<GitHubAnalysisDetailedDTO | null> {
+  async getAnalysisFromId(analysisId: AnalysisId): Promise<GitHubAnalysisDetailedResult | null> {
     try {
       // 1. Recupero il record dell'analisi
-      const analysisRecord = await this.analysisModel.findOne({ analysisId }).lean().exec();
+      const analysisRecord = await this.analysisModel
+        .findOne({ analysisId: analysisId.value })
+        .lean()
+        .exec();
 
       if (!analysisRecord) return null;
 
@@ -322,11 +335,11 @@ export class MongoDBAdapter
         branch: analysisRecord.branch,
         commit: analysisRecord.commit,
         status: analysisRecord.status,
-        createdAt: analysisRecord.createdAt,
-        updatedAt: analysisRecord.updatedAt,
+        createdAt: analysisRecord.createdAt!,
+        updatedAt: analysisRecord.updatedAt!,
       };
 
-      return new GitHubAnalysisDetailedDTO(generalData, docsReportDTO);
+      return new GitHubAnalysisDetailedResult(generalData, docsReportDTO);
     } catch (error) {
       console.error('Error fetching detailed analysis:', error);
       throw new Error('Could not retrieve detailed analysis');
