@@ -19,6 +19,19 @@ import { SeverityLevel } from '../../domain/enums/severity-level.enum';
 import { IDocsReportEntityProvider } from './interfaces/docs-report-entity-provider.interface';
 import { Injectable } from '@nestjs/common';
 
+import { CodeAgentResponse } from '../../application/DTOs/models/responses/code-agent-response-model.model';
+import { CodeAgentReport } from '../../domain/entities/code-agent-report.entity';
+import { VerdictStatus } from '../../domain/enums/verdict-status.enum';
+import { CodeAgentMetadata } from '../../domain/value-objects/code-agent-metadata.vo';
+import { AIInterpretation } from '../../domain/value-objects/ai-interpretation.vo';
+import { KeyIssueReasoning } from '../value-objects/key-issue-reasoning.vo';
+import { IssueLocation } from '../value-objects/issue-location.vo';
+import { StaticAnalysisEvaluation } from '../value-objects/static-analysis-evaluation.vo';
+import { CriticalFileReasoning } from '../value-objects/critical-file-reasoning.vo';
+import { CoveragePercentage } from '../value-objects/coverage-percentage.vo';
+import { CoverageEvaluation } from '../value-objects/coverage-evaluation.vo';
+import { ICodeReportEntityProvider } from './interfaces/code-report-entity-provider.interface';
+
 const STATUS_MISSING_ALIASES: Record<string, StatusMissing> = {
   NOT_FOUND: StatusMissing.NOT_FOUND,
   POSSIBLY_RENAMED: StatusMissing.POSSIBLY_RENAMED,
@@ -148,8 +161,83 @@ function mapDependencyAudit(
   });
 }
 
+// --------- Code Report ---------
+
+const VERDICT_ALIASES: Record<string, VerdictStatus> = {
+  CRITICAL: VerdictStatus.CRITICAL,
+  POOR: VerdictStatus.POOR,
+  FAIR: VerdictStatus.FAIR,
+  GOOD: VerdictStatus.GOOD,
+  EXCELLENT: VerdictStatus.EXCELLENT,
+};
+
+function normalizeVerdict(raw: string): VerdictStatus {
+  const key = (raw || '').trim().toUpperCase();
+  return VERDICT_ALIASES[key] ?? VerdictStatus.POOR;
+}
+
+export function mapCodeAgentResponseToCodeAgentReport(
+  response: CodeAgentResponse,
+  reportId: ReportId,
+  analysisId: AnalysisId,
+): CodeAgentReport {
+  const metadata = CodeAgentMetadata.create(
+    response.metadata.language ?? 'UNKNOWN',
+    response.metadata.status,
+  );
+
+  const interpretationDto = response.ai_interpretation;
+
+  const keyIssuesReasoning = (
+    interpretationDto.static_analysis_evaluation.key_issues_reasoning || []
+  ).map((dto) =>
+    KeyIssueReasoning.create(
+      PathFinding.create(dto.file || 'UNKNOWN'),
+      IssueLocation.create(dto.location.line_start, dto.location.line_end, dto.location.column),
+      dto.rule || 'UNSPECIFIED_RULE',
+      SeverityFinding.create(normalizeSeverity(dto.severity)),
+      DescriptionFinding.create(dto.original_description || 'No description provided'),
+      DescriptionFinding.create(dto.ai_reasoning || 'No reasoning provided'),
+      DescriptionFinding.create(dto.suggested_resolution || 'No suggestion provided'),
+    ),
+  );
+
+  const staticAnalysisEvaluation = StaticAnalysisEvaluation.create(
+    interpretationDto.static_analysis_evaluation.total_issues_analyzed,
+    keyIssuesReasoning,
+  );
+
+  const criticalFilesReasoning = (
+    interpretationDto.coverage_evaluation.critical_files_reasoning || []
+  ).map((dto) =>
+    CriticalFileReasoning.create(
+      PathFinding.create(dto.file || 'UNKNOWN'),
+      CoveragePercentage.create(dto.line_coverage_pct / 100),
+      dto.missing_lines || [],
+      dto.missing_branches ?? 0,
+      DescriptionFinding.create(dto.ai_reasoning || 'No reasoning provided'),
+    ),
+  );
+
+  const coverageEvaluation = CoverageEvaluation.create(
+    interpretationDto.coverage_evaluation.overall_health || 'UNKNOWN',
+    criticalFilesReasoning,
+  );
+
+  const aiInterpretation = AIInterpretation.create(
+    normalizeVerdict(interpretationDto.verdict),
+    DescriptionFinding.create(interpretationDto.executive_summary || 'No summary provided'),
+    staticAnalysisEvaluation,
+    coverageEvaluation,
+  );
+
+  return CodeAgentReport.create(reportId, analysisId, metadata, aiInterpretation);
+}
+
 @Injectable()
-export class ReportEntitiesProvider implements IDocsReportEntityProvider {
+export class ReportEntitiesProvider
+  implements IDocsReportEntityProvider, ICodeReportEntityProvider
+{
   public fromDocsAgentResponse(
     response: DocsAgentResponse,
     reportId: ReportId,
@@ -157,6 +245,15 @@ export class ReportEntitiesProvider implements IDocsReportEntityProvider {
   ): DocumentationReport {
     return mapDocsAgentResponseToDocumentationReport(response, reportId, analysisId);
   }
+
+  public fromCodeAgentResponse(
+    response: CodeAgentResponse,
+    reportId: ReportId,
+    analysisId: AnalysisId,
+  ): CodeAgentReport {
+    return mapCodeAgentResponseToCodeAgentReport(response, reportId, analysisId);
+  }
 }
 
-export const REPORT_ENTITIES_PROVIDER = Symbol('IDocsReportEntityProvider');
+export const DOCS_REPORT_PROVIDER = Symbol('IDocsReportEntityProvider');
+export const CODE_REPORT_PROVIDER = Symbol('ICodeReportEntityProvider');

@@ -5,9 +5,14 @@ import { GitHubAnalysis } from '../../../../src/analysis/domain/entities/github-
 import { DOCS_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/docs-agent.adapter';
 import { CODE_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/local-code-agent.adapter';
 import { ConfigurationService } from '../../../../src/analysis/infrastructure/configuration/configuration.service';
-import { REPORT_ENTITIES_PROVIDER } from '../../../../src/analysis/domain/services/report-entities-provider.ds';
-import { DOCS_REPORT_SAVE_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
-
+import {
+  DOCS_REPORT_PROVIDER,
+  CODE_REPORT_PROVIDER,
+} from '../../../../src/analysis/domain/services/report-entities-provider.ds';
+import {
+  DOCS_REPORT_SAVE_PORT,
+  CODE_REPORT_SAVE_PORT,
+} from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 jest.mock('node:fs/promises');
 
 describe('AnalysisOrchestratorService', () => {
@@ -21,12 +26,20 @@ describe('AnalysisOrchestratorService', () => {
     runAnalysis: jest.fn(),
   };
 
-  const reportEntitiesProviderMock = {
+  const docsReportProviderMock = {
     fromDocsAgentResponse: jest.fn(),
+  };
+
+  const codeReportProviderMock = {
+    fromCodeAgentResponse: jest.fn(),
   };
 
   const docsReportSavePortMock = {
     saveDocsReport: jest.fn(),
+  };
+
+  const codeReportSavePortMock = {
+    saveCodeReport: jest.fn(),
   };
 
   const mockConfigService = {
@@ -57,12 +70,20 @@ describe('AnalysisOrchestratorService', () => {
           useValue: mockConfigService,
         },
         {
-          provide: REPORT_ENTITIES_PROVIDER,
-          useValue: reportEntitiesProviderMock,
+          provide: DOCS_REPORT_PROVIDER,
+          useValue: docsReportProviderMock,
         },
         {
           provide: DOCS_REPORT_SAVE_PORT,
           useValue: docsReportSavePortMock,
+        },
+        {
+          provide: CODE_REPORT_PROVIDER,
+          useValue: codeReportProviderMock,
+        },
+        {
+          provide: CODE_REPORT_SAVE_PORT,
+          useValue: codeReportSavePortMock,
         },
       ],
     }).compile();
@@ -79,13 +100,21 @@ describe('AnalysisOrchestratorService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should start orchestration, call code agent and write report', async () => {
+  it('should start orchestration, call code agent, map entity and save report', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     codeAgentMock.runAnalysis.mockResolvedValue({
       metadata: { status: 'success' },
       ai_interpretation: { verdict: 'Safe' },
     });
+
+    const mockEntity = {
+      id: { value: 'fake-id' },
+      analysisId: mockAnalysisId,
+      metadata: {},
+      interpretation: {},
+    };
+    codeReportProviderMock.fromCodeAgentResponse.mockReturnValue(mockEntity);
 
     service.analyze(mockAnalysis, '/tmp/repo', true, false, false);
 
@@ -102,10 +131,13 @@ describe('AnalysisOrchestratorService', () => {
     );
 
     expect(fs.writeFile).toHaveBeenCalledWith(
-      expect.stringContaining('analysis_report_test-id.json'),
+      expect.stringContaining('code_analysis_report_test-id.json'),
       expect.any(String),
       'utf-8',
     );
+
+    expect(codeReportProviderMock.fromCodeAgentResponse).toHaveBeenCalled();
+    expect(codeReportSavePortMock.saveCodeReport).toHaveBeenCalled();
 
     consoleSpy.mockRestore();
   });
@@ -144,5 +176,72 @@ describe('AnalysisOrchestratorService', () => {
     expect(docsAgentMock.runAnalysis).not.toHaveBeenCalled();
 
     consoleSpy.mockRestore();
+  });
+
+  // Added some tests AI generated to fix coverage
+  it('should start orchestration, call docs agent, map entity and save report', async () => {
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    docsAgentMock.runAnalysis.mockResolvedValue({
+      analysis_report: { metadata: { status: 'success' } },
+    });
+
+    const mockDocsEntity = {
+      getReportId: jest.fn().mockReturnValue({ value: 'docs-report-id' }),
+      getAnalysisId: jest.fn().mockReturnValue(mockAnalysisId),
+      getApiViolations: jest.fn().mockReturnValue([]),
+      getDocsDiscrepancies: jest.fn().mockReturnValue([]),
+      getMissingFiles: jest.fn().mockReturnValue([]),
+      getDependencyAudit: jest.fn().mockReturnValue({}),
+    };
+    docsReportProviderMock.fromDocsAgentResponse.mockReturnValue(mockDocsEntity);
+
+    service.analyze(mockAnalysis, '/tmp/repo', false, true, false);
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(docsAgentMock.runAnalysis).toHaveBeenCalled();
+    expect(docsReportProviderMock.fromDocsAgentResponse).toHaveBeenCalled();
+    expect(docsReportSavePortMock.saveDocsReport).toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
+  });
+
+  it('should handle code agent failure gracefully', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    codeAgentMock.runAnalysis.mockResolvedValue({
+      metadata: { status: 'failed' },
+    });
+
+    service.analyze(mockAnalysis, '/tmp/repo', true, false, false);
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Code Agent Analysis failed'),
+    );
+    expect(codeReportProviderMock.fromCodeAgentResponse).not.toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('should handle docs agent failure gracefully', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    docsAgentMock.runAnalysis.mockResolvedValue({
+      analysis_report: { metadata: { status: 'error' } },
+    });
+
+    service.analyze(mockAnalysis, '/tmp/repo', false, true, false);
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Documentation Agent Analysis failed'),
+    );
+    expect(docsReportProviderMock.fromDocsAgentResponse).not.toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
   });
 });

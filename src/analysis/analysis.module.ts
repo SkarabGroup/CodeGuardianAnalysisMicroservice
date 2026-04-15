@@ -16,6 +16,7 @@ import {
   GIT_CREDENTIAL_READ_PORT,
   GITHUB_ANALYSIS_SAVE_PORT,
   DOCS_REPORT_SAVE_PORT,
+  CODE_REPORT_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -65,13 +66,18 @@ import {
   DocumentationReport,
   DocumentationReportSchema,
 } from './infrastructure/adapters/persistence/schema/docs-report.schema';
+import {
+  CodeReport,
+  CodeReportSchema,
+} from './infrastructure/adapters/persistence/schema/code-report.schema';
 import { ConfigurationService } from './infrastructure/configuration/configuration.service';
 import { ConfigurationModule } from './infrastructure/configuration/configuration.module';
 import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-code-agent.adapter';
 
 import {
   ReportEntitiesProvider,
-  REPORT_ENTITIES_PROVIDER,
+  DOCS_REPORT_PROVIDER,
+  CODE_REPORT_PROVIDER,
 } from './domain/services/report-entities-provider.ds';
 
 @Module({
@@ -89,6 +95,10 @@ import {
         {
           name: DocumentationReport.name,
           schema: DocumentationReportSchema,
+        },
+        {
+          name: CodeReport.name,
+          schema: CodeReportSchema,
         },
       ],
       'DatabaseConnection',
@@ -174,6 +184,10 @@ import {
       useClass: MongoDBAdapter,
     },
     {
+      provide: CODE_REPORT_SAVE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
       provide: CODE_AGENT,
       useFactory: (configService: ConfigurationService) => {
         if (process.env.NODE_ENV === 'production') {
@@ -188,7 +202,11 @@ import {
       useClass: DocumentationAnalysisAdapter,
     },
     {
-      provide: REPORT_ENTITIES_PROVIDER,
+      provide: DOCS_REPORT_PROVIDER,
+      useClass: ReportEntitiesProvider,
+    },
+    {
+      provide: CODE_REPORT_PROVIDER,
       useClass: ReportEntitiesProvider,
     },
   ],

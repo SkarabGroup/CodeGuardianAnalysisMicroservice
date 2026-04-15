@@ -6,6 +6,11 @@ import { AnalysisId } from '../../../../src/analysis/domain/value-objects/analys
 import { SeverityLevel } from '../../../../src/analysis/domain/enums/severity-level.enum';
 import { StatusMissing } from '../../../../src/analysis/domain/enums/status-missing.enum';
 import { v7 as uuidv7 } from 'uuid';
+import { VerdictStatus } from '../../../../src/analysis/domain/enums/verdict-status.enum';
+import {
+  CodeAgentResponse,
+  CodeAgentResponsePayload,
+} from '../../../../src/analysis/application/DTOs/models/responses/code-agent-response-model.model';
 
 describe('ReportEntitiesProvider', () => {
   let provider: ReportEntitiesProvider;
@@ -162,6 +167,121 @@ describe('ReportEntitiesProvider', () => {
       const result = provider.fromDocsAgentResponse(mockResponse, mockReportId, mockAnalysisId);
       // 'FILE_NOT_FOUND' -> StatusMissing.NOT_FOUND
       expect(result.getMissingFiles()[0].getStatusMissing()).toBe(StatusMissing.NOT_FOUND);
+    });
+  });
+
+  describe('fromCodeAgentResponse', () => {
+    const mockCodeResponsePayload: CodeAgentResponsePayload = {
+      metadata: {
+        language: 'javascript/typescript',
+        status: 'success',
+      },
+      ai_interpretation: {
+        verdict: 'Poor',
+        executive_summary: 'Codebase has 265 static analysis issues...',
+        static_analysis_evaluation: {
+          total_issues_analyzed: 265,
+          key_issues_reasoning: [
+            {
+              file: 'src/analysis/application/services/start-analysis.as.ts',
+              location: {
+                line_start: 54,
+                line_end: 54,
+                column: 16,
+              },
+              rule: 'lint/suspicious/useIterableCallbackReturn',
+              severity: 'high',
+              original_description:
+                'This callback passed to forEach() iterable method should not return a value.',
+              ai_reasoning: 'Returning values inside a forEach...',
+              suggested_resolution: 'Replace forEach with map...',
+            },
+          ],
+        },
+        coverage_evaluation: {
+          overall_health: 'Poor',
+          critical_files_reasoning: [
+            {
+              file: 'src/analysis/presentation/controllers/pat-controller.controller.ts',
+              line_coverage_pct: 100,
+              missing_lines: [],
+              missing_branches: 6,
+              ai_reasoning: 'Despite full line coverage, 6 branches are untested...',
+            },
+          ],
+        },
+      },
+    };
+
+    const mockCodeResponse = new CodeAgentResponse(mockCodeResponsePayload);
+
+    it('should correctly map the DTO to a CodeAgentReport entity', () => {
+      const result = provider.fromCodeAgentResponse(mockCodeResponse, mockReportId, mockAnalysisId);
+
+      expect(result.id.equals(mockReportId)).toBeTruthy();
+      expect(result.analysisId.equals(mockAnalysisId)).toBeTruthy();
+
+      expect(result.metadata.language).toBe('javascript/typescript');
+      expect(result.metadata.status).toBe('success');
+
+      expect(result.interpretation.verdict).toBe(VerdictStatus.POOR);
+      expect(result.interpretation.executiveSummary.value).toContain(
+        'Codebase has 265 static analysis issues',
+      );
+
+      const staticAnalysis = result.interpretation.staticAnalysisEvaluation;
+      expect(staticAnalysis.totalIssuesAnalyzed).toBe(265);
+      expect(staticAnalysis.keyIssuesReasoning).toHaveLength(1);
+
+      const keyIssue = staticAnalysis.keyIssuesReasoning[0];
+      expect(keyIssue.file.value).toBe('src/analysis/application/services/start-analysis.as.ts');
+      expect(keyIssue.rule).toBe('lint/suspicious/useIterableCallbackReturn');
+      expect(keyIssue.severity.value).toBe(SeverityLevel.HIGH);
+      expect(keyIssue.location.lineStart).toBe(54);
+
+      const coverage = result.interpretation.coverageEvaluation;
+      expect(coverage.overallHealth).toBe('Poor');
+      expect(coverage.criticalFilesReasoning).toHaveLength(1);
+
+      const criticalFile = coverage.criticalFilesReasoning[0];
+      expect(criticalFile.file.value).toBe(
+        'src/analysis/presentation/controllers/pat-controller.controller.ts',
+      );
+      expect(criticalFile.lineCoveragePct.value).toBe(1);
+      expect(criticalFile.missingBranches).toBe(6);
+    });
+
+    it('should handle empty or missing fields gracefully in CodeAgentResponse', () => {
+      const emptyCodeResponsePayload: CodeAgentResponsePayload = {
+        metadata: {
+          status: 'success',
+        },
+        ai_interpretation: {
+          verdict: 'UNKNOWN_VERDICT',
+          executive_summary: 'No summary provided',
+          static_analysis_evaluation: {
+            total_issues_analyzed: 0,
+            key_issues_reasoning: [],
+          },
+          coverage_evaluation: {
+            overall_health: 'UNKNOWN',
+            critical_files_reasoning: [],
+          },
+        },
+      };
+
+      const emptyCodeResponse = new CodeAgentResponse(emptyCodeResponsePayload);
+
+      const result = provider.fromCodeAgentResponse(
+        emptyCodeResponse,
+        mockReportId,
+        mockAnalysisId,
+      );
+
+      expect(result.metadata.language).toBe('UNKNOWN');
+      expect(result.interpretation.verdict).toBe(VerdictStatus.POOR);
+      expect(result.interpretation.staticAnalysisEvaluation.keyIssuesReasoning).toEqual([]);
+      expect(result.interpretation.coverageEvaluation.criticalFilesReasoning).toEqual([]);
     });
   });
 });

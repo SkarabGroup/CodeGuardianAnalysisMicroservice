@@ -13,7 +13,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 import type { IDocsReportEntityProvider } from '../../domain/services/interfaces/docs-report-entity-provider.interface';
-import { REPORT_ENTITIES_PROVIDER } from '../../domain/services/report-entities-provider.ds';
+import { DOCS_REPORT_PROVIDER } from '../../domain/services/report-entities-provider.ds';
 
 import { v7 as uuidv7 } from 'uuid';
 import { ReportId } from '../../domain/value-objects/report-id.vo';
@@ -21,6 +21,14 @@ import { ReportId } from '../../domain/value-objects/report-id.vo';
 import type { IDocsReportSavePort } from '../ports/repositories/docs-report-save-port.port';
 import { DOCS_REPORT_SAVE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { SaveDocsReportRequest } from '../DTOs/models/requests/save-docs-report-request-model.model';
+
+import type { ICodeReportSavePort } from '../ports/repositories/code-report-save-port.repository';
+import { CODE_REPORT_SAVE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
+import { SaveCodeReportRequest } from '../DTOs/models/requests/save-code-report-request-model.model';
+
+import type { ICodeReportEntityProvider } from '../../domain/services/interfaces/code-report-entity-provider.interface';
+import { CODE_REPORT_PROVIDER } from '../../domain/services/report-entities-provider.ds';
+
 @Injectable()
 export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
   constructor(
@@ -28,10 +36,14 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     private readonly documentationAgent: IDocumentationAgentPort,
     @Inject(CODE_AGENT)
     private readonly codeAgent: ICodeAgentPort,
-    @Inject(REPORT_ENTITIES_PROVIDER)
-    private readonly reportEntitiesProvider: IDocsReportEntityProvider,
+    @Inject(DOCS_REPORT_PROVIDER)
+    private readonly docsReportProvider: IDocsReportEntityProvider,
+    @Inject(CODE_REPORT_PROVIDER)
+    private readonly codeReportProvider: ICodeReportEntityProvider,
     @Inject(DOCS_REPORT_SAVE_PORT)
     private readonly docsReportSavePort: IDocsReportSavePort,
+    @Inject(CODE_REPORT_SAVE_PORT)
+    private readonly codeReportSavePort: ICodeReportSavePort,
   ) {}
 
   private async orchestrateAnalysis(
@@ -63,7 +75,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
             );
             return;
           }
-          const entity = this.reportEntitiesProvider.fromDocsAgentResponse(
+          const entity = this.docsReportProvider.fromDocsAgentResponse(
             response,
             ReportId.create(uuidv7()),
             analysis.getAnalysisId(),
@@ -87,6 +99,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     }
 
     if (code) {
+      console.log('Starting code analysis...');
       tasks.push(
         (async () => {
           const response = await this.codeAgent.runAnalysis(
@@ -95,6 +108,26 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
           const reportFilename = `code_analysis_report_${String(analysis.getAnalysisId().value)}.json`;
           const reportPath = path.join(process.cwd(), reportFilename);
           await fs.writeFile(reportPath, JSON.stringify(response, null, 2), 'utf-8');
+          if (!response || response.metadata.status !== 'success') {
+            console.error(
+              `Code Agent Analysis failed or returned an unsuccessful status. Check the report at ${reportPath} for details.`,
+            );
+            return;
+          }
+          const entity = this.codeReportProvider.fromCodeAgentResponse(
+            response,
+            ReportId.create(uuidv7()),
+            analysis.getAnalysisId(),
+          );
+          await this.codeReportSavePort.saveCodeReport(
+            new SaveCodeReportRequest(
+              entity.id,
+              entity.analysisId,
+              entity.metadata,
+              entity.interpretation,
+            ),
+          );
+
           console.log(
             `Code Agent Analysis Completed Successfully!\nReport saved to: ${reportPath}`,
           );
