@@ -18,6 +18,7 @@ import {
   DOCS_REPORT_SAVE_PORT,
   ADD_REPORTS_TO_ANALYSIS_PORT,
   GET_DETAILED_ANALYSIS_PORT,
+  CODE_REPORT_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -85,10 +86,6 @@ import {
   GET_ANALYSIS_SERVICE,
   GetAnalysisService,
 } from './application/services/get-analysis-service.as';
-import {
-  CodeReport,
-  CodeReportSchema,
-} from './infrastructure/adapters/persistence/schema/code-report.schema';
 @Module({
   imports: [
     MongooseModule.forFeature(
