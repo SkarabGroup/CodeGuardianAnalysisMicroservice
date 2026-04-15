@@ -34,6 +34,9 @@ import { IGetAnalysisFromIdPort } from '../../../application/ports/repositories/
 
 import { IUpdateAnalysisPort } from '../../../application/ports/repositories/update-analysis-port.port';
 import { IDocsReportSavePort } from '../../../application/ports/repositories/docs-report-save-port.port';
+import { SaveCodeReportRequest } from '../../../application/DTOs/models/requests/save-code-report-request-model.model';
+import { SaveCodeReportResponse } from '../../../application/DTOs/models/responses/save-code-report-response-model.model';
+import { CodeReport, CodeReportDocument } from './schema/code-report.schema';
 @Injectable()
 export class MongoDBAdapter
   implements
@@ -53,6 +56,8 @@ export class MongoDBAdapter
     private readonly analysisModel: Model<GitHubAnalysisDocument>,
     @InjectModel(DocumentationReport.name, 'DatabaseConnection')
     private readonly docsReportModel: Model<DocumentationReportDocument>,
+    @InjectModel(CodeReport.name, 'DatabaseConnection')
+    private readonly codeReportModel: Model<CodeReportDocument>,
   ) {}
 
   async authorize(model: GetGitCredentialRequest): Promise<GetGitCredentialResponse> {
@@ -343,6 +348,61 @@ export class MongoDBAdapter
     } catch (error) {
       console.error('Error fetching detailed analysis:', error);
       throw new Error('Could not retrieve detailed analysis');
+    }
+  }
+  async saveCodeReport(model: SaveCodeReportRequest): Promise<SaveCodeReportResponse> {
+    try {
+      await this.codeReportModel.create({
+        reportId: model.reportId.value,
+        analysisId: model.analysisId.value,
+
+        metadata: {
+          language: model.codeAgentMetadata.language,
+          status: model.codeAgentMetadata.status,
+        },
+
+        interpretation: {
+          verdict: model.aiInterpretation.verdict,
+          executiveSummary: model.aiInterpretation.executiveSummary.value,
+
+          staticAnalysisEvaluation: {
+            totalIssuesAnalyzed:
+              model.aiInterpretation.staticAnalysisEvaluation.totalIssuesAnalyzed,
+            keyIssuesReasoning:
+              model.aiInterpretation.staticAnalysisEvaluation.keyIssuesReasoning.map((k) => ({
+                file: k.file.value,
+                location: {
+                  lineStart: k.location.lineStart,
+                  lineEnd: k.location.lineEnd,
+                  column: k.location.column,
+                },
+                rule: k.rule,
+                severity: k.severity.value,
+                originalDescription: k.originalDescription.value,
+                aiReasoning: k.aiReasoning.value,
+                suggestedResolution: k.suggestedResolution.value,
+              })),
+          },
+
+          coverageEvaluation: {
+            overallHealth: model.aiInterpretation.coverageEvaluation.overallHealth,
+            criticalFilesReasoning:
+              model.aiInterpretation.coverageEvaluation.criticalFilesReasoning.map((c) => ({
+                file: c.file.value,
+                lineCoveragePct: c.lineCoveragePct.value,
+                missingLines: c.missingLines,
+                missingBranches: c.missingBranches,
+                aiReasoning: c.aiReasoning.value,
+              })),
+          },
+        },
+      });
+
+      return SaveCodeReportResponse.success();
+    } catch (error) {
+      return SaveCodeReportResponse.failure(
+        error instanceof Error ? error.message : 'Unknown error during Code Report save',
+      );
     }
   }
 }

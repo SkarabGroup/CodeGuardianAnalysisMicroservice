@@ -1,6 +1,4 @@
 export interface AgentMetadataDTO {
-  repository: string;
-  project_root?: string;
   language?: string;
   status: string;
 }
