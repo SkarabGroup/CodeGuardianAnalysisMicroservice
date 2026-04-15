@@ -7,7 +7,45 @@ import {
   DocsAgentResponsePayload,
 } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
 import { IDocumentationAgentPort } from '../../../application/ports/externals/docs-agent-port.port';
+/*
+const HARDCODED_RESPONSE: DocsAgentResponsePayload = {
+  analysis_report: {
+    metadata: {
+      repository: 'hardcoded',
+      status: 'success',
+    },
+    API_standard_violations: [],
+    docs_discrepancies: [],
+    missing_files: [],
+    dependency_audit: {
+      readme_defined: [{ name: 'test1', version_pinned: '1.35.0', source_file: 'README.md' }],
+      config_defined: [],
+      missing_in_config: [],
+      undocumented_in_readme: [{ name: '@nestjs/common', found_in: 'package.json' }],
+      version_mismatches: [],
+    },
+  },
+};
 
+@Injectable()
+export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
+  public async runAnalysis(model: AgentRequest): Promise<DocsAgentResponse> {
+    // For initial testing, return a hardcoded response instead of running the Docker container
+    console.log(`[Adapter] Returning hardcoded response for testing purposes. {model.id.value}`);
+    await new Promise((resolve) => setTimeout(resolve, 100)); // Simulate async operation
+    return new DocsAgentResponse({
+      analysis_report: {
+        ...HARDCODED_RESPONSE.analysis_report,
+        metadata: {
+          ...HARDCODED_RESPONSE.analysis_report.metadata,
+          repository: model.id.value,
+          status: 'success',
+        },
+      },
+    });
+  }
+}
+*/
 @Injectable()
 export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
   public async runAnalysis(model: AgentRequest): Promise<DocsAgentResponse> {
@@ -30,7 +68,7 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       'strands-documentation-analyzer',
       '-c',
       // Quote every interpolated path so the shell never word-splits them
-      `python3 /app/test.py "${repoPathInContainer}"`,
+      `python3 /app/docsAgent.py "${repoPathInContainer}"`,
     ];
 
     console.log(
@@ -143,7 +181,7 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
 
             bestCandidate = parsed;
           } catch {
-            /* Iterative scanning: ignore malformed JSON chunks and continue searching */
+            // Iterative scanning: ignore malformed JSON chunks and continue searching
           }
           break;
         }

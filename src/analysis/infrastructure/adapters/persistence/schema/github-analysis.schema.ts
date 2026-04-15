@@ -7,6 +7,7 @@ export type GitHubAnalysisDocument = HydratedDocument<GitHubAnalysisRecord>;
 @Schema({
   timestamps: true,
   collection: 'github_analyses',
+  minimize: false,
 })
 export class GitHubAnalysisRecord {
   @Prop({ required: true, unique: true, index: true })
@@ -35,6 +36,9 @@ export class GitHubAnalysisRecord {
 
   @Prop({ type: String, default: null })
   securityReportId: string | null = null;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const GitHubAnalysisSchema = SchemaFactory.createForClass(GitHubAnalysisRecord);

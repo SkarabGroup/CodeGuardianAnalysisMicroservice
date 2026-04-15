@@ -3,6 +3,7 @@ import {
   Controller,
   Inject,
   Post,
+  Get,
   UseGuards,
   createParamDecorator,
   ExecutionContext,
@@ -19,6 +20,11 @@ import { StartAnalysisCommand } from '../../application/commands/start-analysis-
 import { StartAnalysisResponseDTO } from '../DTOs/responses/start-analysis-response.dto';
 import { StartAnalysisResult } from '../../application/results/start-analysis-result.result';
 import { ConfigurationService } from '../../infrastructure/configuration/configuration.service';
+import { GetAnalysisResponseDTO } from '../DTOs/responses/get-analysis-by-id.dto';
+import { GetAnalysisFromIdCommand } from '../../application/commands/get-analysis-from-id.command';
+import { GET_ANALYSIS_SERVICE } from '../../application/services/get-analysis-service.as';
+import type { GetAnalysisUseCase } from '../../application/use-case/get-analysis-use-case.uc';
+import { GetAnalysisByIdRequestDTO } from '../DTOs/requests/get-analysis-by-id.dto';
 
 export type JwtPayload = {
   sub: string;
@@ -62,6 +68,8 @@ export class AnalysisController {
   constructor(
     @Inject(START_ANALYSIS_SERVICE)
     private readonly startAnalysis: StartAnalysisUseCase,
+    @Inject(GET_ANALYSIS_SERVICE)
+    private readonly getAnalysis: GetAnalysisUseCase,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -101,6 +109,25 @@ export class AnalysisController {
       );
     } catch (error) {
       return StartAnalysisResponseDTO.failure(
+        error instanceof Error ? error.message : 'Internal Server Error',
+      );
+    }
+  }
+  @UseGuards(JwtAuthGuard)
+  @Get('one')
+  public async getAnalysisById(
+    @Body() dto: GetAnalysisByIdRequestDTO,
+  ): Promise<GetAnalysisResponseDTO> {
+    const analysisId = dto.analysisId;
+    const command = new GetAnalysisFromIdCommand(analysisId);
+
+    try {
+      const result = await this.getAnalysis.execute(command);
+
+      return GetAnalysisResponseDTO.fromResult(result);
+    } catch (error) {
+      return new GetAnalysisResponseDTO(
+        false,
         error instanceof Error ? error.message : 'Internal Server Error',
       );
     }

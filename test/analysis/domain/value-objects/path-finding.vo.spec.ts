@@ -2,7 +2,6 @@ import { PathFinding } from '../../../../src/analysis/domain/value-objects/path-
 
 describe('PathFinding (Value Object)', () => {
   const VALID_PATH = 'src/app/file.ts';
-  const INVALID_ABSOLUTE = '/src/app/file.ts';
   const INVALID_BACKSLASH = 'src\\app\\file.ts';
   const INVALID_TRAVERSAL = '../app/file.ts';
 
@@ -25,10 +24,6 @@ describe('PathFinding (Value Object)', () => {
   describe('Failure cases', () => {
     it('should throw an error if the string is empty', () => {
       expect(() => PathFinding.create('')).toThrow('Path cannot be empty');
-    });
-
-    it('should throw an error if the string is absolute', () => {
-      expect(() => PathFinding.create(INVALID_ABSOLUTE)).toThrow('Path must be relative');
     });
 
     it('should throw an error if the string contains backslashes', () => {

@@ -132,6 +132,9 @@ def run_documentation_analysis():
     3. Return ONLY a JSON report. No markdown, no prose. Fill ALL sections of the report based on findings. ONLY if no issues, return empty arrays. THe API_standard_violations must be filled from the tool response
     the other sections must be filled based on the analysis of the XML content and the repo structure. Do not leave any section empty if you have information to fill it. If you don't have 
     information to fill a section, return an empty array for that section.
+    -docs_discrepancies expose the discrepancies found between documentation and actual repo content, with severity based on potential impact on users and maintainers.
+    -missing_files should list files referenced in documentation but not found in the repo, with status indicating confidence level of the missing file (e.g., NOT_FOUND, POSSIBLY_RENAMED, WRONG_PATH).
+    -dependency_audit should cross-reference dependencies mentioned in README/docs with those in config files, identifying missing, undocumented, or version-mismatched dependencies.
 
     SCHEMA:
     {

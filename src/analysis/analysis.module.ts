@@ -16,7 +16,8 @@ import {
   GIT_CREDENTIAL_READ_PORT,
   GITHUB_ANALYSIS_SAVE_PORT,
   DOCS_REPORT_SAVE_PORT,
-  CODE_REPORT_SAVE_PORT,
+  ADD_REPORTS_TO_ANALYSIS_PORT,
+  GET_DETAILED_ANALYSIS_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -80,6 +81,14 @@ import {
   CODE_REPORT_PROVIDER,
 } from './domain/services/report-entities-provider.ds';
 
+import {
+  GET_ANALYSIS_SERVICE,
+  GetAnalysisService,
+} from './application/services/get-analysis-service.as';
+import {
+  CodeReport,
+  CodeReportSchema,
+} from './infrastructure/adapters/persistence/schema/code-report.schema';
 @Module({
   imports: [
     MongooseModule.forFeature(
@@ -208,6 +217,18 @@ import {
     {
       provide: CODE_REPORT_PROVIDER,
       useClass: ReportEntitiesProvider,
+    },
+    {
+      provide: ADD_REPORTS_TO_ANALYSIS_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GET_DETAILED_ANALYSIS_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GET_ANALYSIS_SERVICE,
+      useClass: GetAnalysisService,
     },
   ],
   controllers: [AnalysisController, PatController],
