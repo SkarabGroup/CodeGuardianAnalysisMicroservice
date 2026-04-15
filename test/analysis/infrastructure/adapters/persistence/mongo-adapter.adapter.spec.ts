@@ -22,6 +22,7 @@ import { DocumentationReport } from '../../../../../src/analysis/infrastructure/
 import { ReportId } from '../../../../../src/analysis/domain/value-objects/report-id.vo';
 import { SaveDocsReportRequest } from '../../../../../src/analysis/application/DTOs/models/requests/save-docs-report-request-model.model';
 import { CodeReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/code-report.schema';
+import { AddReportsToAnalysisRequest } from '../../../../../src/analysis/application/DTOs/models/requests/add-reports-request-model.model';
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
@@ -39,6 +40,8 @@ interface MockModel {
 }
 interface MockAnalysisModel {
   create: jest.Mock;
+  updateOne: jest.Mock;
+  findOne: jest.Mock;
 }
 
 interface MongoError extends Error {
@@ -47,6 +50,7 @@ interface MongoError extends Error {
 
 interface MockDocsReportModel {
   create: jest.Mock;
+  findOne: jest.Mock;
 }
 
 const VALID_PASSWORD = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
@@ -87,14 +91,18 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
     mockAnalysisModel = {
       create: jest.fn(),
+      updateOne: jest.fn(),
+      findOne: jest.fn(),
     };
 
     mockDocsReportModel = {
       create: jest.fn(),
+      findOne: jest.fn(),
     };
 
     mockCodeReportModel = {
       create: jest.fn(),
+      findOne: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -836,6 +844,336 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toBe('Unknown error during Code Report save');
+    });
+  });
+  describe('addReportsToAnalysis', () => {
+    const mockAnalysisId = 'analysis-uuid-123';
+    const mockCodeId = 'code-report-456';
+    const mockDocsId = 'docs-report-789';
+    const mockSecId = 'sec-report-000';
+
+    it('should successfully update the analysis record with all report IDs', async () => {
+      // 1. Arrange
+      const request = new AddReportsToAnalysisRequest(
+        mockAnalysisId,
+        mockCodeId,
+        mockDocsId,
+        mockSecId,
+      );
+
+      // Mongoose updateOne restituisce un oggetto di stato (es. { matchedCount: 1 })
+      mockAnalysisModel.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+
+      // 2. Act
+      const result = await adapter.addReportsToAnalysis(request);
+
+      // 3. Assert
+      expect(mockAnalysisModel.updateOne).toHaveBeenCalledWith(
+        { analysisId: mockAnalysisId },
+        {
+          $set: {
+            status: 'completed',
+            codeReportId: mockCodeId,
+            docsReportId: mockDocsId,
+            securityReportId: mockSecId,
+          },
+        },
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('should handle partial report updates (null values)', async () => {
+      // Caso in cui alcuni report non sono presenti
+      const request = new AddReportsToAnalysisRequest(
+        mockAnalysisId,
+        mockCodeId,
+        null, // No docs report
+        null, // No security report
+      );
+
+      mockAnalysisModel.updateOne.mockResolvedValue({ matchedCount: 1 });
+
+      const result = await adapter.addReportsToAnalysis(request);
+
+      expect(mockAnalysisModel.updateOne).toHaveBeenCalledWith(
+        { analysisId: mockAnalysisId },
+        {
+          $set: {
+            status: 'completed',
+            codeReportId: mockCodeId,
+            docsReportId: null,
+            securityReportId: null,
+          },
+        },
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('should return failure with error message when update fails', async () => {
+      // 1. Arrange
+      const errorMessage = 'Database connection timeout';
+      mockAnalysisModel.updateOne.mockRejectedValue(new Error(errorMessage));
+
+      const request = new AddReportsToAnalysisRequest(mockAnalysisId, null, null, null);
+
+      // 2. Act
+      const result = await adapter.addReportsToAnalysis(request);
+
+      // 3. Assert
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(errorMessage);
+    });
+
+    it('should return generic failure message for unknown error types', async () => {
+      // Simuliamo un errore che non è un'istanza di Error
+      mockAnalysisModel.updateOne.mockRejectedValue('String error');
+
+      const request = new AddReportsToAnalysisRequest(mockAnalysisId, null, null, null);
+
+      const result = await adapter.addReportsToAnalysis(request);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Unknown error during adding reports to analysis');
+    });
+  });
+  describe('getAnalysisFromId', () => {
+    // UUID v7 valido per superare la validazione del Value Object
+    const validAnalysisIdStr = '018f6f8b-7b00-7000-8000-000000000000';
+    const analysisIdVO = AnalysisId.create(validAnalysisIdStr);
+
+    it('should return the analysis with the mapped docs report when both exist', async () => {
+      // 1. Arrange - Mock del record dell'analisi
+      const mockAnalysisRecord = {
+        analysisId: validAnalysisIdStr,
+        userId: 'user-123',
+        repoURL: 'https://github.com/test/repo',
+        branch: 'main',
+        commit: 'abc1234',
+        status: 'completed',
+        docsReportId: 'report-999',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Mock del record del report (struttura DB in CamelCase)
+      const mockReportDoc = {
+        reportId: 'report-999',
+        apiViolations: [{ path: 'file1.ts', rule: 'rule1', severity: 'high', description: 'err' }],
+        docsDiscrepancies: [
+          {
+            discrepancyCategory: 'OUTDATED_DOCS',
+            path: 'file1.ts',
+            severity: 'low',
+            docsClaim: 'claim',
+            actualFinding: 'actual',
+          },
+        ],
+        missingFiles: [
+          {
+            referencedPath: 'path1',
+            referencedIn: 'file1.ts',
+            description: 'missing file 1',
+            status: 'NOT_FOUND',
+          },
+        ],
+        dependencyAudit: {
+          readmeDefined: [{ name: 'deps1', versionClaimed: '1.0.0' }],
+          configDefined: [{ name: 'deps1', versionPinned: '1.0.1', path: 'package.json' }],
+          missingInConfig: [{ name: 'deps2', path: 'README.md', severity: 'MEDIUM' }],
+          undocumentedInReadme: [{ name: 'deps3', path: 'package.json' }],
+          versionMismatches: [{ name: 'deps4', versionFound: '1.0.0', versionExpected: '1.0.1' }],
+        },
+      };
+
+      // Configurazione dei mock per le query concatenate
+      // Prima chiamata: trova l'analisi
+      mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
+      });
+
+      // Seconda chiamata: trova il report
+      mockDocsReportModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockReportDoc),
+      });
+
+      // 2. Act
+      const result = await adapter.getAnalysisFromId(analysisIdVO);
+
+      // 3. Assert
+      expect(result).not.toBeNull();
+      expect(result?.generalData.analysisId).toBe(validAnalysisIdStr);
+
+      // Verifica il mapping del report (da DB CamelCase a DTO SnakeCase)
+      expect(result?.docsReport).toBeDefined();
+      expect(result?.docsReport?.API_standard_violations[0].file).toBe('file1.ts');
+      expect(result?.docsReport?.dependency_audit.readme_defined[0].name).toBe('deps1');
+
+      // Verifica che le query siano state chiamate con i parametri corretti
+      expect(mockAnalysisModel.findOne).toHaveBeenCalledWith({ analysisId: validAnalysisIdStr });
+      expect(mockDocsReportModel.findOne).toHaveBeenCalledWith({ reportId: 'report-999' });
+    });
+
+    it('should return general data and null report if docsReportId is missing', async () => {
+      // Record senza docsReportId
+      const mockAnalysisRecord = {
+        analysisId: validAnalysisIdStr,
+        docsReportId: null,
+        status: 'pending',
+        repoURL: 'url',
+        // ... altri campi
+      };
+
+      mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
+      });
+
+      const result = await adapter.getAnalysisFromId(analysisIdVO);
+
+      expect(result?.generalData.status).toBe('pending');
+      expect(result?.docsReport).toBeNull();
+      // Verifica che non sia stata fatta la seconda query
+      expect(mockDocsReportModel.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should return general data and null report if docsReportId is present but the report is missing', async () => {
+      const mockAnalysisRecord = {
+        analysisId: validAnalysisIdStr,
+        docsReportId: 'report-missing',
+        status: 'completed',
+        repoURL: 'url',
+        userId: 'user-123',
+        branch: 'main',
+        commit: 'commit-hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
+      });
+
+      mockDocsReportModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      const result = await adapter.getAnalysisFromId(analysisIdVO);
+
+      expect(result).not.toBeNull();
+      expect(result?.generalData.analysisId).toBe(validAnalysisIdStr);
+      expect(result?.docsReport).toBeNull();
+      expect(mockDocsReportModel.findOne).toHaveBeenCalledWith({ reportId: 'report-missing' });
+    });
+
+    it('should map an existing docs report with an empty dependency audit to empty arrays', async () => {
+      const mockAnalysisRecord = {
+        analysisId: validAnalysisIdStr,
+        docsReportId: 'report-empty-dependencies',
+        status: 'completed',
+        repoURL: 'url',
+        userId: 'user-123',
+        branch: 'main',
+        commit: 'commit-hash',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockReportDoc = {
+        reportId: 'report-empty-dependencies',
+        apiViolations: [],
+        docsDiscrepancies: [],
+        missingFiles: [],
+        dependencyAudit: null,
+      };
+
+      mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
+      });
+
+      mockDocsReportModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockReportDoc),
+      });
+
+      const result = await adapter.getAnalysisFromId(analysisIdVO);
+
+      expect(result).not.toBeNull();
+      expect(result?.docsReport?.dependency_audit.readme_defined).toEqual([]);
+      expect(result?.docsReport?.dependency_audit.config_defined).toEqual([]);
+      expect(result?.docsReport?.dependency_audit.missing_in_config).toEqual([]);
+      expect(result?.docsReport?.dependency_audit.undocumented_in_readme).toEqual([]);
+      expect(result?.docsReport?.dependency_audit.version_mismatches).toEqual([]);
+    });
+
+    it('should return null if the analysis record is not found', async () => {
+      mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      const result = await adapter.getAnalysisFromId(analysisIdVO);
+
+      expect(result).toBeNull();
+    });
+
+    it('should throw an error if the database query fails', async () => {
+      mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockRejectedValue(new Error('DB failure')),
+      });
+
+      await expect(adapter.getAnalysisFromId(analysisIdVO)).rejects.toThrow(
+        'Could not retrieve detailed analysis',
+      );
+    });
+    it('should have 100% coverage by mapping all nested arrays', async () => {
+      const mockReportDoc = {
+        reportId: 'report-999',
+        // Popola OGNI array con almeno un oggetto
+        apiViolations: [{ path: 'f.ts', rule: 'r', severity: 'h', description: 'd' }],
+        docsDiscrepancies: [
+          {
+            discrepancyCategory: 'c',
+            path: 'p',
+            docsClaim: 'dc',
+            actualFinding: 'af',
+            severity: 's',
+          },
+        ],
+        missingFiles: [{ referencedPath: 'rp', referencedIn: 'ri', description: 'd', status: 's' }],
+        dependencyAudit: {
+          readmeDefined: [{ name: 'n', versionClaimed: '1.0' }],
+          configDefined: [{ name: 'n', versionPinned: '1.1', path: 'p' }],
+          missingInConfig: [{ name: 'n', severity: 'h', path: 'p' }],
+          undocumentedInReadme: [{ name: 'n', path: 'p' }],
+          versionMismatches: [{ name: 'n', readmeVersion: '1.0', configVersion: '1.1', path: 'p' }],
+        },
+      };
+
+      // Configura i mock come fatto in precedenza...
+      mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ analysisId: '...', docsReportId: 'report-999' }),
+      });
+      mockDocsReportModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockReportDoc),
+      });
+
+      const result = await adapter.getAnalysisFromId(
+        AnalysisId.create('018f6f8b-7b00-7000-8000-000000000000'),
+      );
+
+      // Verifica che ogni array sia stato mappato correttamente
+      expect(mockDocsReportModel.findOne).toHaveBeenCalledWith({ reportId: 'report-999' });
+      expect(result?.docsReport?.API_standard_violations[0].file).toBe('f.ts');
+      expect(result?.docsReport?.missing_files[0].referenced_path).toBe('rp');
+      expect(result?.docsReport?.dependency_audit.readme_defined[0].name).toBe('n');
     });
   });
 });
