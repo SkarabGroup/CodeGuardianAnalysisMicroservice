@@ -282,5 +282,54 @@ describe('AnalysisOrchestratorService', () => {
       );
       expect(updateAnalysisPortMock.addReportsToAnalysis).not.toHaveBeenCalled();
     });
+
+    it('should successfully orchestrate all selected tasks (code, docs, security) and log success', async () => {
+      // Mock Code Agent success
+      codeAgentMock.runAnalysis.mockResolvedValue({
+        metadata: { status: 'success' },
+      });
+      const mockCodeEntity = {
+        id: { value: 'code-id' },
+        analysisId: mockAnalysisId,
+        metadata: {},
+        interpretation: {},
+      };
+      codeReportProviderMock.fromCodeAgentResponse.mockReturnValue(mockCodeEntity);
+
+      // Mock Docs Agent success
+      docsAgentMock.runAnalysis.mockResolvedValue({
+        analysis_report: { metadata: { status: 'success' } },
+      });
+      const mockDocsEntity = {
+        getReportId: () => ({ value: 'docs-id' }),
+        getAnalysisId: () => mockAnalysisId,
+        getApiViolations: () => [],
+        getDocsDiscrepancies: () => [],
+        getMissingFiles: () => [],
+        getDependencyAudit: () => ({}),
+      };
+      docsReportProviderMock.fromDocsAgentResponse.mockReturnValue(mockDocsEntity);
+
+      // Mock DB save success
+      updateAnalysisPortMock.addReportsToAnalysis.mockResolvedValue({
+        success: true,
+      });
+
+      // Eseguiamo l'analisi passando `true` a code, docs e security
+      service.analyze(mockAnalysis, '/tmp/repo', true, true, true);
+
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      // Verifica che la chiamata di update sia stata effettuata
+      // (attivando così tutti i rami dei ternari nell'oggetto AddReportsToAnalysisRequest)
+      expect(updateAnalysisPortMock.addReportsToAnalysis).toHaveBeenCalled();
+
+      // Verifica che il log di successo finale sia stato emesso
+      expect(console.log).toHaveBeenCalledWith(
+        'Analysis reports added to the analysis record successfully.',
+      );
+    });
   });
 });

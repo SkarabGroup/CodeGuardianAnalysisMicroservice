@@ -74,7 +74,6 @@ import {
 } from './infrastructure/adapters/persistence/schema/code-report.schema';
 import { ConfigurationService } from './infrastructure/configuration/configuration.service';
 import { ConfigurationModule } from './infrastructure/configuration/configuration.module';
-import { AWSCodeAnalysisAdapter } from './infrastructure/adapters/externals/aws-code-agent.adapter';
 
 import {
   ReportEntitiesProvider,
@@ -195,13 +194,7 @@ import {
     },
     {
       provide: CODE_AGENT,
-      useFactory: (configService: ConfigurationService) => {
-        if (process.env.NODE_ENV === 'production') {
-          console.log('Creato correttamente un LocalCode dal blocco if di production');
-          return new AWSCodeAnalysisAdapter(configService);
-        } else return new LocalCodeAnalysisAdapter();
-      },
-      inject: [ConfigurationService],
+      useClass: LocalCodeAnalysisAdapter,
     },
     {
       provide: DOCS_AGENT,

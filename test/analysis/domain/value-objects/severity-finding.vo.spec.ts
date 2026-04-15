@@ -20,6 +20,20 @@ describe('SeverityFinding (Value Object)', () => {
       expect(severity.value).toBe(SeverityLevel.LOW);
     });
 
+    it('should resolve aliases correctly to their corresponding SeverityLevel', () => {
+      expect(SeverityFinding.create('INFO').value).toBe(SeverityLevel.LOW);
+      expect(SeverityFinding.create('HINT').value).toBe(SeverityLevel.LOW);
+      expect(SeverityFinding.create('WARNING').value).toBe(SeverityLevel.MEDIUM);
+      expect(SeverityFinding.create('ERROR').value).toBe(SeverityLevel.HIGH);
+      expect(SeverityFinding.create('FATAL').value).toBe(SeverityLevel.CRITICAL);
+    });
+
+    it('should fallback to MEDIUM for unknown severity strings', () => {
+      const severity = SeverityFinding.create('UNKNOWN_WEIRD_VALUE');
+
+      expect(severity.value).toBe(SeverityLevel.MEDIUM);
+    });
+
     it('should return true for equal severities', () => {
       const s1 = SeverityFinding.create('high');
       const s2 = SeverityFinding.create('HIGH');
@@ -35,7 +49,10 @@ describe('SeverityFinding (Value Object)', () => {
     });
 
     it('should throw an error for non-string input', () => {
-      expect(() => SeverityFinding.create(123)).toThrow('Severity must be a string');
+      const invalidInput: unknown = 123;
+      expect(() => SeverityFinding.create(invalidInput as string)).toThrow(
+        'Severity must be a string',
+      );
     });
 
     it('should return false for different severities', () => {
@@ -48,8 +65,21 @@ describe('SeverityFinding (Value Object)', () => {
     it('should throw an error when comparing with invalid object', () => {
       const s = SeverityFinding.create('LOW');
 
-      expect(() => s.equals(null)).toThrow('Invalid argument');
-      expect(() => s.equals({})).toThrow('Invalid argument');
+      const invalidNull: unknown = null;
+      const invalidObject: unknown = {};
+
+      expect(() => s.equals(invalidNull as SeverityFinding)).toThrow('Invalid argument');
+      expect(() => s.equals(invalidObject as SeverityFinding)).toThrow('Invalid argument');
+    });
+
+    it('should throw an error for invalid severity level if constructor is bypassed (line 41 coverage)', () => {
+      const BypassedSeverityFinding = SeverityFinding as unknown as new (
+        value: string,
+      ) => SeverityFinding;
+
+      expect(() => new BypassedSeverityFinding('UNSUPPORTED_SEVERITY')).toThrow(
+        'Invalid severity level: UNSUPPORTED_SEVERITY',
+      );
     });
   });
 });

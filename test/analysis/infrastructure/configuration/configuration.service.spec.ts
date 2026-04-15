@@ -29,15 +29,28 @@ describe('ConfigurationService', () => {
   };
 
   describe('Validation logic', () => {
+    it('should be defined', () => {
+      expect(new ConfigurationService(new ConfigService())).toBeDefined();
+    });
+
     it('should initialize correctly when all variables are present', async () => {
       const module: TestingModule = await createService(mockConfig);
       service = module.get<ConfigurationService>(ConfigurationService);
       expect(service).toBeDefined();
     });
 
+    it('should instantiate directly with a mocked ConfigService (line 6 coverage)', () => {
+      const mockConfigService = {
+        get: jest.fn((key: string) => mockConfig[key]),
+      } as unknown as ConfigService;
+
+      const manualService = new ConfigurationService(mockConfigService);
+      expect(manualService).toBeDefined();
+    });
+
     it('should throw an error if a required variable is missing', async () => {
       const incompleteConfig = { ...mockConfig };
-      delete incompleteConfig.MONGO_URI;
+      delete incompleteConfig['MONGO_URI'];
 
       await expect(createService(incompleteConfig)).rejects.toThrow(
         'CRITICAL FATAL ERROR: Missing environmental variable -> MONGO_URI',
@@ -55,6 +68,15 @@ describe('ConfigurationService', () => {
       expect(service.port).toBe(3001);
     });
 
+    it('should return default port 3001 when PORT is falsy (line 25 coverage)', async () => {
+      const dynamicConfig: Record<string, string | number> = { ...mockConfig };
+      const localModule = await createService(dynamicConfig);
+      const localService = localModule.get<ConfigurationService>(ConfigurationService);
+      dynamicConfig['PORT'] = 0;
+
+      expect(localService.port).toBe(3001);
+    });
+
     it('should evaluate isProduction correctly', async () => {
       expect(service.isProduction).toBe(false);
 
@@ -66,10 +88,10 @@ describe('ConfigurationService', () => {
     });
 
     it('should return correct configuration values', () => {
-      expect(service.mongoUri).toBe(mockConfig.MONGO_URI);
-      expect(service.jwtSecret).toBe(mockConfig.JWT_SECRET);
-      expect(service.awsRegion).toBe(mockConfig.AWS_REGION);
-      expect(service.codeGuardianToken).toBe(mockConfig.CODE_GUARDIAN_TOKEN);
+      expect(service.mongoUri).toBe(mockConfig['MONGO_URI']);
+      expect(service.jwtSecret).toBe(mockConfig['JWT_SECRET']);
+      expect(service.awsRegion).toBe(mockConfig['AWS_REGION']);
+      expect(service.codeGuardianToken).toBe(mockConfig['CODE_GUARDIAN_TOKEN']);
     });
   });
 });
