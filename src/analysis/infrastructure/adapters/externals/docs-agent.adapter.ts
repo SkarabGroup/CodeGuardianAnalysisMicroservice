@@ -18,9 +18,7 @@ const HARDCODED_RESPONSE: DocsAgentResponsePayload = {
     docs_discrepancies: [],
     missing_files: [],
     dependency_audit: {
-      readme_defined: [
-        { name: 'test1', version_pinned: '1.35.0', source_file: 'README.md' },
-        ],
+      readme_defined: [{ name: 'test1', version_pinned: '1.35.0', source_file: 'README.md' }],
       config_defined: [],
       missing_in_config: [],
       undocumented_in_readme: [{ name: '@nestjs/common', found_in: 'package.json' }],

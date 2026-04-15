@@ -23,6 +23,11 @@ import { SaveDocsReportResponse } from '../../../application/DTOs/models/respons
 import { DocumentationReport, DocumentationReportDocument } from './schema/docs-report.schema';
 import { AddReportsToAnalysisRequest } from '../../../application/DTOs/models/requests/add-reports-request-model.model';
 import { AddReportsToAnalysisResult } from '../../../application/DTOs/models/responses/add-reports-result-model.model';
+import {
+  GitHubAnalysisDetailedDTO,
+  GitHubAnalysisGeneralDataDTO,
+} from '../../../application/DTOs/models/responses/get-github-analysis-from-id-result-model.model';
+import { DocsAnalysisReportDTO } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
 @Injectable()
 export class MongoDBAdapter
   implements
@@ -231,6 +236,102 @@ export class MongoDBAdapter
       );
     }
   }
+
+  async getDetailedAnalysis(analysisId: string): Promise<GitHubAnalysisDetailedDTO | null> {
+    try {
+      // 1. Recupero il record dell'analisi
+      const analysisRecord = await this.analysisModel.findOne({ analysisId }).lean().exec();
+
+      if (!analysisRecord) return null;
+
+      let docsReportDTO: DocsAnalysisReportDTO | null = null;
+
+      // 2. Se esiste un report di documentazione, lo recupero e lo mappo
+      if (analysisRecord.docsReportId) {
+        const reportDoc = await this.docsReportModel
+          .findOne({ reportId: analysisRecord.docsReportId })
+          .lean()
+          .exec();
+
+        if (reportDoc) {
+          docsReportDTO = {
+            metadata: {
+              repository: analysisRecord.repoURL,
+              status: analysisRecord.status,
+            },
+            // Mapping da CamelCase (DB) a Snake/PascalCase (DTO)
+            API_standard_violations: reportDoc.apiViolations.map((v) => ({
+              file: v.path,
+              rule: v.rule,
+              severity: v.severity,
+              message: v.description,
+            })),
+            docs_discrepancies: reportDoc.docsDiscrepancies.map((d) => ({
+              category: d.discrepancyCategory,
+              documentation_source: 'N/A', // O il campo sorgente se disponibile
+              docs_claim: d.docsClaim,
+              actual_finding: d.actualFinding,
+              severity: d.severity,
+            })),
+            missing_files: reportDoc.missingFiles.map((mf) => ({
+              referenced_path: mf.referencedPath,
+              referenced_in: mf.referencedIn,
+              context: mf.description,
+              status: mf.status,
+            })),
+            dependency_audit: {
+              readme_defined:
+                reportDoc.dependencyAudit?.readmeDefined.map((rd) => ({
+                  name: rd.name,
+                  version_pinned: rd.versionClaimed,
+                  source_file: 'README.md',
+                })) || [],
+              config_defined:
+                reportDoc.dependencyAudit?.configDefined.map((cd) => ({
+                  name: cd.name,
+                  version_pinned: cd.versionPinned,
+                  source_file: cd.path,
+                })) || [],
+              missing_in_config:
+                reportDoc.dependencyAudit?.missingInConfig.map((mic) => ({
+                  name: mic.name,
+                  severity: mic.severity,
+                  source_file: mic.path,
+                })) || [],
+              undocumented_in_readme:
+                reportDoc.dependencyAudit?.undocumentedInReadme.map((uir) => ({
+                  name: uir.name,
+                  found_in: uir.path,
+                })) || [],
+              version_mismatches:
+                reportDoc.dependencyAudit?.versionMismatches.map((vm) => ({
+                  name: vm.name,
+                  version_pinned: vm.readmeVersion,
+                  config_version: vm.configVersion,
+                  source_file: vm.path,
+                })) || [],
+            },
+          };
+        }
+      }
+
+      const generalData: GitHubAnalysisGeneralDataDTO = {
+        analysisId: analysisRecord.analysisId,
+        userId: analysisRecord.userId,
+        repoURL: analysisRecord.repoURL,
+        branch: analysisRecord.branch,
+        commit: analysisRecord.commit,
+        status: analysisRecord.status,
+        createdAt: analysisRecord.createdAt,
+        updatedAt: analysisRecord.updatedAt,
+      };
+
+      return new GitHubAnalysisDetailedDTO(generalData, docsReportDTO);
+    } catch (error) {
+      console.error('Error fetching detailed analysis:', error);
+      throw new Error('Could not retrieve detailed analysis');
+    }
+  }
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
@@ -241,3 +342,4 @@ export const GITHUB_ANALYSIS_SAVE_PORT = Symbol('IGitHubAnalysisSavePort');
 export const CODE_REPORT_SAVE_PORT = Symbol('ICodeReportSavePort');
 export const DOCS_REPORT_SAVE_PORT = Symbol('IDocsReportSavePort');
 export const ADD_REPORTS_TO_ANALYSIS_PORT = Symbol('IUpdateAnalysisPort');
+export const GET_DETAILED_ANALYSIS_PORT = Symbol('IGetAnalysisFromIdPort');
