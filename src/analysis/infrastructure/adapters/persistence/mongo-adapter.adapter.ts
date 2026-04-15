@@ -266,6 +266,7 @@ export class MongoDBAdapter
 
       // 2. Se esiste un report di documentazione, lo recupero e lo mappo
       if (analysisRecord.docsReportId) {
+        console.log(`Fetching Docs Report with ID: ${analysisRecord.docsReportId}`);
         const reportDoc = await this.docsReportModel
           .findOne({ reportId: analysisRecord.docsReportId })
           .lean()
@@ -286,7 +287,7 @@ export class MongoDBAdapter
             })),
             docs_discrepancies: reportDoc.docsDiscrepancies.map((d) => ({
               category: d.discrepancyCategory,
-              documentation_source: 'N/A', // O il campo sorgente se disponibile
+              documentation_source: d.path,
               docs_claim: d.docsClaim,
               actual_finding: d.actualFinding,
               severity: d.severity,
@@ -302,7 +303,7 @@ export class MongoDBAdapter
                 reportDoc.dependencyAudit?.readmeDefined.map((rd) => ({
                   name: rd.name,
                   version_pinned: rd.versionClaimed,
-                  source_file: 'README.md',
+                  source_file: rd.name,
                 })) || [],
               config_defined:
                 reportDoc.dependencyAudit?.configDefined.map((cd) => ({
@@ -343,6 +344,7 @@ export class MongoDBAdapter
         createdAt: analysisRecord.createdAt!,
         updatedAt: analysisRecord.updatedAt!,
       };
+      console.log('Docs Report DTO:', docsReportDTO);
 
       return new GitHubAnalysisDetailedResult(generalData, docsReportDTO);
     } catch (error) {

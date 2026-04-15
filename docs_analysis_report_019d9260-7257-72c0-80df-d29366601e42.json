@@ -1,0 +1,155 @@
+{
+  "analysis_report": {
+    "API_standard_violations": [
+      {
+        "file": "infra/docker/docker-compose.yml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": ".github/workflows/ci.yml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "tsconfig.build.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "tsconfig.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "nest-cli.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "package.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "package-lock.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "test/jest-e2e.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      }
+    ],
+    "docs_discrepancies": [
+      {
+        "category": "API_ENDPOINT",
+        "documentation_source": "README.md",
+        "docs_claim": "GET / should return 'Hello World!'",
+        "actual_finding": "Route is tested in e2e specs but not declared in any controller or AppModule imports",
+        "severity": "HIGH"
+      },
+      {
+        "category": "DEPENDENCY",
+        "documentation_source": "README.md",
+        "docs_claim": "Project uses standard NestJS setup",
+        "actual_finding": "Missing @nestjs/platform-express in application setup; not imported in AppModule",
+        "severity": "MEDIUM"
+      },
+      {
+        "category": "ARCHITECTURE",
+        "documentation_source": "README.md",
+        "docs_claim": "Project follows NestJS standard structure",
+        "actual_finding": "Module is empty (no controllers, providers, imports); endpoints not properly linked",
+        "severity": "HIGH"
+      }
+    ],
+    "missing_files": [
+      {
+        "referenced_path": "package-lock.json",
+        "referenced_in": "package.json",
+        "context": "Node.js dependency lockfile expected after npm install",
+        "status": "NOT_FOUND"
+      }
+    ],
+    "dependency_audit": {
+      "readme_defined": [],
+      "config_defined": [
+        {
+          "name": "@nestjs/common",
+          "version_pinned": "^11.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/core",
+          "version_pinned": "^11.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/platform-express",
+          "version_pinned": "^11.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "reflect-metadata",
+          "version_pinned": "^0.2.2",
+          "source_file": "package.json"
+        },
+        {
+          "name": "rxjs",
+          "version_pinned": "^7.8.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/cli",
+          "version_pinned": "^11.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/schematics",
+          "version_pinned": "^11.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/testing",
+          "version_pinned": "^11.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "typescript",
+          "version_pinned": "^5.7.3",
+          "source_file": "package.json"
+        }
+      ],
+      "missing_in_config": [],
+      "undocumented_in_readme": [
+        {
+          "name": "@nestjs/platform-express",
+          "found_in": "package.json"
+        },
+        {
+          "name": "typescript",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/testing",
+          "found_in": "package.json"
+        }
+      ],
+      "version_mismatches": []
+    },
+    "metadata": {
+      "repository": "019d9260-7257-72c0-80df-d29366601e42",
+      "status": "success"
+    }
+  }
+}

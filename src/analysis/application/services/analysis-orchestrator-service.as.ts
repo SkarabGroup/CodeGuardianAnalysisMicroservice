@@ -56,6 +56,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     const docsReportId = ReportId.create(uuidv7());
     const codeReportId = ReportId.create(uuidv7());
     const securityReportId = ReportId.create(uuidv7());
+
     if (docs) {
       console.log('Starting documentation analysis...');
       tasks.push(
@@ -70,6 +71,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
             console.error(
               `Documentation Agent Analysis failed or returned an unsuccessful status. Check the report at ${reportPath} for details.`,
             );
+            docs = false;
             return;
           }
           const entity = this.reportEntitiesProvider.fromDocsAgentResponse(
