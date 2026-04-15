@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+//import { spawn } from 'node:child_process';
+//import { join } from 'node:path';
 import { AgentRequest } from '../../../application/DTOs/models/requests/agent-request-model.model';
 import {
   DocsAgentResponse,
@@ -8,6 +8,47 @@ import {
 } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
 import { IDocumentationAgentPort } from '../../../application/ports/externals/docs-agent-port.port';
 
+const HARDCODED_RESPONSE: DocsAgentResponsePayload = {
+  analysis_report: {
+    metadata: {
+      repository: 'hardcoded',
+      status: 'success',
+    },
+    API_standard_violations: [],
+    docs_discrepancies: [],
+    missing_files: [],
+    dependency_audit: {
+      readme_defined: [
+        { name: 'test1', version_pinned: '1.35.0', source_file: 'README.md' },
+        ],
+      config_defined: [],
+      missing_in_config: [],
+      undocumented_in_readme: [{ name: '@nestjs/common', found_in: 'package.json' }],
+      version_mismatches: [],
+    },
+  },
+};
+
+@Injectable()
+export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
+  public async runAnalysis(model: AgentRequest): Promise<DocsAgentResponse> {
+    // For initial testing, return a hardcoded response instead of running the Docker container
+    console.log(`[Adapter] Returning hardcoded response for testing purposes. {model.id.value}`);
+    await new Promise((resolve) => setTimeout(resolve, 100)); // Simulate async operation
+    return new DocsAgentResponse({
+      analysis_report: {
+        ...HARDCODED_RESPONSE.analysis_report,
+        metadata: {
+          ...HARDCODED_RESPONSE.analysis_report.metadata,
+          repository: model.id.value,
+          status: 'success',
+        },
+      },
+    });
+  }
+}
+
+/*
 @Injectable()
 export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
   public async runAnalysis(model: AgentRequest): Promise<DocsAgentResponse> {
@@ -30,13 +71,16 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       'strands-documentation-analyzer',
       '-c',
       // Quote every interpolated path so the shell never word-splits them
-      `python3 /app/test.py "${repoPathInContainer}"`,
+      `python3 /app/docsAgent.py "${repoPathInContainer}"`,
     ];
 
     console.log(
       `[Adapter] Starting analysis on volume: ${sharedVolumeName}, repo: ${repoPathInContainer}`,
     );
 
+  }
+}
+    
     try {
       const rawOutput = await this.runContainer(dockerArgs);
       const parsed = this.extractJson(rawOutput);
@@ -60,6 +104,7 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
       console.log(`[Adapter] Critical error during execution: ${errorMessage}`);
       return this.createFallbackResponse(model.id.value);
     }
+      
   }
 
   private createFallbackResponse(repository: string): DocsAgentResponse {
@@ -143,7 +188,7 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
 
             bestCandidate = parsed;
           } catch {
-            /* Iterative scanning: ignore malformed JSON chunks and continue searching */
+            // Iterative scanning: ignore malformed JSON chunks and continue searching 
           }
           break;
         }
@@ -156,5 +201,5 @@ export class DocumentationAnalysisAdapter implements IDocumentationAgentPort {
     throw new Error('Unterminated JSON in container output.');
   }
 }
-
+*/
 export const DOCS_AGENT = Symbol('DocumentationAgentPort');

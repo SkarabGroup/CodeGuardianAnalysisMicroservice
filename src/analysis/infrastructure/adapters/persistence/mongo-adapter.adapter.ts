@@ -21,6 +21,8 @@ import { GitHubAnalysisRecord, GitHubAnalysisDocument } from './schema/github-an
 import { SaveDocsReportRequest } from '../../../application/DTOs/models/requests/save-docs-report-request-model.model';
 import { SaveDocsReportResponse } from '../../../application/DTOs/models/responses/save-docs-report-response-model.model';
 import { DocumentationReport, DocumentationReportDocument } from './schema/docs-report.schema';
+import { AddReportsToAnalysisRequest } from '../../../application/DTOs/models/requests/add-reports-request-model.model';
+import { AddReportsToAnalysisResult } from '../../../application/DTOs/models/responses/add-reports-result-model.model';
 @Injectable()
 export class MongoDBAdapter
   implements
@@ -207,6 +209,28 @@ export class MongoDBAdapter
       );
     }
   }
+
+  async addReportsToAnalysis(
+    model: AddReportsToAnalysisRequest,
+  ): Promise<AddReportsToAnalysisResult> {
+    try {
+      await this.analysisModel.updateOne(
+        { analysisId: model.analysisId },
+        {
+          $set: {
+            codeReportId: model.codeReportId,
+            docsReportId: model.documentationReportId,
+            securityReportId: model.securityReportId,
+          },
+        },
+      );
+      return AddReportsToAnalysisResult.success();
+    } catch (error) {
+      return AddReportsToAnalysisResult.failure(
+        error instanceof Error ? error.message : 'Unknown error during adding reports to analysis',
+      );
+    }
+  }
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
@@ -216,3 +240,4 @@ export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
 export const GITHUB_ANALYSIS_SAVE_PORT = Symbol('IGitHubAnalysisSavePort');
 export const CODE_REPORT_SAVE_PORT = Symbol('ICodeReportSavePort');
 export const DOCS_REPORT_SAVE_PORT = Symbol('IDocsReportSavePort');
+export const ADD_REPORTS_TO_ANALYSIS_PORT = Symbol('IUpdateAnalysisPort');

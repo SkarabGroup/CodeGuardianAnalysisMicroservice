@@ -16,6 +16,7 @@ import {
   GIT_CREDENTIAL_READ_PORT,
   GITHUB_ANALYSIS_SAVE_PORT,
   DOCS_REPORT_SAVE_PORT,
+  ADD_REPORTS_TO_ANALYSIS_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -73,7 +74,6 @@ import {
   ReportEntitiesProvider,
   REPORT_ENTITIES_PROVIDER,
 } from './domain/services/report-entities-provider.ds';
-
 @Module({
   imports: [
     MongooseModule.forFeature(
@@ -190,6 +190,10 @@ import {
     {
       provide: REPORT_ENTITIES_PROVIDER,
       useClass: ReportEntitiesProvider,
+    },
+    {
+      provide: ADD_REPORTS_TO_ANALYSIS_PORT,
+      useClass: MongoDBAdapter,
     },
   ],
   controllers: [AnalysisController, PatController],

@@ -1,4 +1,4 @@
-extends: ["spectral:oas"] # Usa le regole standard per OpenAPI 2.0/3.0
+extends: ['spectral:oas'] # Usa le regole standard per OpenAPI 2.0/3.0
 rules:
   # Qui puoi aggiungere regole personalizzate o disattivarne alcune
   oas3-api-servers: warn

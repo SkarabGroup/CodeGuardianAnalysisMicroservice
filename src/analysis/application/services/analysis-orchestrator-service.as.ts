@@ -21,6 +21,10 @@ import { ReportId } from '../../domain/value-objects/report-id.vo';
 import type { IDocsReportSavePort } from '../ports/repositories/docs-report-save-port.port';
 import { DOCS_REPORT_SAVE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { SaveDocsReportRequest } from '../DTOs/models/requests/save-docs-report-request-model.model';
+import type { IUpdateAnalysisPort } from '../ports/repositories/update-analysis-port.port';
+import { ADD_REPORTS_TO_ANALYSIS_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
+import { AddReportsToAnalysisRequest } from '../DTOs/models/requests/add-reports-request-model.model';
+
 @Injectable()
 export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
   constructor(
@@ -32,6 +36,8 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     private readonly reportEntitiesProvider: IDocsReportEntityProvider,
     @Inject(DOCS_REPORT_SAVE_PORT)
     private readonly docsReportSavePort: IDocsReportSavePort,
+    @Inject(ADD_REPORTS_TO_ANALYSIS_PORT)
+    private readonly updateAnalysisPort: IUpdateAnalysisPort,
   ) {}
 
   private async orchestrateAnalysis(
@@ -47,6 +53,9 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
 
     const tasks: Promise<void>[] = [];
 
+    const docsReportId = ReportId.create(uuidv7());
+    const codeReportId = ReportId.create(uuidv7());
+    const securityReportId = ReportId.create(uuidv7());
     if (docs) {
       console.log('Starting documentation analysis...');
       tasks.push(
@@ -65,7 +74,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
           }
           const entity = this.reportEntitiesProvider.fromDocsAgentResponse(
             response,
-            ReportId.create(uuidv7()),
+            docsReportId,
             analysis.getAnalysisId(),
           );
           await this.docsReportSavePort.saveDocsReport(
@@ -104,6 +113,19 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
 
     if (tasks.length > 0) {
       await Promise.all(tasks);
+      const result = await this.updateAnalysisPort.addReportsToAnalysis(
+        new AddReportsToAnalysisRequest(
+          analysis.getAnalysisId().value,
+          code ? String(codeReportId.value) : null,
+          docs ? String(docsReportId.value) : null,
+          security ? String(securityReportId.value) : null,
+        ),
+      );
+      if (result.success) {
+        console.log('Analysis reports added to the analysis record successfully.');
+      } else {
+        console.error(`Failed to add reports to analysis: ${result.message}`);
+      }
     } else {
       console.log('Neither one of the topic of the analysis was selected');
     }

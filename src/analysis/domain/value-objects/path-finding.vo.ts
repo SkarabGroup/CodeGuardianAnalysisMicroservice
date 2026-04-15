@@ -21,10 +21,6 @@ export class PathFinding {
   }
 
   private validate(value: string): void {
-    if (value.startsWith('/')) {
-      throw new Error('Path must be relative');
-    }
-
     if (value.includes('\\')) {
       throw new Error('Path must not contain "\\". Use "/" separators');
     }
