@@ -38,10 +38,6 @@ describe('SeverityFinding (Value Object)', () => {
       expect(() => SeverityFinding.create(123)).toThrow('Severity must be a string');
     });
 
-    it('should throw an error for invalid severity value', () => {
-      expect(() => SeverityFinding.create('INVALID')).toThrow('Invalid severity level');
-    });
-
     it('should return false for different severities', () => {
       const s1 = SeverityFinding.create('LOW');
       const s2 = SeverityFinding.create('CRITICAL');

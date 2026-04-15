@@ -1,5 +1,17 @@
 import { SeverityLevel } from '../enums/severity-level.enum';
 
+const SEVERITY_ALIASES: Record<string, SeverityLevel> = {
+  LOW: SeverityLevel.LOW,
+  INFO: SeverityLevel.LOW,
+  HINT: SeverityLevel.LOW,
+  MEDIUM: SeverityLevel.MEDIUM,
+  WARNING: SeverityLevel.MEDIUM,
+  HIGH: SeverityLevel.HIGH,
+  ERROR: SeverityLevel.HIGH,
+  CRITICAL: SeverityLevel.CRITICAL,
+  FATAL: SeverityLevel.CRITICAL,
+};
+
 export class SeverityFinding {
   private readonly _value: SeverityLevel;
 
@@ -19,12 +31,14 @@ export class SeverityFinding {
       throw new Error('Severity cannot be empty');
     }
 
-    return new SeverityFinding(normalized as SeverityLevel);
+    const resolvedSeverity = SEVERITY_ALIASES[normalized] || SeverityLevel.MEDIUM;
+
+    return new SeverityFinding(resolvedSeverity);
   }
 
   private validate(value: string): void {
     if (!Object.values(SeverityLevel).includes(value as SeverityLevel)) {
-      throw new Error('Invalid severity level');
+      throw new Error(`Invalid severity level: ${value}`);
     }
   }
 

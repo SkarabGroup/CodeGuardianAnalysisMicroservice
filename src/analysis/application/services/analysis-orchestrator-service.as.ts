@@ -12,6 +12,15 @@ import { DOCS_AGENT } from '../../infrastructure/adapters/externals/docs-agent.a
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
+import type { IDocsReportEntityProvider } from '../../domain/services/interfaces/docs-report-entity-provider.interface';
+import { REPORT_ENTITIES_PROVIDER } from '../../domain/services/report-entities-provider.ds';
+
+import { v7 as uuidv7 } from 'uuid';
+import { ReportId } from '../../domain/value-objects/report-id.vo';
+
+import type { IDocsReportSavePort } from '../ports/repositories/docs-report-save-port.port';
+import { DOCS_REPORT_SAVE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
+import { SaveDocsReportRequest } from '../DTOs/models/requests/save-docs-report-request-model.model';
 @Injectable()
 export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
   constructor(
@@ -19,6 +28,10 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     private readonly documentationAgent: IDocumentationAgentPort,
     @Inject(CODE_AGENT)
     private readonly codeAgent: ICodeAgentPort,
+    @Inject(REPORT_ENTITIES_PROVIDER)
+    private readonly reportEntitiesProvider: IDocsReportEntityProvider,
+    @Inject(DOCS_REPORT_SAVE_PORT)
+    private readonly docsReportSavePort: IDocsReportSavePort,
   ) {}
 
   private async orchestrateAnalysis(
@@ -35,6 +48,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     const tasks: Promise<void>[] = [];
 
     if (docs) {
+      console.log('Starting documentation analysis...');
       tasks.push(
         (async () => {
           const response = await this.documentationAgent.runAnalysis(
@@ -43,6 +57,28 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
           const reportFilename = `docs_analysis_report_${String(analysis.getAnalysisId().value)}.json`;
           const reportPath = path.join(process.cwd(), reportFilename);
           await fs.writeFile(reportPath, JSON.stringify(response, null, 2), 'utf-8');
+          if (!response || response.analysis_report.metadata.status !== 'success') {
+            console.error(
+              `Documentation Agent Analysis failed or returned an unsuccessful status. Check the report at ${reportPath} for details.`,
+            );
+            return;
+          }
+          const entity = this.reportEntitiesProvider.fromDocsAgentResponse(
+            response,
+            ReportId.create(uuidv7()),
+            analysis.getAnalysisId(),
+          );
+          await this.docsReportSavePort.saveDocsReport(
+            new SaveDocsReportRequest(
+              entity.getReportId(),
+              entity.getAnalysisId(),
+              entity.getApiViolations(),
+              entity.getDocsDiscrepancies(),
+              entity.getMissingFiles(),
+              entity.getDependencyAudit(),
+            ),
+          );
+
           console.log(
             `Documentation Agent Analysis Completed Successfully!\nReport saved to: ${reportPath}`,
           );

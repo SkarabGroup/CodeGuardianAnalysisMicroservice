@@ -1,0 +1,169 @@
+{
+  "analysis_report": {
+    "API_standard_violations": [
+      {
+        "file": "docker-compose.yml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "infra/compose/docker-compose.yml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/tsconfig.build.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/tsconfig.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/nest-cli.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/package.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/package-lock.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/frontend/tsconfig.node.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/frontend/tsconfig.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/frontend/package.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/frontend/tsconfig.app.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/frontend/package-lock.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/test/jest-e2e.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/frontend/tsconfig.node.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Mapping key must be a string scalar rather than object"
+      },
+      {
+        "file": "apps/frontend/tsconfig.node.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Duplicate key: "
+      },
+      {
+        "file": "apps/frontend/tsconfig.node.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "apps/frontend/tsconfig.node.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "apps/frontend/tsconfig.node.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "apps/frontend/tsconfig.node.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "apps/frontend/tsconfig.app.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Mapping key must be a string scalar rather than object"
+      },
+      {
+        "file": "apps/frontend/tsconfig.app.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Duplicate key: "
+      },
+      {
+        "file": "apps/frontend/tsconfig.app.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "apps/frontend/tsconfig.app.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "apps/frontend/tsconfig.app.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "apps/frontend/tsconfig.app.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      }
+    ],
+    "docs_discrepancies": [],
+    "missing_files": [],
+    "dependency_audit": {
+      "readme_defined": [],
+      "config_defined": [],
+      "missing_in_config": [],
+      "undocumented_in_readme": [],
+      "version_mismatches": []
+    },
+    "metadata": {
+      "repository": "019d8d9c-3730-706d-ad07-5ffebffc204a",
+      "status": "success"
+    }
+  }
+}

@@ -111,79 +111,44 @@ def get_response_text(response) -> str:
 
 def run_documentation_analysis():
     load_dotenv()
-    if not os.getenv("AWS_REGION"):
-        print("ERROR: AWS_REGION not found in .env", file=sys.stderr)
-        sys.exit(1)
-
     region = os.getenv("AWS_REGION", "eu-north-1")
     os.environ["AWS_DEFAULT_REGION"] = region
     os.environ["AWS_REGION"] = region
 
-    if not os.getenv("AGENT_MODEL_ID"):
-        print("ERROR: AGENT_MODEL_ID not found in .env", file=sys.stderr)
+    model_id = os.getenv("AGENT_MODEL_ID")
+    if not model_id or len(sys.argv) <= 1:
+        print("ERROR: Missing AGENT_MODEL_ID or repo_path", file=sys.stderr)
         sys.exit(1)
 
-    if len(sys.argv) > 1:
-        repo_path = sys.argv[1]
-    else:
-        print("Usage: python test.py <repo_path>", file=sys.stderr)
-        sys.exit(1)
-
+    repo_path = sys.argv[1]
     xml_content = run_repomix(repo_path)
 
-    agent = Agent(
-        system_prompt="""
-You are an expert Software Engineering Quality Assurance agent.
+    
+    optimized_system_prompt = """Expert QA Agent. Compare documentation vs source code.
+    
+    CRITICAL WORKFLOW:
+    1. Call `spectral_analyze_repo(repo_path="{repo_path}")` to do the study on the API standard violations
+    2. Audit XML content: Cross-check README/docs against file tree, dependencies, API routes, and env vars.
+    3. Return ONLY a JSON report. No markdown, no prose. Fill ALL sections of the report based on findings. ONLY if no issues, return empty arrays. THe API_standard_violations must be filled from the tool response
+    the other sections must be filled based on the analysis of the XML content and the repo structure. Do not leave any section empty if you have information to fill it. If you don't have 
+    information to fill a section, return an empty array for that section.
 
-## CONTEXT
-You receive the full XML output of a repository analyzed by repomix, plus the local filesystem path of that repository.
-Your goal is to produce a comprehensive inconsistency report between the documentation and the actual source code.
-
-## MANDATORY WORKFLOW — follow these steps IN ORDER before generating output
-
-1. **Parse** the repomix XML: extract file tree, file contents, dependencies, configs.
-2. **Read all documentation** (README*, CHANGELOG*, docs/, wiki/, *.md, *.rst, *.txt).
-3. **Run Spectral** using the `spectral_analyze_repo` tool, passing the `repo_path` value provided in the user message.
-   - You MUST call the tool — skipping it is NOT allowed.
-   - If the tool returns an error, include it in `API_standard_violations` with severity "error".
-4. **Cross-check** documentation claims against:
-   - Actual file tree (missing/extra files, wrong paths)
-   - Declared vs installed dependencies (package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod, pom.xml, build.gradle…)
-   - Version numbers (Node, Python, Docker image tags, library versions)
-   - Environment variables (documented vs actually referenced in code)
-   - API endpoints / routes (documented vs implemented)
-   - Architecture diagrams / described components vs actual modules
-   - CI/CD pipeline steps described vs .github/workflows or equivalent
-5. **Generate** the JSON report.
-
-## OUTPUT RULES
-- Return ONLY a valid JSON object.
-- No markdown fences, no prose before or after the JSON.
-- The JSON must start with `{` and end with `}`.
-- All string values inside the JSON must be properly escaped.
-- Do not truncate the output.
-- Response must be in english
-
-## OUTPUT SCHEMA
-{
-  "analysis_report": {
-    "API_standard_violations": [
-      {
-        "file": "string",
-        "rule": "string",
-        "severity": "error | warning | info | hint",
-        "message": "string",
-      }
-    ],
-    "docs_discrepancies": [
-      {
-        "category": "VERSION | DEPENDENCY | FILE_PATH | ENV_VAR | API_ENDPOINT | ARCHITECTURE | CI_CD | CONFIG | OTHER",
-        "documentation_source": "string",
-        "docs_claim": "string", #like "the readme says we have a file called X that does Y" or "the swagger api doc describes an endpoint POST /widgets that accepts a JSON body with these fields and returns 200 with this response"
-        "actual_finding": "string", #in relation to the claim e.g. if is claimed that a file exists does something and it doesn't, the actual finding could be "the file X does this and it doesn't do that"
-        "severity": "LOW | MEDIUM | HIGH | CRITICAL",
-      }
-    ],
+    SCHEMA:
+    {
+      "analysis_report": {
+        "API_standard_violations": [{
+            "file": "str", 
+            "rule": "str", 
+            "severity": "LOW|MEDIUM|HIGH|CRITICAL", 
+            "message": "str"
+        }],
+        "docs_discrepancies": [{
+            "category": "VERSION|DEPENDENCY|FILE_PATH|ENV_VAR|API_ENDPOINT|ARCHITECTURE|CI_CD|CONFIG|OTHER", 
+            "documentation_source": "str", 
+            "docs_claim": "str", 
+            "actual_finding": "str", 
+            "severity": "LOW|MEDIUM|HIGH|CRITICAL"
+        }],
     "missing_files": [
       {
         "referenced_path": "string",
@@ -200,47 +165,31 @@ Your goal is to produce a comprehensive inconsistency report between the documen
       "version_mismatches": [{ "name": "string", "readme_version": "string", "config_version": "string", "source_file": "string" }]
     },
   }
-}
-""",
-        model=os.getenv("AGENT_MODEL_ID"),
+}""".replace("{repo_path}", repo_path)
+
+    agent = Agent(
+        system_prompt=optimized_system_prompt,
+        model=model_id,
         tools=[spectral_analyze_repo],
     )
 
-    prompt = f"""
-repo_path: {repo_path}
-
-Parse the following XML content from the repository and produce the JSON report following the required workflow.
-Remember: Call the spectral_analyze_repo tool FIRST with repo_path="{repo_path}", than generate the JSON.
-
-<repomix_xml>
-{xml_content}
-</repomix_xml>
-"""
+    # Prompt utente minimale per ridurre i token di input
+    prompt = f"Analyze repository at: {repo_path}\n\n<repomix_xml>\n{xml_content}\n</repomix_xml>"
 
     try:
         response = agent(prompt)
-
         raw_text = get_response_text(response)
 
         if not raw_text.strip():
-            raise ValueError("The model response is empty.")
+            raise ValueError("Empty response from model.")
 
         clean_json = extract_json(raw_text)
         report_data = json.loads(clean_json)
 
-        output_path = "analysis-report.json"
-        with open(output_path, "w", encoding="utf-8") as out_file:
-            json.dump(report_data, out_file, indent=2, ensure_ascii=False)
-
-        print(f"\nReport saved in: {output_path}")
         print(json.dumps(report_data, indent=2, ensure_ascii=False))
 
-    except json.JSONDecodeError as e:
-        print(f"[JSON ERROR] Parsing failed: {e}", file=sys.stderr)
-        print(f"[RAW RESPONSE]\n{raw_text[:2000]}", file=sys.stderr)
-        sys.exit(1)
     except Exception as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
+        print(f"[ERROR] {str(e)}", file=sys.stderr)
         sys.exit(1)
 
 

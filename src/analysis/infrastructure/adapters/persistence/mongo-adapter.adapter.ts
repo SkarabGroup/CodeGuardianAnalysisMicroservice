@@ -275,3 +275,5 @@ export const GIT_CREDENTIAL_SAVE_PORT = Symbol('IGitCredentialSavePort');
 export const GIT_CREDENTIAL_DELETE_PORT = Symbol('IGitCredentialDeletePort');
 export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
 export const GITHUB_ANALYSIS_SAVE_PORT = Symbol('IGitHubAnalysisSavePort');
+export const CODE_REPORT_SAVE_PORT = Symbol('ICodeReportSavePort');
+export const DOCS_REPORT_SAVE_PORT = Symbol('IDocsReportSavePort');
