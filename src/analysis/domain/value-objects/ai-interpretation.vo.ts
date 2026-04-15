@@ -1,8 +1,7 @@
 import { DescriptionFinding } from './description-finding.vo';
 import { StaticAnalysisEvaluation } from './static-analysis-evaluation.vo';
 import { CoverageEvaluation } from './coverage-evaluation.vo';
-
-export type VerdictStatus = 'Critical' | 'Poor' | 'Fair' | 'Good' | 'Excellent';
+import { VerdictStatus } from '../enums/verdict-status.enum';
 
 export class AIInterpretation {
   private constructor(
@@ -18,8 +17,7 @@ export class AIInterpretation {
     staticAnalysisEvaluation: StaticAnalysisEvaluation,
     coverageEvaluation: CoverageEvaluation,
   ): AIInterpretation {
-    const validVerdicts: VerdictStatus[] = ['Critical', 'Poor', 'Fair', 'Good', 'Excellent'];
-    if (!validVerdicts.includes(verdict)) throw new Error('Invalid verdict status');
+    if (!Object.values(VerdictStatus).includes(verdict)) throw new Error('Invalid verdict status');
     return new AIInterpretation(
       verdict,
       executiveSummary,

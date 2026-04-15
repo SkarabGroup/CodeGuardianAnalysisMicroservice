@@ -122,7 +122,6 @@ export class AWSCodeAnalysisAdapter implements ICodeAgentPort {
   private createFallbackResponse(reason: string): CodeAgentResponse {
     return new CodeAgentResponse({
       metadata: {
-        repository: 'unknown',
         status: 'error',
       },
       ai_interpretation: {
