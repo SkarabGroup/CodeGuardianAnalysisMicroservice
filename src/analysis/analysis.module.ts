@@ -18,6 +18,7 @@ import {
   DOCS_REPORT_SAVE_PORT,
   ADD_REPORTS_TO_ANALYSIS_PORT,
   GET_DETAILED_ANALYSIS_PORT,
+  GET_ALL_ANALYSES_FOR_USER_PORT,
   CODE_REPORT_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
@@ -83,6 +84,7 @@ import {
 
 import {
   GET_ANALYSIS_SERVICE,
+  GET_ALL_ANALYSES_FOR_USER_SERVICE,
   GetAnalysisService,
 } from './application/services/get-analysis-service.as';
 @Module({
@@ -220,6 +222,11 @@ import {
       provide: GET_ANALYSIS_SERVICE,
       useClass: GetAnalysisService,
     },
+    {
+      provide: GET_ALL_ANALYSES_FOR_USER_PORT,
+      useClass: MongoDBAdapter,
+    },
+    { provide: GET_ALL_ANALYSES_FOR_USER_SERVICE, useClass: GetAnalysisService },
   ],
   controllers: [AnalysisController, PatController],
   exports: [START_ANALYSIS_SERVICE],

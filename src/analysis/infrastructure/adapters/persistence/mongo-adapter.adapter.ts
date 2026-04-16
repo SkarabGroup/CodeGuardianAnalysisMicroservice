@@ -37,6 +37,9 @@ import { IDocsReportSavePort } from '../../../application/ports/repositories/doc
 import { SaveCodeReportRequest } from '../../../application/DTOs/models/requests/save-code-report-request-model.model';
 import { SaveCodeReportResponse } from '../../../application/DTOs/models/responses/save-code-report-response-model.model';
 import { CodeReport, CodeReportDocument } from './schema/code-report.schema';
+import { UserId } from '../../../domain/value-objects/user-id.vo';
+import { GetAllAnalysesForUserResponse } from '../../../application/DTOs/models/responses/get-all-analyses-for-user-response.model';
+import { IGetAllAnalysesForUserPort } from '../../../application/ports/repositories/get-all-analyses-for-user-port.port';
 @Injectable()
 export class MongoDBAdapter
   implements
@@ -47,7 +50,8 @@ export class MongoDBAdapter
     IGitHubAnalysisSavePort,
     IGetAnalysisFromIdPort,
     IDocsReportSavePort,
-    IUpdateAnalysisPort
+    IUpdateAnalysisPort,
+    IGetAllAnalysesForUserPort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
@@ -407,6 +411,29 @@ export class MongoDBAdapter
       );
     }
   }
+
+  async getAllAnalysesForUser(id: UserId): Promise<GetAllAnalysesForUserResponse> {
+    try {
+      const analyses = await this.analysisModel.find({ userId: id.value }).lean().exec();
+
+      const generalDataDTOs: GitHubAnalysisGeneralDataDTO[] = analyses.map((record) => ({
+        analysisId: record.analysisId,
+        userId: record.userId,
+        repoURL: record.repoURL,
+        branch: record.branch,
+        commit: record.commit,
+        status: record.status,
+        createdAt: record.createdAt!,
+        updatedAt: record.updatedAt!,
+      }));
+
+      return new GetAllAnalysesForUserResponse(generalDataDTOs);
+    } catch (error) {
+      throw new Error(
+        `Error fetching analyses for user: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
@@ -418,3 +445,4 @@ export const CODE_REPORT_SAVE_PORT = Symbol('ICodeReportSavePort');
 export const DOCS_REPORT_SAVE_PORT = Symbol('IDocsReportSavePort');
 export const ADD_REPORTS_TO_ANALYSIS_PORT = Symbol('IUpdateAnalysisPort');
 export const GET_DETAILED_ANALYSIS_PORT = Symbol('IGetAnalysisFromIdPort');
+export const GET_ALL_ANALYSES_FOR_USER_PORT = Symbol('IGetAllAnalysesForUserPort');

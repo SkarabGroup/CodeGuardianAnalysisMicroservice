@@ -123,8 +123,10 @@ describe('ReportEntitiesProvider', () => {
       const result = provider.fromDocsAgentResponse(emptyResponse, mockReportId, mockAnalysisId);
 
       expect(result.getApiViolations()).toEqual([]);
-      // FIX: Utilizzo di getDependencyAudit() e accesso corretto ai suoi array
-      expect(result.getDependencyAudit()[0]).toBeUndefined();
+      // FIX: getDependencyAudit() restituisce un oggetto, non un array
+      expect(result.getDependencyAudit()).not.toBeNull();
+      expect(result.getDependencyAudit()!.getReadmeDefined()).toEqual([]);
+      expect(result.getDependencyAudit()!.getVersionMismatches()).toEqual([]);
     });
 
     it('should correctly map version mismatches and fallback to pinned version if config_version is missing', () => {
@@ -153,6 +155,107 @@ describe('ReportEntitiesProvider', () => {
 
       expect(mismatch.getName()).toBe('nest');
       expect(mismatch.getConfigVersion()).toBe('10.0.0');
+    });
+
+    it('should normalize docs fallback values and dependency audit aliases', () => {
+      const fallbackResponse: DocsAgentResponse = {
+        analysis_report: {
+          metadata: {
+            repository: 'test-repo',
+            status: 'completed',
+          },
+          API_standard_violations: [
+            {
+              file: '',
+              rule: '',
+              severity: 'fatal',
+              message: '',
+            },
+          ],
+          docs_discrepancies: [
+            {
+              documentation_source: '',
+              category: '',
+              severity: 'error',
+              docs_claim: '',
+              actual_finding: '',
+            },
+          ],
+          missing_files: [
+            {
+              referenced_path: '',
+              referenced_in: '',
+              status: 'wrong path',
+              context: '',
+            },
+          ],
+          dependency_audit: {
+            readme_defined: [{ name: 'left-pad', version_pinned: null, source_file: '' }],
+            config_defined: [{ name: 'left-pad', version_pinned: null, source_file: '' }],
+            missing_in_config: [
+              { name: 'jest', severity: 'hint', documented_in: 'docs/README.md' },
+              { name: 'typescript', severity: 'mystery', source_file: '' },
+            ],
+            undocumented_in_readme: [{ name: 'dotenv', found_in: '' }],
+            version_mismatches: [
+              {
+                name: 'lodash',
+                version_pinned: null,
+                source_file: 'README.md',
+              },
+              {
+                name: 'typescript',
+                version_pinned: '5.0.0',
+                source_file: '',
+              },
+            ],
+          },
+        },
+      };
+
+      const result = provider.fromDocsAgentResponse(fallbackResponse, mockReportId, mockAnalysisId);
+
+      const apiViolation = result.getApiViolations()[0];
+      expect(apiViolation.getPathFinding().value).toBe('UNKNOWN');
+      expect(apiViolation.getRule()).toBe('UNSPECIFIED_RULE');
+      expect(apiViolation.getSeverityFinding().value).toBe(SeverityLevel.CRITICAL);
+      expect(apiViolation.getDescriptionFinding().value).toBe('No description provided');
+
+      const discrepancy = result.getDocsDiscrepancies()[0];
+      expect(discrepancy.getPathFinding().value).toBe('UNKNOWN');
+      expect(discrepancy.getDiscrepancyCategory()).toBe('OTHER');
+      expect(discrepancy.getSeverityFinding().value).toBe(SeverityLevel.HIGH);
+      expect(discrepancy.getDocsClaim().value).toBe('No claim documented');
+      expect(discrepancy.getActualFinding().value).toBe('No finding reported');
+
+      const missingFile = result.getMissingFiles()[0];
+      expect(missingFile.getReferencedPath().value).toBe('UNKNOWN');
+      expect(missingFile.getReferencedIn().value).toBe('UNKNOWN');
+      expect(missingFile.getStatusMissing()).toBe(StatusMissing.WRONG_PATH);
+      expect(missingFile.getDescriptionFinding().value).toBe('No context provided');
+
+      const dependencyAudit = result.getDependencyAudit();
+      expect(dependencyAudit).not.toBeNull();
+
+      const readmeDependency = dependencyAudit!.getReadmeDefined()[0];
+      expect(readmeDependency.getVersionClaimed()).toBeNull();
+
+      const configDependency = dependencyAudit!.getConfigDefined()[0];
+      expect(configDependency.getPathFinding().value).toBe('package.json');
+
+      const missingInConfig = dependencyAudit!.getMissingInConfig();
+      expect(missingInConfig[0].getPathFinding().value).toBe('docs/README.md');
+      expect(missingInConfig[0].getSeverityFinding().value).toBe(SeverityLevel.LOW);
+      expect(missingInConfig[1].getPathFinding().value).toBe('UNKNOWN');
+      expect(missingInConfig[1].getSeverityFinding().value).toBe(SeverityLevel.MEDIUM);
+
+      const undocumented = dependencyAudit!.getUndocumentedInReadme()[0];
+      expect(undocumented.getPathFinding().value).toBe('UNKNOWN');
+
+      const versionMismatches = dependencyAudit!.getVersionMismatches();
+      expect(versionMismatches).toHaveLength(1);
+      expect(versionMismatches[0].getConfigVersion()).toBe('5.0.0');
+      expect(versionMismatches[0].getPathFinding().value).toBe('UNKNOWN');
     });
   });
 

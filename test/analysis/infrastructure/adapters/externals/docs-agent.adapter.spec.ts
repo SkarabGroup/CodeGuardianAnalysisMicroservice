@@ -96,6 +96,76 @@ describe('DocumentationAnalysisAdapter', () => {
       const result = await promise;
       expect(result.analysis_report.metadata.status).toBe('error');
     });
+
+    it('should return fallback if no JSON is found in output', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
+
+      const promise = adapter.runAnalysis(mockRequest);
+
+      process.nextTick(() => {
+        proc.stdout.emit('data', Buffer.from('Just plain text without the brace character'));
+        proc.emit('close', 0);
+      });
+
+      const result = await promise;
+      expect(result.analysis_report.metadata.status).toBe('error');
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Critical error during execution: No JSON found in the container output.',
+        ),
+      );
+    });
+
+    it('should handle malformed error token gracefully and fall back to best candidate', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
+
+      // JSON con error token malformato che causerà un'eccezione nel blocco try/catch
+      const malformedErrorJson = '{"status": "error", invalid-json} { "valid": "json" }';
+
+      const promise = adapter.runAnalysis(mockRequest);
+
+      process.nextTick(() => {
+        proc.stdout.emit('data', Buffer.from(malformedErrorJson));
+        proc.emit('close', 0);
+      });
+
+      const result = await promise;
+      expect(result.analysis_report.metadata.status).toBe('error');
+    });
+
+    it('should throw an error if JSON is unterminated', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
+
+      const unterminatedJson = '{"analysis_report": { "metadata": {} } ';
+
+      const promise = adapter.runAnalysis(mockRequest);
+
+      process.nextTick(() => {
+        proc.stdout.emit('data', Buffer.from(unterminatedJson));
+        proc.emit('close', 0);
+      });
+
+      const result = await promise;
+      expect(result.analysis_report.metadata.status).toBe('error');
+    });
+
+    it('should throw an error if parsed JSON is missing analysis_report', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
+
+      const promise = adapter.runAnalysis(mockRequest);
+
+      process.nextTick(() => {
+        proc.stdout.emit('data', Buffer.from('{"random_key": "data"}'));
+        proc.emit('close', 0);
+      });
+
+      const result = await promise;
+      expect(result.analysis_report.metadata.status).toBe('error');
+    });
   });
 
   describe('Container Error Handling', () => {
@@ -127,6 +197,24 @@ describe('DocumentationAnalysisAdapter', () => {
 
       const result = await promise;
       expect(result.analysis_report.metadata.status).toBe('error');
+    });
+
+    it('should return fallback when string error is thrown', async () => {
+      const proc = createMockProcess();
+      (childProcess.spawn as jest.Mock).mockReturnValue(proc);
+
+      const promise = adapter.runAnalysis(mockRequest);
+
+      process.nextTick(() => {
+        // Emette un errore stringa al posto dell'oggetto Error
+        proc.emit('error', 'Spawn failed completely');
+      });
+
+      const result = await promise;
+      expect(result.analysis_report.metadata.status).toBe('error');
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Spawn failed completely'),
+      );
     });
   });
 });

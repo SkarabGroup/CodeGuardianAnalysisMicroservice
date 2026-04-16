@@ -1,9 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GetAnalysisService } from '../../../../src/analysis/application/services/get-analysis-service.as';
-import { GET_DETAILED_ANALYSIS_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
+import {
+  GET_DETAILED_ANALYSIS_PORT,
+  GET_ALL_ANALYSES_FOR_USER_PORT,
+} from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { GetAnalysisFromIdCommand } from '../../../../src/analysis/application/commands/get-analysis-from-id.command';
 import { GetAnalysisResult } from '../../../../src/analysis/application/results/get-analysis-result.result';
+import { GetAllAnalysesForUserCommand } from '../../../../src/analysis/application/commands/get-all-analyses-for-user-command.command';
+import { GetAllAnalysesForUserResult } from '../../../../src/analysis/application/results/get-all-analyses-for-user-result.result';
 import { AnalysisId } from '../../../../src/analysis/domain/value-objects/analysis-id.vo';
+import { UserId } from '../../../../src/analysis/domain/value-objects/user-id.vo';
 import { v7 as uuidv7 } from 'uuid';
 describe('GetAnalysisService', () => {
   let service: GetAnalysisService;
@@ -13,6 +19,10 @@ describe('GetAnalysisService', () => {
     getAnalysisFromId: jest.fn(),
   };
 
+  const mockGetAllAnalysesForUserPort = {
+    getAllAnalysesForUser: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -20,6 +30,10 @@ describe('GetAnalysisService', () => {
         {
           provide: GET_DETAILED_ANALYSIS_PORT,
           useValue: mockGetAnalysisFromIdPort,
+        },
+        {
+          provide: GET_ALL_ANALYSES_FOR_USER_PORT,
+          useValue: mockGetAllAnalysesForUserPort,
         },
       ],
     }).compile();
@@ -99,6 +113,68 @@ describe('GetAnalysisService', () => {
       mockGetAnalysisFromIdPort.getAnalysisFromId.mockRejectedValue('Strange string error');
 
       const result = await service.execute(command);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Errore interno del server');
+    });
+  });
+
+  describe('getAllAnalysesForUser', () => {
+    const VALID_USER_UUID = uuidv7();
+    const command = new GetAllAnalysesForUserCommand(VALID_USER_UUID);
+
+    it('should return success with mapped analyses', async () => {
+      const mockAnalysesData = {
+        dto: [{ analysisId: 'a1', repoURL: 'repo1' }],
+      };
+      mockGetAllAnalysesForUserPort.getAllAnalysesForUser.mockResolvedValue(mockAnalysesData);
+
+      const successSpy = jest.spyOn(GetAllAnalysesForUserResult, 'success');
+
+      const result = await service.getAllAnalysesForUser(command);
+
+      expect(result.success).toBe(true);
+      expect(result.analyses).toEqual(mockAnalysesData.dto);
+      expect(mockGetAllAnalysesForUserPort.getAllAnalysesForUser).toHaveBeenCalledWith(
+        expect.any(UserId),
+      );
+      expect(successSpy).toHaveBeenCalledWith(mockAnalysesData.dto);
+    });
+
+    it('should return success with empty array if dto is undefined', async () => {
+      const mockAnalysesData = {}; // no dto populated
+      mockGetAllAnalysesForUserPort.getAllAnalysesForUser.mockResolvedValue(mockAnalysesData);
+
+      const result = await service.getAllAnalysesForUser(command);
+
+      expect(result.success).toBe(true);
+      expect(result.analyses).toEqual([]);
+    });
+
+    it('should return failure if UserId.create throws (invalid UUID)', async () => {
+      const invalidCommand = new GetAllAnalysesForUserCommand('invalid-user-id');
+
+      const result = await service.getAllAnalysesForUser(invalidCommand);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBeDefined();
+      expect(result.message).toContain('Invalid UUID');
+    });
+
+    it('should catch exceptions from the port and return failure result', async () => {
+      const dbError = new Error('Database timeout');
+      mockGetAllAnalysesForUserPort.getAllAnalysesForUser.mockRejectedValue(dbError);
+
+      const result = await service.getAllAnalysesForUser(command);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Database timeout');
+    });
+
+    it('should return default message if caught error is not an Error object', async () => {
+      mockGetAllAnalysesForUserPort.getAllAnalysesForUser.mockRejectedValue('String error');
+
+      const result = await service.getAllAnalysesForUser(command);
 
       expect(result.success).toBe(false);
       expect(result.message).toBe('Errore interno del server');
