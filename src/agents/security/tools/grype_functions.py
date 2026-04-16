@@ -5,6 +5,28 @@ from strands import tool
 
 
 # -------------------------
+# DEDUPLICATION HELPER
+# -------------------------
+def dedupe(findings):
+    seen = set()
+    result = []
+
+    for f in findings:
+        key = (
+            f["path"],
+            f["package_name"],
+            f["package_version"],
+            f["vulnerability_id"],
+            f["severity"],
+        )
+
+        if key not in seen:
+            seen.add(key)
+            result.append(f)
+
+    return result
+
+# -------------------------
 # RUNNER FUNCTIONS
 # -------------------------
 
@@ -140,15 +162,19 @@ def parse_grype_report(output_file: str) -> dict:
     matches = full_data.get("matches", [])
 
     if not matches:
-        return {"findings_to_analyze": []}  
-
-    findings_for_agent = []
+        return {"findings_to_analyze": []}
+    
+    critical_findings = []
+    high_findings = []
+    medium_findings = []
 
     for match in matches:
         vuln = match.get("vulnerability") or {}
         artifact = match.get("artifact") or {}
 
-        if vuln.get("severity", "") != "Critical":
+        severity = (vuln.get("severity") or "").lower()
+
+        if severity not in ["critical", "high", "medium"]:
             continue
 
         locations = artifact.get("locations") or []
@@ -178,17 +204,44 @@ def parse_grype_report(output_file: str) -> dict:
             fix_hint = "No fix information available."
 
         finding = {
-            "path":            path,
-            "packagename":     artifact.get("name", ""),
-            "packageversion":  artifact.get("version", ""),
-            "vulnerabilityid": vuln.get("id", ""),
-            "severity":        vuln.get("severity", ""),
-            "description":     vuln.get("description", ""),
-            "fix_hint":        fix_hint,
-            "remediation":     None  
+            "path": path,
+            "package_name": artifact.get("name", ""),
+            "package_version": artifact.get("version", ""),
+            "vulnerability_id": vuln.get("id", ""),
+            "severity": vuln.get("severity", ""),
+            "description": vuln.get("description", ""),
+            "fix_hint": fix_hint,
+            "remediation": None  
         }
 
-        findings_for_agent.append(finding)
+        if severity == "critical":
+            critical_findings.append(finding)
+        elif severity == "high":
+            high_findings.append(finding)
+        elif severity== "medium":
+            medium_findings.append(finding)
+    
+    critical_findings = dedupe(critical_findings)
+    high_findings = dedupe(high_findings)
+    medium_findings = dedupe(medium_findings)
+
+    if len(critical_findings) >= 10:
+        findings_for_agent = critical_findings[:10]
+
+    elif len(critical_findings) > 0:
+        needed = 10 - len(critical_findings)
+        findings_for_agent = critical_findings + high_findings[:needed]
+
+        if len(findings_for_agent) < 5:
+            remaining = 5 - len(findings_for_agent)
+            findings_for_agent += medium_findings[:remaining]
+
+    elif len(high_findings) < 5:
+        needed= 5 - len(high_findings)
+        findings_for_agent = high_findings + medium_findings[:needed]
+    
+    else:
+        findings_for_agent= high_findings[:10]
 
     return {"findings_to_analyze": findings_for_agent}
 

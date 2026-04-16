@@ -1,28 +1,29 @@
 import sys
 import json
-import os
-import re
-from dotenv import load_dotenv
 from agent import analyze_repository
+from helpers.aggregate_findings import aggregate_findings
+
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python main.py <repo_path>")
+        print("Usage: python main.py <repo_path>", file=sys.stderr)
         sys.exit(1)
 
     repo_path = sys.argv[1]
 
-    print(f"[INFO] Starting security analysis for: {repo_path}\n")
+    try:
+        agent_result = analyze_repository(repo_path)
+    except Exception as e:
+        print(f"[CRITICAL] Agent execution failed: {e}", file=sys.stderr)
+        sys.exit(1)
 
     try:
-        result = analyze_repository(repo_path)
-        print("\n=== FINAL REPORT ===\n")
-        print(result)
-
+        enriched_result = aggregate_findings(agent_result)
     except Exception as e:
-        print("\n[ERROR] Agent execution failed:")
-        print(str(e))
+        print(f"[CRITICAL] Aggregation failed: {e}", file=sys.stderr)
         sys.exit(1)
+
+    print(json.dumps(enriched_result, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
