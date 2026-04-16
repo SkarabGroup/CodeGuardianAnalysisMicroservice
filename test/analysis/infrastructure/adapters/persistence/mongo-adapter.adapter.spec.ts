@@ -42,6 +42,7 @@ interface MockAnalysisModel {
   create: jest.Mock;
   updateOne: jest.Mock;
   findOne: jest.Mock;
+  find: jest.Mock;
 }
 
 interface MongoError extends Error {
@@ -93,6 +94,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
       create: jest.fn(),
       updateOne: jest.fn(),
       findOne: jest.fn(),
+      find: jest.fn(),
     };
 
     mockDocsReportModel = {
@@ -1174,6 +1176,71 @@ describe('MongoDBAdapter (Unit Test)', () => {
       expect(result?.docsReport?.API_standard_violations[0].file).toBe('f.ts');
       expect(result?.docsReport?.missing_files[0].referenced_path).toBe('rp');
       expect(result?.docsReport?.dependency_audit.readme_defined[0].name).toBe('n');
+    });
+  });
+
+  describe('getAllAnalysesForUser', () => {
+    it('should return successfully a list of analyses for the user', async () => {
+      const mockUserId = UserId.create(uuid());
+      const mockAnalyses = [
+        {
+          analysisId: 'a1',
+          userId: mockUserId.value,
+          repoURL: 'http://repo1',
+          branch: 'main',
+          commit: 'c1',
+          status: AnalysisStatus.COMPLETED,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      mockAnalysisModel.find = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockAnalyses),
+      });
+
+      const result = await adapter.getAllAnalysesForUser(mockUserId);
+      expect(result.dto).toHaveLength(1);
+      expect(result.dto[0].analysisId).toBe('a1');
+      expect(result.dto[0].repoURL).toBe('http://repo1');
+      expect(mockAnalysisModel.find).toHaveBeenCalledWith({ userId: mockUserId.value });
+    });
+
+    it('should return an empty list when no analyses are found', async () => {
+      const mockUserId = UserId.create(uuid());
+
+      mockAnalysisModel.find = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+      const result = await adapter.getAllAnalysesForUser(mockUserId);
+      expect(result.dto).toHaveLength(0);
+    });
+
+    it('should throw an error with the original message when an Error is thrown', async () => {
+      const mockUserId = UserId.create(uuid());
+      mockAnalysisModel.find = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockRejectedValue(new Error('Database connection failed')),
+      });
+
+      await expect(adapter.getAllAnalysesForUser(mockUserId)).rejects.toThrow(
+        'Error fetching analyses for user: Database connection failed',
+      );
+    });
+
+    it('should throw an error with Unknown error when a non-Error is thrown', async () => {
+      const mockUserId = UserId.create(uuid());
+      mockAnalysisModel.find = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockRejectedValue('String error'),
+      });
+
+      await expect(adapter.getAllAnalysesForUser(mockUserId)).rejects.toThrow(
+        'Error fetching analyses for user: Unknown error',
+      );
     });
   });
 });

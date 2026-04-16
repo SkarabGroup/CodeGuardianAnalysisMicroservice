@@ -1,0 +1,265 @@
+{
+  "analysis_report": {
+    "API_standard_violations": [
+      {
+        "file": "infra/compose/docker-compose.yml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/tsconfig.build.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/tsconfig.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/nest-cli.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/package.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/package-lock.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/frontend/package.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/frontend/package-lock.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "apps/api/test/jest-e2e.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "docker-compose.yml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      }
+    ],
+    "docs_discrepancies": [
+      {
+        "category": "FILE_PATH",
+        "documentation_source": "apps/agents/README.md",
+        "docs_claim": "File Dockerfile.docker.test was listed in README",
+        "actual_finding": "Dockerfile located at Dockerfile.docker.test not found in the repository",
+        "severity": "MEDIUM"
+      },
+      {
+        "category": "FILE_PATH",
+        "documentation_source": "apps/agents/README.md",
+        "docs_claim": "File database/ was listed in README",
+        "actual_finding": "Directory database/ not found in the repository",
+        "severity": "MEDIUM"
+      },
+      {
+        "category": "VERSION",
+        "documentation_source": "apps/agents/README.md",
+        "docs_claim": "Docker image version *YOUR_NAME_FOR_IMAGE* must be used",
+        "actual_finding": "Docker image was not found; using default build process instead",
+        "severity": "LOW"
+      }
+    ],
+    "missing_files": [
+      {
+        "referenced_path": "apps/agents/Dockerfile.docker.test",
+        "referenced_in": "apps/agents/README.md",
+        "context": "Build the agents container:\n```bash\ndocker build -t *YOUR_NAME_FOR_IMAGE* -f Dockerfile.docker.test . \n```",
+        "status": "NOT_FOUND"
+      },
+      {
+        "referenced_path": "apps/agents/database/",
+        "referenced_in": "apps/agents/README.md",
+        "context": "- **database/** - Database management and queries",
+        "status": "NOT_FOUND"
+      }
+    ],
+    "dependency_audit": {
+      "readme_defined": [],
+      "config_defined": [
+        {
+          "name": "boto3",
+          "version_pinned": "1.42.32",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "botocore",
+          "version_pinned": "1.42.32",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "gitdb",
+          "version_pinned": "4.0.12",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "GitPython",
+          "version_pinned": "3.1.46",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "jmespath",
+          "version_pinned": "1.0.1",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "python-dateutil",
+          "version_pinned": "2.9.0.post0",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "s3transfer",
+          "version_pinned": "0.16.0",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "six",
+          "version_pinned": "1.17.0",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "smmap",
+          "version_pinned": "5.0.2",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "urllib3",
+          "version_pinned": "2.6.3",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "python-dotenv",
+          "version_pinned": "1.2.1",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "strands-agents",
+          "version_pinned": null,
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "strands-agents-tools",
+          "version_pinned": null,
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "pymongo",
+          "version_pinned": "4.4.0",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "GitPython",
+          "version_pinned": "1.0.3",
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "pyenchant",
+          "version_pinned": null,
+          "source_file": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "requests",
+          "version_pinned": "2.27.1",
+          "source_file": "apps/agents/requirements.txt"
+        }
+      ],
+      "missing_in_config": [],
+      "undocumented_in_readme": [
+        {
+          "name": "boto3",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "botocore",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "gitdb",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "GitPython",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "jmespath",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "python-dateutil",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "s3transfer",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "six",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "smmap",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "urllib3",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "python-dotenv",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "strands-agents",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "strands-agents-tools",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "pymongo",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "pyenchant",
+          "found_in": "apps/agents/requirements.txt"
+        },
+        {
+          "name": "requests",
+          "found_in": "apps/agents/requirements.txt"
+        }
+      ],
+      "version_mismatches": []
+    },
+    "metadata": {
+      "repository": "019d93aa-0b3f-7142-9441-d00116ad14f7",
+      "status": "success"
+    }
+  }
+}
