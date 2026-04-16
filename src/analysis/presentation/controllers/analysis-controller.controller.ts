@@ -22,9 +22,15 @@ import { StartAnalysisResult } from '../../application/results/start-analysis-re
 import { ConfigurationService } from '../../infrastructure/configuration/configuration.service';
 import { GetAnalysisResponseDTO } from '../DTOs/responses/get-analysis-by-id.dto';
 import { GetAnalysisFromIdCommand } from '../../application/commands/get-analysis-from-id.command';
-import { GET_ANALYSIS_SERVICE } from '../../application/services/get-analysis-service.as';
+import {
+  GET_ALL_ANALYSES_FOR_USER_SERVICE,
+  GET_ANALYSIS_SERVICE,
+} from '../../application/services/get-analysis-service.as';
 import type { GetAnalysisUseCase } from '../../application/use-case/get-analysis-use-case.uc';
 import { GetAnalysisByIdRequestDTO } from '../DTOs/requests/get-analysis-by-id.dto';
+import { GetAllAnalysesForUserResponseDTO } from '../DTOs/responses/get-all-analyses-for-user-response.dto';
+import { GetAllAnalysesForUserCommand } from '../../application/commands/get-all-analyses-for-user-command.command';
+import type { GetAllAnalysesForUserUseCase } from '../../application/use-case/get-all-analyses-for-user.uc';
 
 export type JwtPayload = {
   sub: string;
@@ -58,10 +64,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {}
 
-export const UserId = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
+export const userIdFactory = (_data: unknown, ctx: ExecutionContext): string => {
   const request = ctx.switchToHttp().getRequest<RequestWithUser>();
   return request.user.userId;
-});
+};
+
+export const UserId = createParamDecorator(userIdFactory);
 
 @Controller('analysis')
 export class AnalysisController {
@@ -70,6 +78,8 @@ export class AnalysisController {
     private readonly startAnalysis: StartAnalysisUseCase,
     @Inject(GET_ANALYSIS_SERVICE)
     private readonly getAnalysis: GetAnalysisUseCase,
+    @Inject(GET_ALL_ANALYSES_FOR_USER_SERVICE)
+    private readonly getAllAnalyses: GetAllAnalysesForUserUseCase,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -127,6 +137,23 @@ export class AnalysisController {
       return GetAnalysisResponseDTO.fromResult(result);
     } catch (error) {
       return new GetAnalysisResponseDTO(
+        false,
+        error instanceof Error ? error.message : 'Internal Server Error',
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('all')
+  public async getAllAnalysesForUser(
+    @UserId() userId: string,
+  ): Promise<GetAllAnalysesForUserResponseDTO> {
+    const command = new GetAllAnalysesForUserCommand(userId);
+    try {
+      const result = await this.getAllAnalyses.getAllAnalysesForUser(command);
+      return GetAllAnalysesForUserResponseDTO.fromResult(result);
+    } catch (error) {
+      return new GetAllAnalysesForUserResponseDTO(
         false,
         error instanceof Error ? error.message : 'Internal Server Error',
       );
