@@ -117,7 +117,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
           );
           const reportFilename = `code_analysis_report_${String(analysis.getAnalysisId().value)}.json`;
           const reportPath = path.join(process.cwd(), reportFilename);
-          await fs.writeFile(reportPath, JSON.stringify(response, null, 2), 'utf-8');
+          // await fs.writeFile(reportPath, JSON.stringify(response, null, 2), 'utf-8');
           if (!response || response.metadata.status !== 'success') {
             console.error(
               `Code Agent Analysis failed or returned an unsuccessful status. Check the report at ${reportPath} for details.`,
