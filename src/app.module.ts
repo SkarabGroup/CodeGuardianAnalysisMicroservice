@@ -1,17 +1,19 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AnalysisModule } from './analysis/analysis.module';
+import { ConfigurationModule } from './analysis/infrastructure/configuration/configuration.module';
+import { ConfigurationService } from './analysis/infrastructure/configuration/configuration.service';
 
 @Module({
   imports: [
-    // 1. Inizializziamo la connessione globale a MongoDB
-    // Usiamo la variabile d'ambiente definita nel Docker Compose
-    MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost:27017/analysis_db', {
-      // Usiamo il nome che il tuo sistema sta cercando per risolvere le dipendenze
+    ConfigurationModule,
+    MongooseModule.forRootAsync({
       connectionName: 'DatabaseConnection',
+      useFactory: (config: ConfigurationService) => ({
+        uri: config.mongoUri,
+      }),
+      inject: [ConfigurationService],
     }),
-
-    // 2. Importiamo il tuo modulo che contiene Controller e Use Case
     AnalysisModule,
   ],
   controllers: [],

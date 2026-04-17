@@ -1,17 +1,45 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import * as fs from 'node:fs/promises';
 import { AnalysisOrchestratorService } from '../../../../src/analysis/application/services/analysis-orchestrator-service.as';
 import { GitHubAnalysis } from '../../../../src/analysis/domain/entities/github-analysis.entity';
-import { CODE_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/code-agent.adapter';
+import { DOCS_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/docs-agent.adapter';
+import { CODE_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/local-code-agent.adapter';
+import { ConfigurationService } from '../../../../src/analysis/infrastructure/configuration/configuration.service';
+import {
+  DOCS_REPORT_PROVIDER,
+  CODE_REPORT_PROVIDER,
+} from '../../../../src/analysis/domain/services/report-entities-provider.ds';
+import {
+  DOCS_REPORT_SAVE_PORT,
+  CODE_REPORT_SAVE_PORT,
+  ADD_REPORTS_TO_ANALYSIS_PORT,
+} from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
+
+// Mock dei file system
+jest.mock('node:fs/promises');
+
 describe('AnalysisOrchestratorService', () => {
   let service: AnalysisOrchestratorService;
 
-  // Mock dell'adapter iniettato
-  const codeAgentMock = {
-    runAnalysis: jest.fn(),
+  const codeAgentMock = { runAnalysis: jest.fn() };
+  const docsAgentMock = { runAnalysis: jest.fn() };
+  const docsReportProviderMock = { fromDocsAgentResponse: jest.fn() };
+  const docsReportSavePortMock = { saveDocsReport: jest.fn() };
+  const updateAnalysisPortMock = { addReportsToAnalysis: jest.fn() };
+
+  const codeReportProviderMock = {
+    fromCodeAgentResponse: jest.fn(),
   };
 
-  // Mock tipizzato per evitare 'any'
-  const mockAnalysisId = { value: 'test-id' };
+  const codeReportSavePortMock = {
+    saveCodeReport: jest.fn(),
+  };
+
+  const mockConfigService = {
+    codeAgentModel: 'test-model',
+  };
+
+  const mockAnalysisId = { value: 'test-uuid' };
   const mockAnalysis = {
     getAnalysisId: jest.fn().mockReturnValue(mockAnalysisId),
   } as unknown as GitHubAnalysis;
@@ -22,13 +50,46 @@ describe('AnalysisOrchestratorService', () => {
         AnalysisOrchestratorService,
         {
           provide: CODE_AGENT,
-          // Usiamo un oggetto che implementa l'interfaccia necessaria
           useValue: codeAgentMock,
+        },
+        {
+          provide: DOCS_AGENT,
+          useValue: docsAgentMock,
+        },
+        {
+          provide: ConfigurationService,
+          useValue: mockConfigService,
+        },
+        {
+          provide: DOCS_REPORT_PROVIDER,
+          useValue: docsReportProviderMock,
+        },
+        {
+          provide: DOCS_REPORT_SAVE_PORT,
+          useValue: docsReportSavePortMock,
+        },
+        {
+          provide: CODE_REPORT_PROVIDER,
+          useValue: codeReportProviderMock,
+        },
+        {
+          provide: CODE_REPORT_SAVE_PORT,
+          useValue: codeReportSavePortMock,
+        },
+        {
+          provide: ADD_REPORTS_TO_ANALYSIS_PORT,
+          useValue: updateAnalysisPortMock,
         },
       ],
     }).compile();
 
     service = module.get<AnalysisOrchestratorService>(AnalysisOrchestratorService);
+
+    // Setup di default per i mock
+    jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
+    updateAnalysisPortMock.addReportsToAnalysis.mockResolvedValue({ success: true });
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -39,54 +100,240 @@ describe('AnalysisOrchestratorService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should start orchestration and log success', async () => {
-    // unbound-method: usiamo una funzione anonima
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {
-      /* noop */
+  describe('analyze - Code Analysis Flow', () => {
+    it('should start orchestration, call code agent, map entity and save report', async () => {
+      codeAgentMock.runAnalysis.mockResolvedValue({
+        metadata: { status: 'success' },
+        ai_interpretation: { verdict: 'Safe' },
+      });
+
+      const mockEntity = {
+        id: { value: 'fake-id' },
+        analysisId: mockAnalysisId,
+        metadata: {},
+        interpretation: {},
+      };
+      codeReportProviderMock.fromCodeAgentResponse.mockReturnValue(mockEntity);
+
+      service.analyze(mockAnalysis, '/tmp/repo', true, false, false);
+
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(codeReportProviderMock.fromCodeAgentResponse).toHaveBeenCalled();
+      expect(codeReportSavePortMock.saveCodeReport).toHaveBeenCalled();
     });
-    codeAgentMock.runAnalysis.mockResolvedValue({ success: true });
 
-    service.analyze(mockAnalysis, '/tmp/repo', true, false, true);
+    it('should call code agent and write local file when code analysis is requested', async () => {
+      // CORREZIONE: La struttura deve avere 'metadata' alla root, non dentro 'analysis_report'
+      codeAgentMock.runAnalysis.mockResolvedValue({
+        metadata: { status: 'success' },
+      });
 
-    await new Promise((resolve) => {
-      setImmediate(resolve);
+      // Necessario anche mockare il provider dell'entità per evitare che il flusso si interrompa dopo la scrittura file
+      const mockEntity = {
+        id: { value: 'code-id' },
+        analysisId: mockAnalysisId,
+        metadata: {},
+        interpretation: {},
+      };
+      codeReportProviderMock.fromCodeAgentResponse.mockReturnValue(mockEntity);
+
+      service.analyze(mockAnalysis, '/tmp/repo', true, false, false);
+
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(codeAgentMock.runAnalysis).toHaveBeenCalled();
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Analysis started for: test-id, /tmp/repo.'),
-    );
+    it('should handle code agent failure gracefully', async () => {
+      codeAgentMock.runAnalysis.mockResolvedValue({
+        metadata: { status: 'failed' },
+      });
 
-    // Verifichiamo che l'adapter sia stato chiamato con l'ID corretto
-    expect(codeAgentMock.runAnalysis).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: mockAnalysisId,
-      }),
-    );
+      service.analyze(mockAnalysis, '/tmp/repo', true, false, false);
 
-    consoleSpy.mockRestore();
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('Code Agent Analysis failed'),
+      );
+      expect(codeReportProviderMock.fromCodeAgentResponse).not.toHaveBeenCalled();
+    });
   });
 
-  it('should catch and log errors from orchestrateAnalysis', async () => {
-    // unbound-method: usiamo una funzione anonima
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {
-      /* noop */
+  describe('analyze - Documentation Analysis Flow', () => {
+    it('should run full docs flow: agent -> provider -> save -> update', async () => {
+      const mockDocsResponse = {
+        analysis_report: { metadata: { status: 'success' } },
+      };
+      const mockEntity = {
+        getReportId: () => ({ value: 'rep-1' }),
+        getAnalysisId: () => mockAnalysisId,
+        getApiViolations: () => [],
+        getDocsDiscrepancies: () => [],
+        getMissingFiles: () => [],
+        getDependencyAudit: () => ({}),
+      };
+
+      docsAgentMock.runAnalysis.mockResolvedValue(mockDocsResponse);
+      docsReportProviderMock.fromDocsAgentResponse.mockReturnValue(mockEntity);
+
+      service.analyze(mockAnalysis, '/tmp/repo', false, true, false);
+
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      // Verifica trasformazione in Entity e salvataggio
+      expect(docsAgentMock.runAnalysis).toHaveBeenCalled();
+      expect(docsReportProviderMock.fromDocsAgentResponse).toHaveBeenCalled();
+      expect(docsReportSavePortMock.saveDocsReport).toHaveBeenCalled();
+
+      // Verifica aggiornamento dell'analisi principale con i nuovi report IDs
+      expect(updateAnalysisPortMock.addReportsToAnalysis).toHaveBeenCalledWith(
+        expect.objectContaining({
+          analysisId: 'test-uuid',
+        }),
+      );
     });
-    const errorInstance = new Error('AI Failure');
 
-    // Spy sul metodo privato senza 'any' usando record
-    const serviceInternal = service as unknown as {
-      orchestrateAnalysis: (...args: unknown[]) => Promise<void>;
-    };
-    jest.spyOn(serviceInternal, 'orchestrateAnalysis').mockRejectedValue(errorInstance);
+    it('should not save to DB if docs agent returns failure status', async () => {
+      docsAgentMock.runAnalysis.mockResolvedValue({
+        analysis_report: { metadata: { status: 'failure' } },
+      });
 
-    service.analyze(mockAnalysis, '/path', true, true, true);
+      service.analyze(mockAnalysis, '/tmp/repo', false, true, false);
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
 
-    await new Promise((resolve) => {
-      setImmediate(resolve);
+      expect(docsReportSavePortMock.saveDocsReport).not.toHaveBeenCalled();
     });
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('AI Orchestration failed:', errorInstance);
+    it('should handle docs agent failure gracefully', async () => {
+      docsAgentMock.runAnalysis.mockResolvedValue({
+        analysis_report: { metadata: { status: 'error' } },
+      });
 
-    consoleErrorSpy.mockRestore();
+      service.analyze(mockAnalysis, '/tmp/repo', false, true, false);
+
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('Documentation Agent Analysis failed'),
+      );
+      expect(docsReportProviderMock.fromDocsAgentResponse).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('analyze - Error Handling & Orchestration', () => {
+    it('should log error when updateAnalysisPort fails', async () => {
+      // 1. Corretta la struttura del mock per il codeAgent
+      codeAgentMock.runAnalysis.mockResolvedValue({
+        metadata: { status: 'success' },
+      });
+
+      // 2. Aggiunto il mock dell'entità per fornire un ID valido al metodo di update
+      const mockEntity = {
+        getReportId: () => ({ value: 'fake-id' }),
+        id: { value: 'fake-id' },
+      };
+      codeReportProviderMock.fromCodeAgentResponse.mockReturnValue(mockEntity);
+
+      updateAnalysisPortMock.addReportsToAnalysis.mockResolvedValue({
+        success: false,
+        message: 'DB Error',
+      });
+
+      service.analyze(mockAnalysis, '/tmp/repo', true, false, false);
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to add reports to analysis: DB Error'),
+      );
+    });
+
+    it('should handle general orchestration failure (catch block)', async () => {
+      // Forziamo un errore immediato
+      docsAgentMock.runAnalysis.mockRejectedValue(new Error('Fatal Agent Error'));
+
+      service.analyze(mockAnalysis, '/tmp/repo', false, true, false);
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(console.error).toHaveBeenCalledWith('AI Orchestration failed:', expect.any(Error));
+    });
+
+    it('should do nothing if no tasks are selected', async () => {
+      service.analyze(mockAnalysis, '/tmp/repo', false, false, false);
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(console.log).toHaveBeenCalledWith(
+        'Neither one of the topic of the analysis was selected',
+      );
+      expect(updateAnalysisPortMock.addReportsToAnalysis).not.toHaveBeenCalled();
+    });
+
+    it('should successfully orchestrate all selected tasks (code, docs, security) and log success', async () => {
+      // Mock Code Agent success
+      codeAgentMock.runAnalysis.mockResolvedValue({
+        metadata: { status: 'success' },
+      });
+      const mockCodeEntity = {
+        id: { value: 'code-id' },
+        analysisId: mockAnalysisId,
+        metadata: {},
+        interpretation: {},
+      };
+      codeReportProviderMock.fromCodeAgentResponse.mockReturnValue(mockCodeEntity);
+
+      // Mock Docs Agent success
+      docsAgentMock.runAnalysis.mockResolvedValue({
+        analysis_report: { metadata: { status: 'success' } },
+      });
+      const mockDocsEntity = {
+        getReportId: () => ({ value: 'docs-id' }),
+        getAnalysisId: () => mockAnalysisId,
+        getApiViolations: () => [],
+        getDocsDiscrepancies: () => [],
+        getMissingFiles: () => [],
+        getDependencyAudit: () => ({}),
+      };
+      docsReportProviderMock.fromDocsAgentResponse.mockReturnValue(mockDocsEntity);
+
+      // Mock DB save success
+      updateAnalysisPortMock.addReportsToAnalysis.mockResolvedValue({
+        success: true,
+      });
+
+      // Eseguiamo l'analisi passando `true` a code, docs e security
+      service.analyze(mockAnalysis, '/tmp/repo', true, true, true);
+
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      // Verifica che la chiamata di update sia stata effettuata
+      // (attivando così tutti i rami dei ternari nell'oggetto AddReportsToAnalysisRequest)
+      expect(updateAnalysisPortMock.addReportsToAnalysis).toHaveBeenCalled();
+
+      // Verifica che il log di successo finale sia stato emesso
+      expect(console.log).toHaveBeenCalledWith(
+        'Analysis reports added to the analysis record successfully.',
+      );
+    });
   });
 });

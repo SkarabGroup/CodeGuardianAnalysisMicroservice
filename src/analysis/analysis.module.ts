@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -16,6 +15,11 @@ import {
   GIT_CREDENTIAL_DELETE_PORT,
   GIT_CREDENTIAL_READ_PORT,
   GITHUB_ANALYSIS_SAVE_PORT,
+  DOCS_REPORT_SAVE_PORT,
+  ADD_REPORTS_TO_ANALYSIS_PORT,
+  GET_DETAILED_ANALYSIS_PORT,
+  GET_ALL_ANALYSES_FOR_USER_PORT,
+  CODE_REPORT_SAVE_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
@@ -54,15 +58,37 @@ import {
   GitHubAnalysisSchema,
 } from './infrastructure/adapters/persistence/schema/github-analysis.schema';
 import {
+  DOCS_AGENT,
+  DocumentationAnalysisAdapter,
+} from './infrastructure/adapters/externals/docs-agent.adapter';
+import {
   CODE_AGENT,
-  CodeAnalysisAdapter,
-} from './infrastructure/adapters/externals/code-agent.adapter';
+  LocalCodeAnalysisAdapter,
+} from './infrastructure/adapters/externals/local-code-agent.adapter';
+import {
+  DocumentationReport,
+  DocumentationReportSchema,
+} from './infrastructure/adapters/persistence/schema/docs-report.schema';
+import {
+  CodeReport,
+  CodeReportSchema,
+} from './infrastructure/adapters/persistence/schema/code-report.schema';
+import { ConfigurationService } from './infrastructure/configuration/configuration.service';
+import { ConfigurationModule } from './infrastructure/configuration/configuration.module';
 
+import {
+  ReportEntitiesProvider,
+  DOCS_REPORT_PROVIDER,
+  CODE_REPORT_PROVIDER,
+} from './domain/services/report-entities-provider.ds';
+
+import {
+  GET_ANALYSIS_SERVICE,
+  GET_ALL_ANALYSES_FOR_USER_SERVICE,
+  GetAnalysisService,
+} from './application/services/get-analysis-service.as';
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
     MongooseModule.forFeature(
       [
         {
@@ -73,13 +99,26 @@ import {
           name: GitHubAnalysisRecord.name,
           schema: GitHubAnalysisSchema,
         },
+        {
+          name: DocumentationReport.name,
+          schema: DocumentationReportSchema,
+        },
+        {
+          name: CodeReport.name,
+          schema: CodeReportSchema,
+        },
       ],
       'DatabaseConnection',
     ),
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secret',
+    JwtModule.registerAsync({
+      useFactory: (config: ConfigurationService) => ({
+        secret: config.jwtSecret,
+        signOptions: { expiresIn: '1h' },
+      }),
+      inject: [ConfigurationService],
     }),
+    ConfigurationModule,
   ],
   providers: [
     JwtStrategy,
@@ -148,9 +187,46 @@ import {
       useClass: MongoDBAdapter,
     },
     {
-      provide: CODE_AGENT,
-      useClass: CodeAnalysisAdapter,
+      provide: DOCS_REPORT_SAVE_PORT,
+      useClass: MongoDBAdapter,
     },
+    {
+      provide: CODE_REPORT_SAVE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: CODE_AGENT,
+      useClass: LocalCodeAnalysisAdapter,
+    },
+    {
+      provide: DOCS_AGENT,
+      useClass: DocumentationAnalysisAdapter,
+    },
+    {
+      provide: DOCS_REPORT_PROVIDER,
+      useClass: ReportEntitiesProvider,
+    },
+    {
+      provide: CODE_REPORT_PROVIDER,
+      useClass: ReportEntitiesProvider,
+    },
+    {
+      provide: ADD_REPORTS_TO_ANALYSIS_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GET_DETAILED_ANALYSIS_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GET_ANALYSIS_SERVICE,
+      useClass: GetAnalysisService,
+    },
+    {
+      provide: GET_ALL_ANALYSES_FOR_USER_PORT,
+      useClass: MongoDBAdapter,
+    },
+    { provide: GET_ALL_ANALYSES_FOR_USER_SERVICE, useClass: GetAnalysisService },
   ],
   controllers: [AnalysisController, PatController],
   exports: [START_ANALYSIS_SERVICE],

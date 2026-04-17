@@ -29,6 +29,7 @@ import { SaveGitHubAnalysisRequest } from '../DTOs/models/requests/save-git-anal
 
 import { v7 as uuid } from 'uuid';
 import { GitHubAnalysis } from '../../domain/entities/github-analysis.entity';
+import { ReportId } from '../../domain/value-objects/report-id.vo';
 
 @Injectable()
 export class StartAnalysisService implements StartAnalysisUseCase {
@@ -74,12 +75,19 @@ export class StartAnalysisService implements StartAnalysisUseCase {
       commit,
     );
 
+    const codeReportId = command.code ? ReportId.create(uuid()) : null;
+    const docsReportId = command.docs ? ReportId.create(uuid()) : null;
+    const securityReportId = command.security ? ReportId.create(uuid()) : null;
+
     const analysis: GitHubAnalysis = GitHubAnalysis.create({
       id: analysisId,
       user: user,
       url: repoURL,
       branch: branch,
       commit: commit,
+      codeReportId: codeReportId,
+      docsReportId: docsReportId,
+      securityReportId: securityReportId,
     });
 
     await this.analysisSavePort.saveAnalysis(
@@ -90,6 +98,9 @@ export class StartAnalysisService implements StartAnalysisUseCase {
         analysis.getBranch(),
         analysis.getCommit(),
         analysis.getStatus(),
+        analysis.getCodeReportId(),
+        analysis.getDocsReportId(),
+        analysis.getSecurityReportId(),
       ),
     );
 

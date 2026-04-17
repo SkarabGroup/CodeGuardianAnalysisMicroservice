@@ -23,6 +23,7 @@
     "allTests": "npm run format && npm run lint && npm run test:cov"
   },
   "dependencies": {
+    "@aws-sdk/client-ecs": "^3.1029.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",

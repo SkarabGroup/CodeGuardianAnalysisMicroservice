@@ -14,9 +14,8 @@ services:
       - /app/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
       - analysis_tmp_data:/tmp
-    environment:
-      - MONGO_URI=mongodb://mongodb:27017/analysis_db
-      - NODE_ENV=development
+    env_file:
+      - ../../.env
     networks:
       - analysis_network
 
@@ -25,7 +24,7 @@ services:
     container_name: analysis_mongo
     restart: always
     ports:
-      - "27017:27017"
+      - '27017:27017'
     environment:
       - MONGO_INITDB_DATABASE=analysis_db
     volumes:
@@ -33,7 +32,7 @@ services:
     networks:
       - analysis_network
     logging:
-      driver: "none"
+      driver: 'none'
 
 volumes:
   mongo_data:

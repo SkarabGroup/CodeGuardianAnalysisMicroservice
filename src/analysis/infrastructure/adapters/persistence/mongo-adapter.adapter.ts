@@ -18,23 +18,50 @@ import { IGitHubAnalysisSavePort } from '../../../application/ports/repositories
 import { SaveGitHubAnalysisRequest } from '../../../application/DTOs/models/requests/save-git-analysis-request-model.model';
 import { SaveGitHubAnalysisResponse } from '../../../application/DTOs/models/responses/save-git-analysis-response-model.model';
 import { GitHubAnalysisRecord, GitHubAnalysisDocument } from './schema/github-analysis.schema';
-@Injectable() //Get
-//Post
-// Delete
-// Update
+import { SaveDocsReportRequest } from '../../../application/DTOs/models/requests/save-docs-report-request-model.model';
+import { SaveDocsReportResponse } from '../../../application/DTOs/models/responses/save-docs-report-response-model.model';
+import { DocumentationReport, DocumentationReportDocument } from './schema/docs-report.schema';
+import { AddReportsToAnalysisRequest } from '../../../application/DTOs/models/requests/add-reports-request-model.model';
+import { AddReportsToAnalysisResult } from '../../../application/DTOs/models/responses/add-reports-result-model.model';
+import {
+  GitHubAnalysisGeneralDataDTO,
+  GitHubAnalysisDetailedResult,
+} from '../../../application/DTOs/models/responses/get-github-analysis-from-id-result-model.model';
+import { AnalysisId } from '../../../domain/value-objects/analysis-id.vo';
+
+import { DocsAnalysisReportDTO } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
+import { IGetAnalysisFromIdPort } from '../../../application/ports/repositories/get-analysis-from-id-port.repository';
+
+import { IUpdateAnalysisPort } from '../../../application/ports/repositories/update-analysis-port.port';
+import { IDocsReportSavePort } from '../../../application/ports/repositories/docs-report-save-port.port';
+import { SaveCodeReportRequest } from '../../../application/DTOs/models/requests/save-code-report-request-model.model';
+import { SaveCodeReportResponse } from '../../../application/DTOs/models/responses/save-code-report-response-model.model';
+import { CodeReport, CodeReportDocument } from './schema/code-report.schema';
+import { UserId } from '../../../domain/value-objects/user-id.vo';
+import { GetAllAnalysesForUserResponse } from '../../../application/DTOs/models/responses/get-all-analyses-for-user-response.model';
+import { IGetAllAnalysesForUserPort } from '../../../application/ports/repositories/get-all-analyses-for-user-port.port';
+@Injectable()
 export class MongoDBAdapter
   implements
     IGitCredentialReadPort,
     IGitCredentialSavePort,
     IGitCredentialDeletePort,
     IGitCredentialUpdatePort,
-    IGitHubAnalysisSavePort
+    IGitHubAnalysisSavePort,
+    IGetAnalysisFromIdPort,
+    IDocsReportSavePort,
+    IUpdateAnalysisPort,
+    IGetAllAnalysesForUserPort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
     private readonly credentialModel: Model<GitCredentialDocument>,
     @InjectModel(GitHubAnalysisRecord.name, 'DatabaseConnection')
     private readonly analysisModel: Model<GitHubAnalysisDocument>,
+    @InjectModel(DocumentationReport.name, 'DatabaseConnection')
+    private readonly docsReportModel: Model<DocumentationReportDocument>,
+    @InjectModel(CodeReport.name, 'DatabaseConnection')
+    private readonly codeReportModel: Model<CodeReportDocument>,
   ) {}
 
   async authorize(model: GetGitCredentialRequest): Promise<GetGitCredentialResponse> {
@@ -127,6 +154,9 @@ export class MongoDBAdapter
         repoURL: request.repoURL.value,
         branch: request.branch.value,
         commit: request.commit.value,
+        codeReportId: request.codeReportId?.value ?? null,
+        docsReportId: request.docsReportId?.value ?? null,
+        securityReportId: request.securityReportId?.value ?? null,
         status: request.status,
       });
 
@@ -136,6 +166,274 @@ export class MongoDBAdapter
       return SaveGitHubAnalysisResponse.failure(`Error saving analysis: ${message}`);
     }
   }
+
+  async saveDocsReport(model: SaveDocsReportRequest): Promise<SaveDocsReportResponse> {
+    try {
+      await this.docsReportModel.create({
+        reportId: model.reportId.value,
+        analysisId: model.analysisId.value,
+
+        apiViolations: model.apiViolations.map((v) => ({
+          path: v.getPathFinding().value,
+          rule: v.getRule(),
+          severity: v.getSeverityFinding().value,
+          description: v.getDescriptionFinding().value,
+        })),
+
+        docsDiscrepancies: model.docsDiscrepancies.map((d) => ({
+          path: d.getPathFinding().value,
+          discrepancyCategory: d.getDiscrepancyCategory(),
+          severity: d.getSeverityFinding().value,
+          docsClaim: d.getDocsClaim().value,
+          actualFinding: d.getActualFinding().value,
+        })),
+
+        missingFiles: model.missingFiles.map((mf) => ({
+          referencedPath: mf.getReferencedPath().value,
+          referencedIn: mf.getReferencedIn().value,
+          description: mf.getDescriptionFinding().value,
+          status: mf.getStatusMissing(),
+        })),
+
+        dependencyAudit: model.dependencyAudit
+          ? {
+              readmeDefined: model.dependencyAudit.getReadmeDefined().map((dep) => ({
+                name: dep.getName(),
+                versionClaimed: dep.getVersionClaimed(),
+              })),
+              configDefined: model.dependencyAudit.getConfigDefined().map((dep) => ({
+                name: dep.getName(),
+                versionPinned: dep.getVersionPinned(),
+                path: dep.getPathFinding().value,
+              })),
+              missingInConfig: model.dependencyAudit.getMissingInConfig().map((dep) => ({
+                name: dep.getName(),
+                path: dep.getPathFinding().value,
+                severity: dep.getSeverityFinding().value,
+              })),
+              undocumentedInReadme: model.dependencyAudit.getUndocumentedInReadme().map((dep) => ({
+                name: dep.getName(),
+                path: dep.getPathFinding().value,
+              })),
+              versionMismatches: model.dependencyAudit.getVersionMismatches().map((dep) => ({
+                name: dep.getName(),
+                readmeVersion: dep.getReadmeVersion(),
+                configVersion: dep.getConfigVersion(),
+                path: dep.getPathFinding().value,
+              })),
+            }
+          : null,
+      });
+
+      return SaveDocsReportResponse.success();
+    } catch (error) {
+      return SaveDocsReportResponse.failure(
+        error instanceof Error ? error.message : 'Unknown error during Documentation Report save',
+      );
+    }
+  }
+
+  async addReportsToAnalysis(
+    model: AddReportsToAnalysisRequest,
+  ): Promise<AddReportsToAnalysisResult> {
+    try {
+      await this.analysisModel.updateOne(
+        { analysisId: model.analysisId },
+        {
+          $set: {
+            status: 'completed',
+            codeReportId: model.codeReportId,
+            docsReportId: model.documentationReportId,
+            securityReportId: model.securityReportId,
+          },
+        },
+      );
+      return AddReportsToAnalysisResult.success();
+    } catch (error) {
+      return AddReportsToAnalysisResult.failure(
+        error instanceof Error ? error.message : 'Unknown error during adding reports to analysis',
+      );
+    }
+  }
+
+  async getAnalysisFromId(analysisId: AnalysisId): Promise<GitHubAnalysisDetailedResult | null> {
+    try {
+      // 1. Recupero il record dell'analisi
+      const analysisRecord = await this.analysisModel
+        .findOne({ analysisId: analysisId.value })
+        .lean()
+        .exec();
+
+      if (!analysisRecord) return null;
+
+      let docsReportDTO: DocsAnalysisReportDTO | null = null;
+
+      // 2. Se esiste un report di documentazione, lo recupero e lo mappo
+      if (analysisRecord.docsReportId) {
+        console.log(`Fetching Docs Report with ID: ${analysisRecord.docsReportId}`);
+        const reportDoc = await this.docsReportModel
+          .findOne({ reportId: analysisRecord.docsReportId })
+          .lean()
+          .exec();
+
+        if (reportDoc) {
+          docsReportDTO = {
+            metadata: {
+              repository: analysisRecord.repoURL,
+              status: analysisRecord.status,
+            },
+            // Mapping da CamelCase (DB) a Snake/PascalCase (DTO)
+            API_standard_violations: reportDoc.apiViolations.map((v) => ({
+              file: v.path,
+              rule: v.rule,
+              severity: v.severity,
+              message: v.description,
+            })),
+            docs_discrepancies: reportDoc.docsDiscrepancies.map((d) => ({
+              category: d.discrepancyCategory,
+              documentation_source: d.path,
+              docs_claim: d.docsClaim,
+              actual_finding: d.actualFinding,
+              severity: d.severity,
+            })),
+            missing_files: reportDoc.missingFiles.map((mf) => ({
+              referenced_path: mf.referencedPath,
+              referenced_in: mf.referencedIn,
+              context: mf.description,
+              status: mf.status,
+            })),
+            dependency_audit: {
+              readme_defined:
+                reportDoc.dependencyAudit?.readmeDefined.map((rd) => ({
+                  name: rd.name,
+                  version_pinned: rd.versionClaimed,
+                  source_file: rd.name,
+                })) || [],
+              config_defined:
+                reportDoc.dependencyAudit?.configDefined.map((cd) => ({
+                  name: cd.name,
+                  version_pinned: cd.versionPinned,
+                  source_file: cd.path,
+                })) || [],
+              missing_in_config:
+                reportDoc.dependencyAudit?.missingInConfig.map((mic) => ({
+                  name: mic.name,
+                  severity: mic.severity,
+                  source_file: mic.path,
+                })) || [],
+              undocumented_in_readme:
+                reportDoc.dependencyAudit?.undocumentedInReadme.map((uir) => ({
+                  name: uir.name,
+                  found_in: uir.path,
+                })) || [],
+              version_mismatches:
+                reportDoc.dependencyAudit?.versionMismatches.map((vm) => ({
+                  name: vm.name,
+                  version_pinned: vm.readmeVersion,
+                  config_version: vm.configVersion,
+                  source_file: vm.path,
+                })) || [],
+            },
+          };
+        }
+      }
+
+      const generalData: GitHubAnalysisGeneralDataDTO = {
+        analysisId: analysisRecord.analysisId,
+        userId: analysisRecord.userId,
+        repoURL: analysisRecord.repoURL,
+        branch: analysisRecord.branch,
+        commit: analysisRecord.commit,
+        status: analysisRecord.status,
+        createdAt: analysisRecord.createdAt!,
+        updatedAt: analysisRecord.updatedAt!,
+      };
+      console.log('Docs Report DTO:', docsReportDTO);
+
+      return new GitHubAnalysisDetailedResult(generalData, docsReportDTO);
+    } catch (error) {
+      console.error('Error fetching detailed analysis:', error);
+      throw new Error('Could not retrieve detailed analysis');
+    }
+  }
+  async saveCodeReport(model: SaveCodeReportRequest): Promise<SaveCodeReportResponse> {
+    try {
+      await this.codeReportModel.create({
+        reportId: model.reportId.value,
+        analysisId: model.analysisId.value,
+
+        metadata: {
+          language: model.codeAgentMetadata.language,
+          status: model.codeAgentMetadata.status,
+        },
+
+        interpretation: {
+          verdict: model.aiInterpretation.verdict,
+          executiveSummary: model.aiInterpretation.executiveSummary.value,
+
+          staticAnalysisEvaluation: {
+            totalIssuesAnalyzed:
+              model.aiInterpretation.staticAnalysisEvaluation.totalIssuesAnalyzed,
+            keyIssuesReasoning:
+              model.aiInterpretation.staticAnalysisEvaluation.keyIssuesReasoning.map((k) => ({
+                file: k.file.value,
+                location: {
+                  lineStart: k.location.lineStart,
+                  lineEnd: k.location.lineEnd,
+                  column: k.location.column,
+                },
+                rule: k.rule,
+                severity: k.severity.value,
+                originalDescription: k.originalDescription.value,
+                aiReasoning: k.aiReasoning.value,
+                suggestedResolution: k.suggestedResolution.value,
+              })),
+          },
+
+          coverageEvaluation: {
+            overallHealth: model.aiInterpretation.coverageEvaluation.overallHealth,
+            criticalFilesReasoning:
+              model.aiInterpretation.coverageEvaluation.criticalFilesReasoning.map((c) => ({
+                file: c.file.value,
+                lineCoveragePct: c.lineCoveragePct.value,
+                missingLines: c.missingLines,
+                missingBranches: c.missingBranches,
+                aiReasoning: c.aiReasoning.value,
+              })),
+          },
+        },
+      });
+
+      return SaveCodeReportResponse.success();
+    } catch (error) {
+      return SaveCodeReportResponse.failure(
+        error instanceof Error ? error.message : 'Unknown error during Code Report save',
+      );
+    }
+  }
+
+  async getAllAnalysesForUser(id: UserId): Promise<GetAllAnalysesForUserResponse> {
+    try {
+      const analyses = await this.analysisModel.find({ userId: id.value }).lean().exec();
+
+      const generalDataDTOs: GitHubAnalysisGeneralDataDTO[] = analyses.map((record) => ({
+        analysisId: record.analysisId,
+        userId: record.userId,
+        repoURL: record.repoURL,
+        branch: record.branch,
+        commit: record.commit,
+        status: record.status,
+        createdAt: record.createdAt!,
+        updatedAt: record.updatedAt!,
+      }));
+
+      return new GetAllAnalysesForUserResponse(generalDataDTOs);
+    } catch (error) {
+      throw new Error(
+        `Error fetching analyses for user: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
@@ -143,3 +441,8 @@ export const GIT_CREDENTIAL_SAVE_PORT = Symbol('IGitCredentialSavePort');
 export const GIT_CREDENTIAL_DELETE_PORT = Symbol('IGitCredentialDeletePort');
 export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
 export const GITHUB_ANALYSIS_SAVE_PORT = Symbol('IGitHubAnalysisSavePort');
+export const CODE_REPORT_SAVE_PORT = Symbol('ICodeReportSavePort');
+export const DOCS_REPORT_SAVE_PORT = Symbol('IDocsReportSavePort');
+export const ADD_REPORTS_TO_ANALYSIS_PORT = Symbol('IUpdateAnalysisPort');
+export const GET_DETAILED_ANALYSIS_PORT = Symbol('IGetAnalysisFromIdPort');
+export const GET_ALL_ANALYSES_FOR_USER_PORT = Symbol('IGetAllAnalysesForUserPort');
