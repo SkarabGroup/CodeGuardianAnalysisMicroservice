@@ -5,9 +5,11 @@ import { AgentRequest } from '../DTOs/models/requests/agent-request-model.model'
 
 import type { IDocumentationAgentPort } from '../ports/externals/docs-agent-port.port';
 import type { ICodeAgentPort } from '../ports/externals/code-agent-port.port';
+import type { ISecurityAgentPort } from '../ports/externals/security-agent-port.port';
 
 import { CODE_AGENT } from '../../infrastructure/adapters/externals/local-code-agent.adapter';
 import { DOCS_AGENT } from '../../infrastructure/adapters/externals/docs-agent.adapter';
+import { SECURITY_AGENT } from '../../infrastructure/adapters/externals/security-agent.adapter';
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -26,8 +28,16 @@ import type { ICodeReportSavePort } from '../ports/repositories/code-report-save
 import { CODE_REPORT_SAVE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { SaveCodeReportRequest } from '../DTOs/models/requests/save-code-report-request-model.model';
 
+import type { ISecurityReportSavePort } from '../ports/repositories/security-report-save-port.repository';
+import { SECURITY_REPORT_SAVE_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
+import { SaveSecurityReportRequest } from '../DTOs/models/requests/save-security-report-request-model.model';
+
 import type { ICodeReportEntityProvider } from '../../domain/services/interfaces/code-report-entity-provider.interface';
 import { CODE_REPORT_PROVIDER } from '../../domain/services/report-entities-provider.ds';
+
+import type { ISecurityReportEntityProvider } from '../../domain/services/interfaces/security-report-entity-provider.interface';
+import { SECURITY_REPORT_PROVIDER } from '../../domain/services/report-entities-provider.ds';
+
 import type { IUpdateAnalysisPort } from '../ports/repositories/update-analysis-port.port';
 import { ADD_REPORTS_TO_ANALYSIS_PORT } from '../../infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { AddReportsToAnalysisRequest } from '../DTOs/models/requests/add-reports-request-model.model';
@@ -39,14 +49,20 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
     private readonly documentationAgent: IDocumentationAgentPort,
     @Inject(CODE_AGENT)
     private readonly codeAgent: ICodeAgentPort,
+    @Inject(SECURITY_AGENT)
+    private readonly securityAgent: ISecurityAgentPort,
     @Inject(DOCS_REPORT_PROVIDER)
     private readonly docsReportProvider: IDocsReportEntityProvider,
     @Inject(CODE_REPORT_PROVIDER)
     private readonly codeReportProvider: ICodeReportEntityProvider,
+    @Inject(SECURITY_REPORT_PROVIDER)
+    private readonly securityReportProvider: ISecurityReportEntityProvider,
     @Inject(DOCS_REPORT_SAVE_PORT)
     private readonly docsReportSavePort: IDocsReportSavePort,
     @Inject(CODE_REPORT_SAVE_PORT)
     private readonly codeReportSavePort: ICodeReportSavePort,
+    @Inject(SECURITY_REPORT_SAVE_PORT)
+    private readonly securityReportSavePort: ISecurityReportSavePort,
     @Inject(ADD_REPORTS_TO_ANALYSIS_PORT)
     private readonly updateAnalysisPort: IUpdateAnalysisPort,
   ) {}
@@ -122,6 +138,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
             console.error(
               `Code Agent Analysis failed or returned an unsuccessful status. Check the report at ${reportPath} for details.`,
             );
+            code = false;
             return;
           }
           const entity = this.codeReportProvider.fromCodeAgentResponse(
@@ -140,6 +157,47 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
 
           console.log(
             `Code Agent Analysis Completed Successfully!\nReport saved to: ${reportPath}`,
+          );
+        })(),
+      );
+    }
+
+    if (security) {
+      console.log('Starting security analysis...');
+      tasks.push(
+        (async () => {
+          const response = await this.securityAgent.runAnalysis(
+            new AgentRequest(analysis.getAnalysisId()),
+          );
+          const reportFilename = `security_analysis_report_${String(analysis.getAnalysisId().value)}.json`;
+          const reportPath = path.join(process.cwd(), reportFilename);
+          if (!response || response.analysis_report.metadata.status !== 'success') {
+            console.error(
+              `Security Agent Analysis failed or returned an unsuccessful status. Check the report at ${reportPath} for details.`,
+            );
+            security = false;
+            return;
+          }
+
+          const entity = this.securityReportProvider.fromSecurityAgentResponse(
+            response,
+            securityReportId,
+            analysis.getAnalysisId(),
+          );
+
+          await this.securityReportSavePort.saveSecurityReport(
+            new SaveSecurityReportRequest(
+              entity.getReportId(),
+              entity.getAnalysisId(),
+              entity.getDependencyFindings(),
+              entity.getOwaspFindings(),
+              entity.getSecretFindings(),
+              entity.getToolErrors(),
+            ),
+          );
+
+          console.log(
+            `Security Agent Analysis Completed Successfully!\nReport saved to: ${reportPath}`,
           );
         })(),
       );

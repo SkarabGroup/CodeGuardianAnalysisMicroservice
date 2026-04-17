@@ -29,7 +29,7 @@ describe('SecurityReport (Entity)', () => {
 
     expect(report.getReportId()).toBe(rid);
     expect(report.getAnalysisId()).toBe(aid);
-    
+
     // Usiamo toEqual perché i getter restituiscono una copia dell'array ([...this.array])
     expect(report.getDependencyFindings()).toEqual([mockDependencyFinding]);
     expect(report.getOwaspFindings()).toEqual([mockOwaspFinding]);
@@ -65,7 +65,7 @@ describe('SecurityReport (Entity)', () => {
 
     it('should return true if report IDs are equal', () => {
       const report1 = SecurityReport.create(baseProps);
-      
+
       const sameRid = ReportId.create(ridStr);
       const report2 = SecurityReport.create({
         ...baseProps,
@@ -77,7 +77,7 @@ describe('SecurityReport (Entity)', () => {
 
     it('should return false if report IDs are different', () => {
       const report1 = SecurityReport.create(baseProps);
-      
+
       const differentRid = ReportId.create('018d879a-ff0f-769b-b558-e930b71aaa5c');
       const report2 = SecurityReport.create({
         ...baseProps,

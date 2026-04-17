@@ -14,7 +14,6 @@ export enum SeverityLevel {
 
 // ─── Sub-document Classes ─────────────────────────────────────────────────────
 
-
 @Schema({ _id: false })
 class DependencyFinding {
   @Prop({ required: true, trim: true })
@@ -41,7 +40,7 @@ class DependencyFinding {
 
 @Schema({ _id: false })
 class ErrorFinding {
-  @Prop({ required: true, min: 1})
+  @Prop({ required: true, min: 1 })
   line!: number;
 
   @Prop({ required: true, trim: true })

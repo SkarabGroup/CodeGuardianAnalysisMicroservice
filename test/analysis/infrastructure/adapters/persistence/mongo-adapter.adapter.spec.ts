@@ -22,6 +22,7 @@ import { DocumentationReport } from '../../../../../src/analysis/infrastructure/
 import { ReportId } from '../../../../../src/analysis/domain/value-objects/report-id.vo';
 import { SaveDocsReportRequest } from '../../../../../src/analysis/application/DTOs/models/requests/save-docs-report-request-model.model';
 import { CodeReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/code-report.schema';
+import { SecurityReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/security-report.schema';
 import { AddReportsToAnalysisRequest } from '../../../../../src/analysis/application/DTOs/models/requests/add-reports-request-model.model';
 
 interface MockQuery {
@@ -53,6 +54,9 @@ interface MockDocsReportModel {
   create: jest.Mock;
   findOne: jest.Mock;
 }
+interface MockSecurityReportModel {
+  create: jest.Mock;
+}
 
 const VALID_PASSWORD = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 const VALID_PAT = 'ghp_' + 'A'.repeat(36);
@@ -65,6 +69,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
   let mockAnalysisModel: MockAnalysisModel;
   let mockDocsReportModel: MockDocsReportModel;
   let mockCodeReportModel: MockDocsReportModel;
+  let mockSecurityReportModel: MockSecurityReportModel;
 
   beforeEach(async () => {
     mockQuery = {
@@ -107,6 +112,10 @@ describe('MongoDBAdapter (Unit Test)', () => {
       findOne: jest.fn(),
     };
 
+    mockSecurityReportModel = {
+      create: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MongoDBAdapter,
@@ -125,6 +134,10 @@ describe('MongoDBAdapter (Unit Test)', () => {
         {
           provide: getModelToken(CodeReport.name, 'DatabaseConnection'),
           useValue: mockCodeReportModel,
+        },
+        {
+          provide: getModelToken(SecurityReport.name, 'DatabaseConnection'),
+          useValue: mockSecurityReportModel,
         },
       ],
     }).compile();
@@ -1241,6 +1254,237 @@ describe('MongoDBAdapter (Unit Test)', () => {
       await expect(adapter.getAllAnalysesForUser(mockUserId)).rejects.toThrow(
         'Error fetching analyses for user: Unknown error',
       );
+    });
+  });
+
+  describe('saveSecurityReport', () => {
+    const buildSecurityReportRequest = () => ({
+      reportId: { value: uuid() },
+      analysisId: { value: uuid() },
+
+      dependencyFindings: [
+        {
+          getPathFinding: jest.fn().mockReturnValue({ value: '/package-lock.json' }),
+          getPackageName: jest.fn().mockReturnValue('lodash'),
+          getPackageVersion: jest.fn().mockReturnValue('4.17.23'),
+          getVulnerabilityId: jest.fn().mockReturnValue('GHSA-r5fr-rjxr-66jc'),
+          getSeverityFinding: jest.fn().mockReturnValue({ value: 'High' }),
+          getDescriptionFinding: jest.fn().mockReturnValue({
+            value: 'lodash vulnerable to Code Injection via `_.template` imports key names',
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value:
+              'Update lodash to version 4.18.0 or later to mitigate the code injection vulnerability in `_.template`.',
+          }),
+        },
+        {
+          getPathFinding: jest.fn().mockReturnValue({ value: '/package-lock.json' }),
+          getPackageName: jest.fn().mockReturnValue('path-to-regexp'),
+          getPackageVersion: jest.fn().mockReturnValue('8.3.0'),
+          getVulnerabilityId: jest.fn().mockReturnValue('GHSA-j3q9-mxjg-w52f'),
+          getSeverityFinding: jest.fn().mockReturnValue({ value: 'High' }),
+          getDescriptionFinding: jest.fn().mockReturnValue({
+            value: 'path-to-regexp vulnerable to Denial of Service via sequential optional groups',
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value:
+              'Update path-to-regexp to version 8.4.0 or later to fix the Denial of Service vulnerability.',
+          }),
+        },
+      ],
+
+      owaspFindings: [
+        {
+          getPathFinding: jest.fn().mockReturnValue({
+            value: '/tmp/my-repo/data/static/codefixes/dbSchemaChallenge_1.ts',
+          }),
+          getOWASPCategory: jest
+            .fn()
+            .mockReturnValue('A01:2017 - Injection, A03:2021 - Injection, A05:2025 - Injection'),
+          getRuleId: jest.fn().mockReturnValue('semgrep-rule-001'),
+          getErrorFinding: jest.fn().mockReturnValue({
+            getErrorLine: jest.fn().mockReturnValue(5),
+            getDescriptionFinding: jest.fn().mockReturnValue({
+              value: 'Detected a sequelize statement that is tainted by user-input.',
+            }),
+            getSeverityFinding: jest.fn().mockReturnValue({ value: 'ERROR' }),
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value: "Use parameterized queries or Sequelize's built-in query building methods.",
+          }),
+        },
+        {
+          getPathFinding: jest.fn().mockReturnValue({
+            value: '/tmp/my-repo/routes/userProfile.ts',
+          }),
+          getOWASPCategory: jest.fn().mockReturnValue('A03:2021 - Injection, A05:2025 - Injection'),
+          getRuleId: jest.fn().mockReturnValue('semgrep-rule-002'),
+          getErrorFinding: jest.fn().mockReturnValue({
+            getErrorLine: jest.fn().mockReturnValue(62),
+            getDescriptionFinding: jest.fn().mockReturnValue({
+              value: 'Found data from an Express request flowing to `eval`.',
+            }),
+            getSeverityFinding: jest.fn().mockReturnValue({ value: 'ERROR' }),
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value: 'Avoid using `eval()` with user input.',
+          }),
+        },
+      ],
+
+      secretFindings: [
+        {
+          getPathFinding: jest.fn().mockReturnValue({ value: 'lib/insecurity.ts' }),
+          getSecretCategory: jest.fn().mockReturnValue('AsymmetricPrivateKey'),
+          getRuleId: jest.fn().mockReturnValue('trivy-rule-001'),
+          getErrorFinding: jest.fn().mockReturnValue({
+            getErrorLine: jest.fn().mockReturnValue(23),
+            getDescriptionFinding: jest.fn().mockReturnValue({
+              value: 'Asymmetric Private Key',
+            }),
+            getSeverityFinding: jest.fn().mockReturnValue({ value: 'HIGH' }),
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value: 'Remove the private key from the source code immediately.',
+          }),
+        },
+      ],
+
+      toolErrors: [
+        {
+          getToolName: jest.fn().mockReturnValue('trivy'),
+          getDescriptionFinding: jest.fn().mockReturnValue({ value: 'Tool execution failed' }),
+        },
+      ],
+    });
+
+    it('should return success and persist the full mapped payload', async () => {
+      const request = buildSecurityReportRequest();
+      mockSecurityReportModel.create.mockResolvedValue({});
+
+      const result = await adapter.saveSecurityReport(request as never);
+
+      expect(result.isSuccess).toBe(true);
+      expect(mockSecurityReportModel.create).toHaveBeenCalledTimes(1);
+      expect(mockSecurityReportModel.create).toHaveBeenCalledWith({
+        reportId: request.reportId.value,
+        analysisId: request.analysisId.value,
+
+        dependencyFindings: [
+          {
+            path: '/package-lock.json',
+            packageName: 'lodash',
+            packageVersion: '4.17.23',
+            vulnerabilityId: 'GHSA-r5fr-rjxr-66jc',
+            severity: 'High',
+            description: 'lodash vulnerable to Code Injection via `_.template` imports key names',
+            remediation:
+              'Update lodash to version 4.18.0 or later to mitigate the code injection vulnerability in `_.template`.',
+          },
+          {
+            path: '/package-lock.json',
+            packageName: 'path-to-regexp',
+            packageVersion: '8.3.0',
+            vulnerabilityId: 'GHSA-j3q9-mxjg-w52f',
+            severity: 'High',
+            description:
+              'path-to-regexp vulnerable to Denial of Service via sequential optional groups',
+            remediation:
+              'Update path-to-regexp to version 8.4.0 or later to fix the Denial of Service vulnerability.',
+          },
+        ],
+
+        owaspFindings: [
+          {
+            path: '/tmp/my-repo/data/static/codefixes/dbSchemaChallenge_1.ts',
+            owaspCategory: 'A01:2017 - Injection, A03:2021 - Injection, A05:2025 - Injection',
+            ruleId: 'semgrep-rule-001',
+            errorFinding: {
+              line: 5,
+              description: 'Detected a sequelize statement that is tainted by user-input.',
+              severity: 'ERROR',
+            },
+            remediation:
+              "Use parameterized queries or Sequelize's built-in query building methods.",
+          },
+          {
+            path: '/tmp/my-repo/routes/userProfile.ts',
+            owaspCategory: 'A03:2021 - Injection, A05:2025 - Injection',
+            ruleId: 'semgrep-rule-002',
+            errorFinding: {
+              line: 62,
+              description: 'Found data from an Express request flowing to `eval`.',
+              severity: 'ERROR',
+            },
+            remediation: 'Avoid using `eval()` with user input.',
+          },
+        ],
+
+        secretFindings: [
+          {
+            path: 'lib/insecurity.ts',
+            secretCategory: 'AsymmetricPrivateKey',
+            ruleId: 'trivy-rule-001',
+            errorFinding: {
+              line: 23,
+              description: 'Asymmetric Private Key',
+              severity: 'HIGH',
+            },
+            remediation: 'Remove the private key from the source code immediately.',
+          },
+        ],
+
+        toolErrors: [
+          {
+            tool: 'trivy',
+            description: 'Tool execution failed',
+          },
+        ],
+      });
+    });
+
+    it('should return success when all arrays are empty', async () => {
+      const request = {
+        reportId: { value: uuid() },
+        analysisId: { value: uuid() },
+        dependencyFindings: [],
+        owaspFindings: [],
+        secretFindings: [],
+        toolErrors: [],
+      };
+      mockSecurityReportModel.create.mockResolvedValue({});
+
+      const result = await adapter.saveSecurityReport(request as never);
+
+      expect(result.isSuccess).toBe(true);
+      expect(mockSecurityReportModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dependencyFindings: [],
+          owaspFindings: [],
+          secretFindings: [],
+          toolErrors: [],
+        }),
+      );
+    });
+
+    it('should return failure message for Error thrown by persistence', async () => {
+      const request = buildSecurityReportRequest();
+      mockSecurityReportModel.create.mockRejectedValue(new Error('security report write failed'));
+
+      const result = await adapter.saveSecurityReport(request as never);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('security report write failed');
+    });
+
+    it('should return unknown error message for non-Error thrown by persistence', async () => {
+      const request = buildSecurityReportRequest();
+      mockSecurityReportModel.create.mockRejectedValue('random failure');
+
+      const result = await adapter.saveSecurityReport(request as never);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toBe('Unknown error during Security Report save');
     });
   });
 });

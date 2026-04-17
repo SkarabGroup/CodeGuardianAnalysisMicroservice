@@ -19,7 +19,7 @@ export class SecretFinding {
       this._pathFinding.equals(other._pathFinding) &&
       this._errorFinding.equals(other._errorFinding) &&
       this._secretCategory === other._secretCategory &&
-      this._ruleId === other._ruleId && 
+      this._ruleId === other._ruleId &&
       this._remediation.equals(other._remediation)
     );
   }
@@ -49,7 +49,7 @@ export class SecretFinding {
     errorFinding: ErrorFinding,
     secretCategory: string,
     ruleId: string,
-    remediation: DescriptionFinding
+    remediation: DescriptionFinding,
   ): SecretFinding {
     if (!(pathFinding instanceof PathFinding)) {
       throw new Error('Invalid PathFinding');
@@ -70,6 +70,12 @@ export class SecretFinding {
     if (!(remediation instanceof DescriptionFinding)) {
       throw new Error('Invalid DescriptionFinding');
     }
-    return new SecretFinding(pathFinding, errorFinding, secretCategory.trim(), ruleId.trim(), remediation);
+    return new SecretFinding(
+      pathFinding,
+      errorFinding,
+      secretCategory.trim(),
+      ruleId.trim(),
+      remediation,
+    );
   }
 }

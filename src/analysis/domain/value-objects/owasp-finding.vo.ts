@@ -49,7 +49,7 @@ export class OWASPFinding {
     errorFinding: ErrorFinding,
     owaspCategory: string,
     ruleId: string,
-    remediation: DescriptionFinding
+    remediation: DescriptionFinding,
   ): OWASPFinding {
     if (!(pathFinding instanceof PathFinding)) {
       throw new Error('Invalid PathFinding');
@@ -70,6 +70,12 @@ export class OWASPFinding {
     if (!(remediation instanceof DescriptionFinding)) {
       throw new Error('Invalid DescriptionFinding');
     }
-    return new OWASPFinding(pathFinding, errorFinding, owaspCategory.trim(), ruleId.trim(), remediation);
+    return new OWASPFinding(
+      pathFinding,
+      errorFinding,
+      owaspCategory.trim(),
+      ruleId.trim(),
+      remediation,
+    );
   }
 }

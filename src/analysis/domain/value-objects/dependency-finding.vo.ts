@@ -37,7 +37,7 @@ export class DependencyFinding {
     vulnerabilityId: string,
     severity: SeverityFinding,
     description: DescriptionFinding,
-    remediation: DescriptionFinding
+    remediation: DescriptionFinding,
   ): DependencyFinding {
     if (!(path instanceof PathFinding)) {
       throw new Error('Invalid PathFinding');
@@ -74,7 +74,7 @@ export class DependencyFinding {
       vulnerabilityId.trim(),
       severity,
       description,
-      remediation
+      remediation,
     );
   }
 

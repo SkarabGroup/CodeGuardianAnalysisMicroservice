@@ -1,13 +1,10 @@
-import { DescriptionFinding } from "./description-finding.vo";
+import { DescriptionFinding } from './description-finding.vo';
 
 export class ToolError {
   private readonly _toolName: string;
   private readonly _description: DescriptionFinding;
 
-  private constructor(
-    tool: string,
-    description: DescriptionFinding,
-  ) {
+  private constructor(tool: string, description: DescriptionFinding) {
     this._toolName = tool;
     this._description = description;
   }
@@ -35,9 +32,6 @@ export class ToolError {
       throw new Error('Invalid argument');
     }
 
-    return (
-      this._toolName === other._toolName &&
-      this._description.equals(other._description)
-    );
+    return this._toolName === other._toolName && this._description.equals(other._description);
   }
 }

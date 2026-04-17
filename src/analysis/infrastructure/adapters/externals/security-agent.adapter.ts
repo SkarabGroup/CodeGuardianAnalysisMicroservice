@@ -33,14 +33,12 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
     if (fs.existsSync(envFilePath)) {
       dockerArgs.push('--env-file', envFilePath);
     } else {
-      this.logger.warn(`[Adapter] .env file not found at ${envFilePath}. Agent may lack configuration.`);
+      this.logger.warn(
+        `[Adapter] .env file not found at ${envFilePath}. Agent may lack configuration.`,
+      );
     }
 
-    dockerArgs.push(
-      '-v', `${sharedVolumeName}:/tmp`,
-      'strands-security-analyzer',
-      containerDir,
-    );
+    dockerArgs.push('-v', `${sharedVolumeName}:/tmp`, 'strands-security-analyzer', containerDir);
 
     try {
       const rawOutput = await this.runContainer(dockerArgs);
@@ -48,8 +46,8 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
 
       this.logger.log(
         `[Adapter] Analysis complete. ` +
-        `trivy=${parsed.trivy.length}, semgrep=${parsed.semgrep.length}, ` +
-        `grype=${parsed.grype.length}, errors=${parsed.errors.length}`,
+          `trivy=${parsed.trivy.length}, semgrep=${parsed.semgrep.length}, ` +
+          `grype=${parsed.grype.length}, errors=${parsed.errors.length}`,
       );
 
       const payload: SecurityAgentResponsePayload = {
@@ -61,7 +59,6 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
       };
 
       return new SecurityAgentResponse(payload);
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`[Adapter] Container execution failed: ${errorMessage}`);
@@ -86,8 +83,12 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
       let stdout = '';
       let stderr = '';
 
-      docker.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
-      docker.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+      docker.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+      docker.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
 
       docker.on('error', (err: Error) => reject(err));
 
@@ -101,13 +102,12 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
       });
     });
   }
-  
+
   private extractAgentOutput(raw: string): AgentRawOutput {
     try {
       const parsed = JSON.parse(raw.trim()) as AgentRawOutput;
       if (this.isValidAgentOutput(parsed)) return parsed;
-    } catch {
-    }
+    } catch {}
 
     const startIndex = raw.indexOf('{');
     if (startIndex === -1) {
@@ -124,15 +124,14 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
         try {
           const parsed = JSON.parse(candidate) as AgentRawOutput;
           if (this.isValidAgentOutput(parsed)) return parsed;
-        } catch {
-        }
+        } catch {}
         break;
       }
     }
 
     throw new Error('Could not extract a valid agent report from container output.');
   }
-  
+
   private isValidAgentOutput(obj: unknown): obj is AgentRawOutput {
     if (typeof obj !== 'object' || obj === null) return false;
     const o = obj as Record<string, unknown>;

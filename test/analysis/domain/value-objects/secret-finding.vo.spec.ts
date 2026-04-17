@@ -32,11 +32,11 @@ describe('SecretFinding (Value Object)', () => {
 
     it('should trim secret category and ruleId', () => {
       const finding = SecretFinding.create(
-        PATH, 
-        ERROR, 
-        '  jwt-token  ', 
+        PATH,
+        ERROR,
+        '  jwt-token  ',
         '  generic-api-key  ',
-        REMEDIATION
+        REMEDIATION,
       );
       expect(finding.getSecretCategory()).toBe('jwt-token');
       expect(finding.getRuleId()).toBe('generic-api-key');
@@ -102,9 +102,9 @@ describe('SecretFinding (Value Object)', () => {
 
   describe('Failure cases', () => {
     it('should throw if secret category is not a string or is empty', () => {
-      expect(() => SecretFinding.create(PATH, ERROR, null as unknown as string, RULE_ID, REMEDIATION)).toThrow(
-        'Secret category must be a non-empty string',
-      );
+      expect(() =>
+        SecretFinding.create(PATH, ERROR, null as unknown as string, RULE_ID, REMEDIATION),
+      ).toThrow('Secret category must be a non-empty string');
 
       expect(() => SecretFinding.create(PATH, ERROR, '   ', RULE_ID, REMEDIATION)).toThrow(
         'Secret category must be a non-empty string',
@@ -112,9 +112,9 @@ describe('SecretFinding (Value Object)', () => {
     });
 
     it('should throw if ruleId is not a string or is empty', () => {
-      expect(() => SecretFinding.create(PATH, ERROR, CATEGORY, null as unknown as string, REMEDIATION)).toThrow(
-        'Rule id must be a non-empty string',
-      );
+      expect(() =>
+        SecretFinding.create(PATH, ERROR, CATEGORY, null as unknown as string, REMEDIATION),
+      ).toThrow('Rule id must be a non-empty string');
 
       expect(() => SecretFinding.create(PATH, ERROR, CATEGORY, '   ', REMEDIATION)).toThrow(
         'Rule id must be a non-empty string',
@@ -122,16 +122,24 @@ describe('SecretFinding (Value Object)', () => {
     });
 
     it('should throw if PathFinding is invalid', () => {
-      expect(() => SecretFinding.create(null as unknown as PathFinding, ERROR, CATEGORY, RULE_ID, REMEDIATION)).toThrow('Invalid PathFinding');
+      expect(() =>
+        SecretFinding.create(null as unknown as PathFinding, ERROR, CATEGORY, RULE_ID, REMEDIATION),
+      ).toThrow('Invalid PathFinding');
     });
 
     it('should throw if ErrorFinding is invalid', () => {
-      expect(() => SecretFinding.create(PATH, null as unknown as ErrorFinding, CATEGORY, RULE_ID, REMEDIATION)).toThrow('Invalid ErrorFinding');
+      expect(() =>
+        SecretFinding.create(PATH, null as unknown as ErrorFinding, CATEGORY, RULE_ID, REMEDIATION),
+      ).toThrow('Invalid ErrorFinding');
     });
 
     it('should throw if remediation is invalid', () => {
-      expect(() => SecretFinding.create(PATH, ERROR, CATEGORY, RULE_ID, null)).toThrow('Invalid DescriptionFinding');
-      expect(() => SecretFinding.create(PATH, ERROR, CATEGORY, RULE_ID, {})).toThrow('Invalid DescriptionFinding');
+      expect(() => SecretFinding.create(PATH, ERROR, CATEGORY, RULE_ID, null)).toThrow(
+        'Invalid DescriptionFinding',
+      );
+      expect(() => SecretFinding.create(PATH, ERROR, CATEGORY, RULE_ID, {})).toThrow(
+        'Invalid DescriptionFinding',
+      );
     });
   });
 });

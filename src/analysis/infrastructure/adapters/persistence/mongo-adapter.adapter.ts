@@ -420,58 +420,58 @@ export class MongoDBAdapter
   }
 
   async saveSecurityReport(model: SaveSecurityReportRequest): Promise<SaveSecurityReportResponse> {
-  try {
-    await this.securityReportModel.create({
-      reportId: model.reportId.value,
-      analysisId: model.analysisId.value,
+    try {
+      await this.securityReportModel.create({
+        reportId: model.reportId.value,
+        analysisId: model.analysisId.value,
 
-      dependencyFindings: model.dependencyFindings.map((d) => ({
-        path: d.getPathFinding().value,
-        packageName: d.getPackageName(),
-        packageVersion: d.getPackageVersion(),
-        vulnerabilityId: d.getVulnerabilityId(),
-        severity: d.getSeverityFinding().value,
-        description: d.getDescriptionFinding().value,
-        remediation: d.getRemediation().value,
-      })),
+        dependencyFindings: model.dependencyFindings.map((d) => ({
+          path: d.getPathFinding().value,
+          packageName: d.getPackageName(),
+          packageVersion: d.getPackageVersion(),
+          vulnerabilityId: d.getVulnerabilityId(),
+          severity: d.getSeverityFinding().value,
+          description: d.getDescriptionFinding().value,
+          remediation: d.getRemediation().value,
+        })),
 
-      owaspFindings: model.owaspFindings.map((o) => ({
-        path: o.getPathFinding().value,
-        owaspCategory: o.getOWASPCategory(),
-        ruleId: o.getRuleId(),
-        errorFinding: {
-          line: o.getErrorFinding().getErrorLine(),
-          description: o.getErrorFinding().getDescriptionFinding().value,
-          severity: o.getErrorFinding().getSeverityFinding().value,
-        },
-        remediation: o.getRemediation().value,
-      })),
+        owaspFindings: model.owaspFindings.map((o) => ({
+          path: o.getPathFinding().value,
+          owaspCategory: o.getOWASPCategory(),
+          ruleId: o.getRuleId(),
+          errorFinding: {
+            line: o.getErrorFinding().getErrorLine(),
+            description: o.getErrorFinding().getDescriptionFinding().value,
+            severity: o.getErrorFinding().getSeverityFinding().value,
+          },
+          remediation: o.getRemediation().value,
+        })),
 
-      secretFindings: model.secretFindings.map((s) => ({
-        path: s.getPathFinding().value,
-        secretCategory: s.getSecretCategory(),
-        ruleId: s.getRuleId(),
-        errorFinding: {
-          line: s.getErrorFinding().getErrorLine(),
-          description: s.getErrorFinding().getDescriptionFinding().value,
-          severity: s.getErrorFinding().getSeverityFinding().value,
-        },
-        remediation: s.getRemediation().value,
-      })),
+        secretFindings: model.secretFindings.map((s) => ({
+          path: s.getPathFinding().value,
+          secretCategory: s.getSecretCategory(),
+          ruleId: s.getRuleId(),
+          errorFinding: {
+            line: s.getErrorFinding().getErrorLine(),
+            description: s.getErrorFinding().getDescriptionFinding().value,
+            severity: s.getErrorFinding().getSeverityFinding().value,
+          },
+          remediation: s.getRemediation().value,
+        })),
 
-      toolErrors: model.toolErrors.map((e) => ({
-        tool: e.getToolName(),
-        description: e.getDescriptionFinding().value,
-      })),
-    });
+        toolErrors: model.toolErrors.map((e) => ({
+          tool: e.getToolName(),
+          description: e.getDescriptionFinding().value,
+        })),
+      });
 
-    return SaveSecurityReportResponse.success();
-  } catch (error) {
-    return SaveSecurityReportResponse.failure(
-      error instanceof Error ? error.message : 'Unknown error during Security Report save',
-    );
+      return SaveSecurityReportResponse.success();
+    } catch (error) {
+      return SaveSecurityReportResponse.failure(
+        error instanceof Error ? error.message : 'Unknown error during Security Report save',
+      );
+    }
   }
-}
   async getAllAnalysesForUser(id: UserId): Promise<GetAllAnalysesForUserResponse> {
     try {
       const analyses = await this.analysisModel.find({ userId: id.value }).lean().exec();

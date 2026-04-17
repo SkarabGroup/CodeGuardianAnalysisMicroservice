@@ -12,7 +12,9 @@ describe('OWASPFinding (Value Object)', () => {
 
   const CATEGORY = 'A03:2021-Injection';
   const RULE_ID = 'ts-sqli-rule-01';
-  const REMEDIATION = DescriptionFinding.create('Use parameterized queries to prevent SQL injection');
+  const REMEDIATION = DescriptionFinding.create(
+    'Use parameterized queries to prevent SQL injection',
+  );
 
   describe('Success cases', () => {
     it('should create a valid OWASPFinding', () => {
@@ -32,11 +34,11 @@ describe('OWASPFinding (Value Object)', () => {
 
     it('should trim OWASP category and ruleId', () => {
       const finding = OWASPFinding.create(
-        PATH, 
-        ERROR, 
-        '  A03:2021-Injection  ', 
+        PATH,
+        ERROR,
+        '  A03:2021-Injection  ',
         '  ts-sqli-rule-01  ',
-        REMEDIATION
+        REMEDIATION,
       );
       expect(finding.getOWASPCategory()).toBe('A03:2021-Injection');
       expect(finding.getRuleId()).toBe('ts-sqli-rule-01');
@@ -102,36 +104,44 @@ describe('OWASPFinding (Value Object)', () => {
 
   describe('Failure cases', () => {
     it('should throw if OWASP category is not a string or is empty', () => {
-      expect(() => OWASPFinding.create(PATH, ERROR, null as unknown as string, RULE_ID, REMEDIATION)).toThrow(
-        'Owasp category must be a non-empty string',
-      );
-      
+      expect(() =>
+        OWASPFinding.create(PATH, ERROR, null as unknown as string, RULE_ID, REMEDIATION),
+      ).toThrow('Owasp category must be a non-empty string');
+
       expect(() => OWASPFinding.create(PATH, ERROR, '   ', RULE_ID, REMEDIATION)).toThrow(
         'Owasp category must be a non-empty string',
       );
     });
 
     it('should throw if ruleId is not a string or is empty', () => {
-      expect(() => OWASPFinding.create(PATH, ERROR, CATEGORY, null as unknown as string, REMEDIATION)).toThrow(
-        'Rule id must be a non-empty string',
-      );
-      
+      expect(() =>
+        OWASPFinding.create(PATH, ERROR, CATEGORY, null as unknown as string, REMEDIATION),
+      ).toThrow('Rule id must be a non-empty string');
+
       expect(() => OWASPFinding.create(PATH, ERROR, CATEGORY, '   ', REMEDIATION)).toThrow(
         'Rule id must be a non-empty string',
       );
     });
 
     it('should throw if PathFinding is invalid', () => {
-      expect(() => OWASPFinding.create(null as unknown as PathFinding, ERROR, CATEGORY, RULE_ID, REMEDIATION)).toThrow('Invalid PathFinding');
+      expect(() =>
+        OWASPFinding.create(null as unknown as PathFinding, ERROR, CATEGORY, RULE_ID, REMEDIATION),
+      ).toThrow('Invalid PathFinding');
     });
 
     it('should throw if ErrorFinding is invalid', () => {
-      expect(() => OWASPFinding.create(PATH, null as unknown as ErrorFinding, CATEGORY, RULE_ID, REMEDIATION)).toThrow('Invalid ErrorFinding');
+      expect(() =>
+        OWASPFinding.create(PATH, null as unknown as ErrorFinding, CATEGORY, RULE_ID, REMEDIATION),
+      ).toThrow('Invalid ErrorFinding');
     });
 
     it('should throw if remediation is invalid', () => {
-      expect(() => OWASPFinding.create(PATH, ERROR, CATEGORY, RULE_ID, null)).toThrow('Invalid DescriptionFinding');
-      expect(() => OWASPFinding.create(PATH, ERROR, CATEGORY, RULE_ID, {})).toThrow('Invalid DescriptionFinding');
+      expect(() => OWASPFinding.create(PATH, ERROR, CATEGORY, RULE_ID, null)).toThrow(
+        'Invalid DescriptionFinding',
+      );
+      expect(() => OWASPFinding.create(PATH, ERROR, CATEGORY, RULE_ID, {})).toThrow(
+        'Invalid DescriptionFinding',
+      );
     });
   });
 });
