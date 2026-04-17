@@ -30,7 +30,7 @@ def dedupe(findings):
 # RUNNER FUNCTIONS
 # -------------------------
 
-def run_syft_scan(repo_path: str, sbom_file: str) -> dict | None:
+def run_syft_scan(repo_path: str, sbom_file: str) -> list | None:
     try:
         if os.path.exists(sbom_file):
             os.remove(sbom_file)
@@ -48,42 +48,37 @@ def run_syft_scan(repo_path: str, sbom_file: str) -> dict | None:
 
         if not os.path.exists(sbom_file) or os.path.getsize(sbom_file) == 0:
             return {
-                "error": "Syft did not produce a valid SBOM file",
-                "repo_path": repo_path
+                "type": "SyftError",
+                "message": "Syft did not produce a valid SBOM file",
+                "details": None
             }
 
         return None
 
     except subprocess.TimeoutExpired:
         return {
-            "error": "Timeout during Syft execution",
-            "repo_path": repo_path
+            "type": "SyftError",
+            "message": "Timeout during Syft execution",
+            "details": None
         }
 
     except subprocess.CalledProcessError as e:
         stderr_text = (e.stderr or b"").decode(errors="replace")
 
+        message = "Syft execution failed"
         if "no such file or directory" in stderr_text.lower():
-            return {
-                "error": "Syft could not access the repository path",
-                "details": stderr_text,
-                "repo_path": repo_path
-            }
-        if "failed to catalog" in stderr_text.lower():
-            return {
-                "error": "Syft failed to catalogue the repository contents",
-                "details": stderr_text,
-                "repo_path": repo_path
-            }
+            message = "Syft could not access the repository path"
+        elif "failed to catalog" in stderr_text.lower():
+            message = "Syft failed to catalogue the repository contents"
 
-        return {
-            "error": "Syft execution failed",
-            "details": stderr_text,
-            "repo_path": repo_path
-        }
+        return [{
+            "type": "SyftError",
+            "message": message,
+            "details": stderr_text
+        }]
 
 
-def run_grype_scan(sbom_file: str, output_file: str) -> dict | None:
+def run_grype_scan(sbom_file: str, output_file: str) -> list | None:
     try:
         if os.path.exists(output_file):
             os.remove(output_file)
@@ -100,48 +95,37 @@ def run_grype_scan(sbom_file: str, output_file: str) -> dict | None:
         )
 
         if not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
-            return {
-                "error": "Grype did not produce a valid report file",
-                "sbom_file": sbom_file
-            }
+            return [{
+                "type": "GrypeError",
+                "message": "Grype did not produce a valid report file",
+                "details": None
+            }]
 
         return None
 
     except subprocess.TimeoutExpired:
-        return {
-            "error": "Timeout during Grype execution",
-            "sbom_file": sbom_file
-        }
+        return [{
+            "type": "GrypeError",
+            "message": "Timeout during Grype execution",
+            "details": None
+        }]
 
     except subprocess.CalledProcessError as e:
         stderr_text = (e.stderr or b"").decode(errors="replace")
+        
+        message = "Grype execution failed"
+        if any(x in stderr_text.lower() for x in ["db is too old", "vulnerability database"]):
+            message = "Grype vulnerability database is outdated or unavailable"
+        elif any(x in stderr_text.lower() for x in ["failed to load", "no such file"]):
+            message = "Grype could not load the SBOM file"
+        elif any(x in stderr_text.lower() for x in ["unsupported sbom", "unknown format"]):
+            message = "Grype does not recognise the SBOM format produced by Syft"
 
-        if "db is too old" in stderr_text.lower() or "vulnerability database" in stderr_text.lower():
-            return {
-                "error": (
-                    "Grype vulnerability database is outdated or unavailable. "
-                    "Run 'grype db update' and retry."
-                ),
-                "details": stderr_text
-            }
-        if "failed to load" in stderr_text.lower() or "no such file" in stderr_text.lower():
-            return {
-                "error": "Grype could not load the SBOM file",
-                "details": stderr_text,
-                "sbom_file": sbom_file
-            }
-        if "unsupported sbom" in stderr_text.lower() or "unknown format" in stderr_text.lower():
-            return {
-                "error": "Grype does not recognise the SBOM format produced by Syft",
-                "details": stderr_text,
-                "sbom_file": sbom_file
-            }
-
-        return {
-            "error": "Grype execution failed",
-            "details": stderr_text,
-            "sbom_file": sbom_file
-        }
+        return [{
+            "type": "GrypeError",
+            "message": message,
+            "details": stderr_text
+        }]
 
 
 # -------------------------
@@ -150,14 +134,14 @@ def run_grype_scan(sbom_file: str, output_file: str) -> dict | None:
 
 def parse_grype_report(output_file: str) -> dict:
     if not os.path.exists(output_file):
-        return {"error": "Grype report file was not found"}
+        return {"error_obj": {"type": "GrypeParseError", "message": "Grype report file was not found", "details": None}}
 
     try:
         with open(output_file, "r", encoding="utf-8") as f:
             content = f.read().strip()
             full_data = json.loads(content) if content else {"matches": []}
     except json.JSONDecodeError:
-        return {"error": "Grype report contains invalid JSON"}
+        return {"error_obj": {"type": "GrypeParseError", "message": "Grype report contains invalid JSON", "details": None}}
 
     matches = full_data.get("matches", [])
 
@@ -290,47 +274,29 @@ def run_grype(repo_path: str) -> dict:
     sbom_file   = "sbom.json"
     output_file = "raw_grype_report.json"
 
-    syft_error = run_syft_scan(repo_path, sbom_file)
-    if syft_error:
+    syft_errors = run_syft_scan(repo_path, sbom_file)
+    if syft_errors:
         return {
             "status": "error",
             "findings_to_analyze": [],
-            "errors": [
-                {
-                    "type":    "SyftError",
-                    "message": syft_error.get("error"),
-                    "details": syft_error.get("details") 
-                }
-            ],
+            "errors": syft_errors,
         }
 
-    grype_error = run_grype_scan(sbom_file, output_file)
-    if grype_error:
+    grype_errors = run_grype_scan(sbom_file, output_file)
+    if grype_errors:
         return {
             "status": "error",
             "findings_to_analyze": [],
-            "errors": [
-                {
-                    "type":    "GrypeError",
-                    "message": grype_error.get("error"),
-                    "details": grype_error.get("details") 
-                }
-            ],
+            "errors": grype_errors
         }
 
     result = parse_grype_report(output_file)
 
-    if "error" in result:
+    if "error_obj" in result:
         return {
             "status": "error",
             "findings_to_analyze": [],
-            "errors": [
-                {
-                    "type":    "GrypeParseError",
-                    "message": result.get("error"),
-                    "details": None  
-                }
-            ],
+            "errors": [result["error_obj"]]
         }
 
     return {
