@@ -3,6 +3,7 @@ import { AnalysisId } from '../value-objects/analysis-id.vo';
 import { DependencyFinding } from '../value-objects/dependency-finding.vo';
 import { OWASPFinding } from '../value-objects/owasp-finding.vo';
 import { SecretFinding } from '../value-objects/secret-finding.vo';
+import { ToolError } from '../value-objects/tool-error.vo';
 
 export type SecurityReportProps = {
   reportId: ReportId;
@@ -10,6 +11,7 @@ export type SecurityReportProps = {
   dependencyFindings: DependencyFinding[];
   owaspFindings: OWASPFinding[];
   secretFindings: SecretFinding[];
+  toolErrors: ToolError[];
 };
 
 export class SecurityReport {
@@ -19,6 +21,7 @@ export class SecurityReport {
     private readonly dependencyFindings: DependencyFinding[],
     private readonly owaspFindings: OWASPFinding[],
     private readonly secretFindings: SecretFinding[],
+    private readonly toolErrors: ToolError[],
   ) {}
 
   public static create(properties: SecurityReportProps): SecurityReport {
@@ -28,6 +31,7 @@ export class SecurityReport {
       properties.dependencyFindings ?? [],
       properties.owaspFindings ?? [],
       properties.secretFindings ?? [],
+      properties.toolErrors ?? [],
     );
   }
 
@@ -49,6 +53,10 @@ export class SecurityReport {
 
   public getSecretFindings(): SecretFinding[] {
     return [...this.secretFindings];
+  }
+
+  public getToolErrors(): ToolError[] {
+    return [...this.toolErrors];
   }
 
   public equals(other: SecurityReport): boolean {

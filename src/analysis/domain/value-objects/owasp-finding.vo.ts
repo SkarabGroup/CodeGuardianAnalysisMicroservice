@@ -6,6 +6,7 @@ export class OWASPFinding {
     private readonly _pathFinding: PathFinding,
     private readonly _errorFinding: ErrorFinding,
     private readonly _owaspCategory: string,
+    private readonly _ruleId: string,
   ) {}
 
   public equals(other: OWASPFinding): boolean {
@@ -15,7 +16,8 @@ export class OWASPFinding {
     return (
       this._pathFinding.equals(other._pathFinding) &&
       this._errorFinding.equals(other._errorFinding) &&
-      this._owaspCategory === other._owaspCategory
+      this._owaspCategory === other._owaspCategory &&
+      this._ruleId === other._ruleId
     );
   }
 
@@ -31,10 +33,15 @@ export class OWASPFinding {
     return this._owaspCategory;
   }
 
+  public getRuleId(): string {
+    return this._ruleId;
+  }
+
   public static create(
     pathFinding: PathFinding,
     errorFinding: ErrorFinding,
     owaspCategory: string,
+    ruleId: string,
   ): OWASPFinding {
     if (!(pathFinding instanceof PathFinding)) {
       throw new Error('Invalid PathFinding');
@@ -44,13 +51,13 @@ export class OWASPFinding {
       throw new Error('Invalid ErrorFinding');
     }
 
-    if (typeof owaspCategory !== 'string') {
-      throw new Error('OWASP category must be a string');
+    if (typeof owaspCategory !== 'string' || !owaspCategory.trim()) {
+      throw new Error('Owasp category must be a non-empty string');
     }
-    const trimmed = owaspCategory.trim();
-    if (!trimmed) {
-      throw new Error('OWASP category cannot be empty');
+
+    if (typeof ruleId !== 'string' || !ruleId.trim()) {
+      throw new Error('Rule id must be a non-empty string');
     }
-    return new OWASPFinding(pathFinding, errorFinding, trimmed);
+    return new OWASPFinding(pathFinding, errorFinding, owaspCategory.trim(), ruleId.trim());
   }
 }
