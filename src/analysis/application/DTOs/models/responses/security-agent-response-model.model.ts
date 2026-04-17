@@ -1,11 +1,7 @@
-// Metadata
-
 export interface SecAgentMetadataDTO {
   repository: string;
   status: string;
 }
-
-// Trivy (Secret Findings)
 
 export interface SecTrivyFindingDTO {
   rule_id: string;
@@ -17,8 +13,6 @@ export interface SecTrivyFindingDTO {
   remediation: string;
 }
 
-// Semgrep (OWASP Findings)
-
 export interface SecSemgrepFindingDTO {
   rule_id: string;
   path: string;
@@ -28,8 +22,6 @@ export interface SecSemgrepFindingDTO {
   owasp_category: string;
   remediation: string;
 }
-
-// Grype (Dependency Findings)
 
 export interface SecGrypeFindingDTO {
   path: string;
@@ -41,14 +33,10 @@ export interface SecGrypeFindingDTO {
   remediation: string;
 }
 
-// Tool Errors
-
 export interface SecToolErrorDTO {
   tool: string;
   description: string;
 }
-
-// Root Report
 
 export interface SecAnalysisReportDTO {
   metadata: SecAgentMetadataDTO;

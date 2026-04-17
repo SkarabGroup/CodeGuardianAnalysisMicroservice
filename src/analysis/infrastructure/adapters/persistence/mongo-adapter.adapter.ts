@@ -37,9 +37,13 @@ import { IDocsReportSavePort } from '../../../application/ports/repositories/doc
 import { SaveCodeReportRequest } from '../../../application/DTOs/models/requests/save-code-report-request-model.model';
 import { SaveCodeReportResponse } from '../../../application/DTOs/models/responses/save-code-report-response-model.model';
 import { CodeReport, CodeReportDocument } from './schema/code-report.schema';
+import { SaveSecurityReportRequest } from '../../../application/DTOs/models/requests/save-security-report-request-model.model';
+import { SaveSecurityReportResponse } from '../../../application/DTOs/models/responses/save-security-report-response-model.model';
+import { SecurityReport, SecurityReportDocument } from './schema/security-report.schema';
 import { UserId } from '../../../domain/value-objects/user-id.vo';
 import { GetAllAnalysesForUserResponse } from '../../../application/DTOs/models/responses/get-all-analyses-for-user-response.model';
 import { IGetAllAnalysesForUserPort } from '../../../application/ports/repositories/get-all-analyses-for-user-port.port';
+import { ISecurityReportSavePort } from '../../../application/ports/repositories/security-report-save-port.repository';
 @Injectable()
 export class MongoDBAdapter
   implements
@@ -50,6 +54,7 @@ export class MongoDBAdapter
     IGitHubAnalysisSavePort,
     IGetAnalysisFromIdPort,
     IDocsReportSavePort,
+    ISecurityReportSavePort,
     IUpdateAnalysisPort,
     IGetAllAnalysesForUserPort
 {
@@ -62,6 +67,8 @@ export class MongoDBAdapter
     private readonly docsReportModel: Model<DocumentationReportDocument>,
     @InjectModel(CodeReport.name, 'DatabaseConnection')
     private readonly codeReportModel: Model<CodeReportDocument>,
+    @InjectModel(SecurityReport.name, 'DatabaseConnection')
+    private readonly securityReportModel: Model<SecurityReportDocument>,
   ) {}
 
   async authorize(model: GetGitCredentialRequest): Promise<GetGitCredentialResponse> {
@@ -412,6 +419,59 @@ export class MongoDBAdapter
     }
   }
 
+  async saveSecurityReport(model: SaveSecurityReportRequest): Promise<SaveSecurityReportResponse> {
+  try {
+    await this.securityReportModel.create({
+      reportId: model.reportId.value,
+      analysisId: model.analysisId.value,
+
+      dependencyFindings: model.dependencyFindings.map((d) => ({
+        path: d.getPathFinding().value,
+        packageName: d.getPackageName(),
+        packageVersion: d.getPackageVersion(),
+        vulnerabilityId: d.getVulnerabilityId(),
+        severity: d.getSeverityFinding().value,
+        description: d.getDescriptionFinding().value,
+        remediation: d.getRemediation().value,
+      })),
+
+      owaspFindings: model.owaspFindings.map((o) => ({
+        path: o.getPathFinding().value,
+        owaspCategory: o.getOWASPCategory(),
+        ruleId: o.getRuleId(),
+        errorFinding: {
+          line: o.getErrorFinding().getErrorLine(),
+          description: o.getErrorFinding().getDescriptionFinding().value,
+          severity: o.getErrorFinding().getSeverityFinding().value,
+        },
+        remediation: o.getRemediation().value,
+      })),
+
+      secretFindings: model.secretFindings.map((s) => ({
+        path: s.getPathFinding().value,
+        secretCategory: s.getSecretCategory(),
+        ruleId: s.getRuleId(),
+        errorFinding: {
+          line: s.getErrorFinding().getErrorLine(),
+          description: s.getErrorFinding().getDescriptionFinding().value,
+          severity: s.getErrorFinding().getSeverityFinding().value,
+        },
+        remediation: s.getRemediation().value,
+      })),
+
+      toolErrors: model.toolErrors.map((e) => ({
+        tool: e.getToolName(),
+        description: e.getDescriptionFinding().value,
+      })),
+    });
+
+    return SaveSecurityReportResponse.success();
+  } catch (error) {
+    return SaveSecurityReportResponse.failure(
+      error instanceof Error ? error.message : 'Unknown error during Security Report save',
+    );
+  }
+}
   async getAllAnalysesForUser(id: UserId): Promise<GetAllAnalysesForUserResponse> {
     try {
       const analyses = await this.analysisModel.find({ userId: id.value }).lean().exec();
@@ -443,6 +503,7 @@ export const GIT_CREDENTIAL_UPDATE_PORT = Symbol('IGitCredentialUpdatePort');
 export const GITHUB_ANALYSIS_SAVE_PORT = Symbol('IGitHubAnalysisSavePort');
 export const CODE_REPORT_SAVE_PORT = Symbol('ICodeReportSavePort');
 export const DOCS_REPORT_SAVE_PORT = Symbol('IDocsReportSavePort');
+export const SECURITY_REPORT_SAVE_PORT = Symbol('ISecurityReportSavePort');
 export const ADD_REPORTS_TO_ANALYSIS_PORT = Symbol('IUpdateAnalysisPort');
 export const GET_DETAILED_ANALYSIS_PORT = Symbol('IGetAnalysisFromIdPort');
 export const GET_ALL_ANALYSES_FOR_USER_PORT = Symbol('IGetAllAnalysesForUserPort');
