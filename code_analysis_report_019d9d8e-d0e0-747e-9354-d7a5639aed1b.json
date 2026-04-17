@@ -1,0 +1,21 @@
+{
+  "analysis_report": {
+    "metadata": {
+      "language": "unknown",
+      "status": "success",
+      "repository": "019d9d8e-d0e0-747e-9354-d7a5639aed1b"
+    },
+    "ai_interpretation": {
+      "verdict": "CRITICAL",
+      "executive_summary": "Execution Error: An error occurred (ExpiredTokenException) when calling the ConverseStream operation: The security token included in the request is expired",
+      "static_analysis_evaluation": {
+        "total_issues_analyzed": 0,
+        "key_issues_reasoning": []
+      },
+      "coverage_evaluation": {
+        "overall_health": "Error",
+        "critical_files_reasoning": []
+      }
+    }
+  }
+}

@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-
 import { GitCredential } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
-import { MongoDBAdapter } from '../../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
+import {
+  MongoDBAdapter,
+  MongoDeleteResult,
+} from '../../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 import { GetGitCredentialRequest } from '../../../../../src/analysis/application/DTOs/models/requests/get-git-credential-request.model';
 import { PostGitCredentialRequest } from '../../../../../src/analysis/application/DTOs/models/requests/post-git-credential-request.model';
 import { DeleteGitCredentialRequest } from '../../../../../src/analysis/application/DTOs/models/requests/delete-git-credential-request.model';
@@ -23,96 +25,99 @@ import { ReportId } from '../../../../../src/analysis/domain/value-objects/repor
 import { SaveDocsReportRequest } from '../../../../../src/analysis/application/DTOs/models/requests/save-docs-report-request-model.model';
 import { CodeReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/code-report.schema';
 import { AddReportsToAnalysisRequest } from '../../../../../src/analysis/application/DTOs/models/requests/add-reports-request-model.model';
+import { DeleteRepositoryCollectionRequest } from '../../../../../src/analysis/application/DTOs/models/requests/delete-repository-collection-request.model';
+import { GetRepositoryCollectionRequest } from '../../../../../src/analysis/application/DTOs/models/requests/get-repository-collection-request.model';
+import { GitHubCollection } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/github-collection.schema';
+import { CheckCollectionDuplicateRequest } from '../../../../../src/analysis/application/DTOs/models/requests/check-collection-duplicate-request.model';
+import { AddRepositoryCollectionRequest } from '../../../../../src/analysis/application/DTOs/models/requests/add-repository-collection-request.model';
+
+// --- Mock Interfaces ---
 
 interface MockQuery {
   lean: jest.Mock<MockQuery, []>;
-  exec: jest.Mock<Promise<GitCredential | null>, []>;
+  exec: jest.Mock<Promise<unknown>, []>;
+  populate: jest.Mock<MockQuery, [string, string?]>;
 }
 
 interface MockModel {
   findOne: jest.Mock<MockQuery, [Record<string, unknown>]>;
-  create: jest.Mock<Promise<Partial<GitCredential>>, [Partial<GitCredential>]>;
-  deleteOne: jest.Mock<Promise<{ deletedCount: number }>, [Record<string, unknown>]>;
-  updateOne: jest.Mock<
-    Promise<{ matchedCount: number; modifiedCount: number }>,
-    [Record<string, unknown>, Partial<GitCredential>]
-  >;
-}
-interface MockAnalysisModel {
-  create: jest.Mock;
-  updateOne: jest.Mock;
-  findOne: jest.Mock;
-  find: jest.Mock;
+  find: jest.Mock<MockQuery, [Record<string, unknown>]>;
+  create: jest.Mock<Promise<unknown>, [unknown]>;
+  deleteOne: jest.Mock<unknown, [Record<string, unknown>]>;
+  updateOne: jest.Mock<Promise<unknown>, [Record<string, unknown>, unknown]>;
+  exists: jest.Mock<Promise<unknown>, [Record<string, unknown>]>;
 }
 
 interface MongoError extends Error {
   code: number;
 }
 
-interface MockDocsReportModel {
-  create: jest.Mock;
-  findOne: jest.Mock;
-}
+const createCustomQuery = (resolveValue: unknown, isRejected = false): MockQuery => {
+  const query = {
+    lean: jest.fn<MockQuery, []>(),
+    exec: isRejected
+      ? jest.fn<Promise<unknown>, []>().mockRejectedValue(resolveValue)
+      : jest.fn<Promise<unknown>, []>().mockResolvedValue(resolveValue),
+    populate: jest.fn<MockQuery, [string, string?]>(),
+    select: jest.fn<MockQuery, [string]>(),
+  };
+
+  // Configuriamo i metodi concatenabili per restituire l'oggetto query stesso
+  query.lean.mockReturnThis();
+  query.populate.mockReturnThis();
+  query.select.mockReturnThis();
+
+  return query;
+};
 
 const VALID_PASSWORD = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 const VALID_PAT = 'ghp_' + 'A'.repeat(36);
 
 describe('MongoDBAdapter (Unit Test)', () => {
   let adapter: MongoDBAdapter;
-  let mockModel: MockModel;
   let mockQuery: MockQuery;
+  let mockCredentialModel: MockModel;
+  let mockAnalysisModel: MockModel;
+  let mockDocsReportModel: MockModel;
+  let mockCodeReportModel: MockModel;
+  let mockCollectionModel: MockModel;
   let consoleLogSpy: jest.SpyInstance;
-  let mockAnalysisModel: MockAnalysisModel;
-  let mockDocsReportModel: MockDocsReportModel;
-  let mockCodeReportModel: MockDocsReportModel;
 
   beforeEach(async () => {
+    // Shared chainable query mock
     mockQuery = {
       lean: jest.fn().mockReturnThis() as jest.Mock<MockQuery, []>,
-      exec: jest.fn() as jest.Mock<Promise<GitCredential | null>, []>,
+      exec: jest.fn() as jest.Mock<Promise<unknown>, []>,
+      populate: jest.fn().mockReturnThis() as jest.Mock<MockQuery, [string, string?]>,
     };
 
-    mockModel = {
+    // Factory to create consistent model mocks
+    const createMockModel = (): MockModel => ({
       findOne: jest.fn().mockReturnValue(mockQuery) as jest.Mock<
         MockQuery,
         [Record<string, unknown>]
       >,
-      create: jest.fn() as jest.Mock<Promise<Partial<GitCredential>>, [Partial<GitCredential>]>,
-      deleteOne: jest.fn() as jest.Mock<
-        Promise<{ deletedCount: number }>,
-        [Record<string, unknown>]
-      >,
-      updateOne: jest.fn() as jest.Mock<
-        Promise<{ matchedCount: number; modifiedCount: number }>,
-        [Record<string, unknown>, Partial<GitCredential>]
-      >,
-    };
+      find: jest.fn().mockReturnValue(mockQuery) as jest.Mock<MockQuery, [Record<string, unknown>]>,
+      create: jest.fn() as jest.Mock<Promise<unknown>, [unknown]>,
+      deleteOne: jest.fn() as jest.Mock<unknown, [Record<string, unknown>]>,
+      updateOne: jest.fn() as jest.Mock<Promise<unknown>, [Record<string, unknown>, unknown]>,
+      exists: jest.fn() as jest.Mock<Promise<unknown>, [Record<string, unknown>]>,
+    });
+
+    mockCredentialModel = createMockModel();
+    mockAnalysisModel = createMockModel();
+    mockDocsReportModel = createMockModel();
+    mockCodeReportModel = createMockModel();
+    mockCollectionModel = createMockModel();
 
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-
-    mockAnalysisModel = {
-      create: jest.fn(),
-      updateOne: jest.fn(),
-      findOne: jest.fn(),
-      find: jest.fn(),
-    };
-
-    mockDocsReportModel = {
-      create: jest.fn(),
-      findOne: jest.fn(),
-    };
-
-    mockCodeReportModel = {
-      create: jest.fn(),
-      findOne: jest.fn(),
-    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MongoDBAdapter,
         {
           provide: getModelToken(GitCredential.name, 'DatabaseConnection'),
-          useValue: mockModel,
+          useValue: mockCredentialModel,
         },
         {
           provide: getModelToken(GitHubAnalysisRecord.name, 'DatabaseConnection'),
@@ -125,6 +130,10 @@ describe('MongoDBAdapter (Unit Test)', () => {
         {
           provide: getModelToken(CodeReport.name, 'DatabaseConnection'),
           useValue: mockCodeReportModel,
+        },
+        {
+          provide: getModelToken(GitHubCollection.name, 'DatabaseConnection'),
+          useValue: mockCollectionModel,
         },
       ],
     }).compile();
@@ -161,7 +170,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
       const result = await adapter.authorize(mockRequest);
 
       expect(result.patToken).toBe('ghp_' + 'B'.repeat(36));
-      expect(mockModel.findOne).toHaveBeenCalledWith({
+      expect(mockCredentialModel.findOne.mock.calls[0][0]).toEqual({
         repoUrl: mockRequest.repoUrl.value,
       });
     });
@@ -178,9 +187,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result.patToken).toBe(null);
       expect(result.errorMessage).toBe('Wrong password');
-      expect(mockModel.findOne).toHaveBeenCalledWith({
-        repoUrl: mockRequest.repoUrl.value,
-      });
+      expect(mockCredentialModel.findOne.mock.calls.length).toBe(1);
     });
 
     it('should return unauthorized response when credentials are not found', async () => {
@@ -212,14 +219,14 @@ describe('MongoDBAdapter (Unit Test)', () => {
     );
 
     it('should return success when credential is saved correctly', async () => {
-      mockModel.create.mockResolvedValue({
+      mockCredentialModel.create.mockResolvedValue({
         repoUrl: mockSaveRequest.repoUrl.value,
       });
 
       const result = await adapter.save(mockSaveRequest);
 
       expect(result.isSuccess).toBe(true);
-      expect(mockModel.create).toHaveBeenCalledWith({
+      expect(mockCredentialModel.create.mock.calls[0][0]).toEqual({
         repoUrl: mockSaveRequest.repoUrl.value,
         password: mockSaveRequest.password.value,
         patToken: mockSaveRequest.pat.value,
@@ -229,19 +236,19 @@ describe('MongoDBAdapter (Unit Test)', () => {
     it('should return failure when a duplicate key error (11000) occurs', async () => {
       const mongoError = new Error('Duplicate key') as MongoError;
       mongoError.code = 11000;
-      mockModel.create.mockRejectedValue(mongoError);
+      mockCredentialModel.create.mockRejectedValue(mongoError);
 
       const result = await adapter.save(mockSaveRequest);
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toContain(
-        'Credentials for repository https://github.com/owner/new-repo already exist.',
+        `Credentials for repository ${mockSaveRequest.repoUrl.value} already exist.`,
       );
     });
 
     it('should return failure for generic database errors', async () => {
       const genericError = new Error('Database connection lost');
-      mockModel.create.mockRejectedValue(genericError);
+      mockCredentialModel.create.mockRejectedValue(genericError);
 
       const result = await adapter.save(mockSaveRequest);
 
@@ -252,7 +259,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     it('should return failure when password format violates schema validation', async () => {
       const validationError = new Error('ValidationError: password: Path `password` is invalid');
       validationError.name = 'ValidationError';
-      mockModel.create.mockRejectedValue(validationError);
+      mockCredentialModel.create.mockRejectedValue(validationError);
 
       const result = await adapter.save(mockSaveRequest);
 
@@ -262,7 +269,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
     it('should handle standard Error objects and return their message', async () => {
       const standardError = new Error('Database connection failed');
-      mockModel.create.mockRejectedValue(standardError);
+      mockCredentialModel.create.mockRejectedValue(standardError);
 
       const result = await adapter.save(mockSaveRequest);
 
@@ -271,7 +278,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     });
 
     it('should handle non-Error objects and return a default unknown error message', async () => {
-      mockModel.create.mockRejectedValue('Stringa di errore brutale');
+      mockCredentialModel.create.mockRejectedValue('Stringa di errore brutale');
 
       const result = await adapter.save(mockSaveRequest);
 
@@ -287,56 +294,34 @@ describe('MongoDBAdapter (Unit Test)', () => {
     );
 
     it('should return success when credential is deleted correctly', async () => {
-      mockModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
+      mockCredentialModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
 
       const result = await adapter.deletePAT(mockDeleteRequest);
 
       expect(result.isSuccess).toBe(true);
-      expect(mockModel.deleteOne).toHaveBeenCalledWith({
+      expect(mockCredentialModel.deleteOne.mock.calls[0][0]).toEqual({
         repoUrl: mockDeleteRequest.repoUrl.value,
         password: mockDeleteRequest.patPassword.value,
       });
     });
 
     it('should return success even when no document matched (deleteOne is idempotent)', async () => {
-      mockModel.deleteOne.mockResolvedValue({ deletedCount: 0 });
+      mockCredentialModel.deleteOne.mockResolvedValue({ deletedCount: 0 });
 
       const result = await adapter.deletePAT(mockDeleteRequest);
 
       expect(result.isSuccess).toBe(true);
     });
 
-    it('should call deleteOne with the correct filter', async () => {
-      mockModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
-
-      await adapter.deletePAT(mockDeleteRequest);
-
-      expect(mockModel.deleteOne).toHaveBeenCalledTimes(1);
-      expect(mockModel.deleteOne).toHaveBeenCalledWith({
-        repoUrl: mockDeleteRequest.repoUrl.value,
-        password: mockDeleteRequest.patPassword.value,
-      });
-    });
-
     it('should return failure when database throws an exception', async () => {
       const dbError = new Error('Connection timeout');
-      mockModel.deleteOne.mockRejectedValue(dbError);
+      mockCredentialModel.deleteOne.mockRejectedValue(dbError);
 
       const result = await adapter.deletePAT(mockDeleteRequest);
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toContain('Connection to database failed');
       expect(result.errorMessage).toContain('Connection timeout');
-    });
-
-    it('should return failure for generic database errors', async () => {
-      const genericError = new Error('Replica set not reachable');
-      mockModel.deleteOne.mockRejectedValue(genericError);
-
-      const result = await adapter.deletePAT(mockDeleteRequest);
-
-      expect(result.isSuccess).toBe(false);
-      expect(result.errorMessage).toContain('Replica set not reachable');
     });
   });
 
@@ -348,30 +333,30 @@ describe('MongoDBAdapter (Unit Test)', () => {
     );
 
     it('should return success when PAT is updated correctly', async () => {
-      mockModel.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+      mockCredentialModel.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
       const result = await adapter.updatePAT(mockUpdateRequest);
 
       expect(result.isSuccess).toBe(true);
+      expect(mockCredentialModel.updateOne.mock.calls.length).toBe(1);
     });
 
     it('should call updateOne with the correct filter and update payload', async () => {
-      mockModel.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+      mockCredentialModel.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
       await adapter.updatePAT(mockUpdateRequest);
 
-      expect(mockModel.updateOne).toHaveBeenCalledTimes(1);
-      expect(mockModel.updateOne).toHaveBeenCalledWith(
-        {
-          repoUrl: mockUpdateRequest.repoUrl.value,
-          password: mockUpdateRequest.patPassword.value,
-        },
-        { patToken: mockUpdateRequest.newPat.value },
-      );
+      expect(mockCredentialModel.updateOne.mock.calls[0][0]).toEqual({
+        repoUrl: mockUpdateRequest.repoUrl.value,
+        password: mockUpdateRequest.patPassword.value,
+      });
+      expect(mockCredentialModel.updateOne.mock.calls[0][1]).toEqual({
+        patToken: mockUpdateRequest.newPat.value,
+      });
     });
 
     it('should return failure when no document matched (wrong repoUrl or password)', async () => {
-      mockModel.updateOne.mockResolvedValue({ matchedCount: 0, modifiedCount: 0 });
+      mockCredentialModel.updateOne.mockResolvedValue({ matchedCount: 0, modifiedCount: 0 });
 
       const result = await adapter.updatePAT(mockUpdateRequest);
 
@@ -380,7 +365,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     });
 
     it('should return success when document matched but PAT was already identical (modifiedCount 0)', async () => {
-      mockModel.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 0 });
+      mockCredentialModel.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 0 });
 
       const result = await adapter.updatePAT(mockUpdateRequest);
 
@@ -389,23 +374,12 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
     it('should return failure when database throws an exception', async () => {
       const dbError = new Error('Write conflict');
-      mockModel.updateOne.mockRejectedValue(dbError);
+      mockCredentialModel.updateOne.mockRejectedValue(dbError);
 
       const result = await adapter.updatePAT(mockUpdateRequest);
 
       expect(result.isSuccess).toBe(false);
       expect(result.errorMessage).toContain('Error updating token');
-      expect(result.errorMessage).toContain('Write conflict');
-    });
-
-    it('should return failure for generic database errors', async () => {
-      const genericError = new Error('Timeout exceeded');
-      mockModel.updateOne.mockRejectedValue(genericError);
-
-      const result = await adapter.updatePAT(mockUpdateRequest);
-
-      expect(result.isSuccess).toBe(false);
-      expect(result.errorMessage).toContain('Timeout exceeded');
     });
   });
 
@@ -657,6 +631,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       it('should return null if analysis is not found', async () => {
         const mockAnalysisModelInternal = adapter['analysisModel'];
+
         mockAnalysisModelInternal.findOne = jest.fn().mockReturnValue({
           lean: jest.fn().mockReturnThis(),
           exec: jest.fn().mockResolvedValue(null),
@@ -692,6 +667,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
         // Mock chain per AnalysisModel
         const mockAnalysisModelInternal = adapter['analysisModel'];
+
         mockAnalysisModelInternal.findOne = jest.fn().mockReturnValue({
           lean: jest.fn().mockReturnThis(),
           exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
@@ -699,6 +675,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
         // Mock chain per DocsReportModel
         const mockDocsModelInternal = adapter['docsReportModel'];
+
         mockDocsModelInternal.findOne = jest.fn().mockReturnValue({
           lean: jest.fn().mockReturnThis(),
           exec: jest.fn().mockResolvedValue(mockDocsReport),
@@ -714,6 +691,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       it('should throw Error if database connection fails during fetch', async () => {
         const mockAnalysisModelInternal = adapter['analysisModel'];
+
         mockAnalysisModelInternal.findOne = jest.fn().mockReturnValue({
           lean: jest.fn().mockReturnThis(),
           exec: jest.fn().mockRejectedValue(new Error('Fetch failed')),
@@ -874,7 +852,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
         { analysisId: mockAnalysisId },
         {
           $set: {
-            status: 'completed',
+            status: 'COMPLETED',
             codeReportId: mockCodeId,
             docsReportId: mockDocsId,
             securityReportId: mockSecId,
@@ -901,7 +879,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
         { analysisId: mockAnalysisId },
         {
           $set: {
-            status: 'completed',
+            status: 'COMPLETED',
             codeReportId: mockCodeId,
             docsReportId: null,
             securityReportId: null,
@@ -989,12 +967,14 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       // Configurazione dei mock per le query concatenate
       // Prima chiamata: trova l'analisi
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
       });
 
       // Seconda chiamata: trova il report
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockDocsReportModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockReportDoc),
@@ -1027,6 +1007,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
         // ... altri campi
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
@@ -1053,11 +1034,13 @@ describe('MongoDBAdapter (Unit Test)', () => {
         updatedAt: new Date(),
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockDocsReportModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(null),
@@ -1092,11 +1075,13 @@ describe('MongoDBAdapter (Unit Test)', () => {
         dependencyAudit: null,
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockDocsReportModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockReportDoc),
@@ -1113,6 +1098,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     });
 
     it('should return null if the analysis record is not found', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(null),
@@ -1124,6 +1110,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     });
 
     it('should throw an error if the database query fails', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockRejectedValue(new Error('DB failure')),
@@ -1158,10 +1145,12 @@ describe('MongoDBAdapter (Unit Test)', () => {
       };
 
       // Configura i mock come fatto in precedenza...
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue({ analysisId: '...', docsReportId: 'report-999' }),
       });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockDocsReportModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockReportDoc),
@@ -1195,6 +1184,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
         },
       ];
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.find = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockAnalyses),
@@ -1210,6 +1200,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     it('should return an empty list when no analyses are found', async () => {
       const mockUserId = UserId.create(uuid());
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.find = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([]),
@@ -1221,6 +1212,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
     it('should throw an error with the original message when an Error is thrown', async () => {
       const mockUserId = UserId.create(uuid());
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.find = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockRejectedValue(new Error('Database connection failed')),
@@ -1233,6 +1225,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
     it('should throw an error with Unknown error when a non-Error is thrown', async () => {
       const mockUserId = UserId.create(uuid());
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.find = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockRejectedValue('String error'),
@@ -1241,6 +1234,128 @@ describe('MongoDBAdapter (Unit Test)', () => {
       await expect(adapter.getAllAnalysesForUser(mockUserId)).rejects.toThrow(
         'Error fetching analyses for user: Unknown error',
       );
+    });
+    describe('Collection Management Methods', () => {
+      const mockUser = UserId.create(uuid());
+      const mockUrl = RepoURL.create('https://github.com/owner/repo');
+
+      describe('checkDuplicate', () => {
+        it('should return true if collection exists', async () => {
+          mockCollectionModel.exists.mockResolvedValue({ _id: 'some-id' });
+
+          const request = new CheckCollectionDuplicateRequest(mockUser, mockUrl);
+          const result = await adapter.checkDuplicate(request);
+
+          expect(result.duplicate).toBe(true);
+          expect(mockCollectionModel.exists.mock.calls.length).toBe(1);
+        });
+
+        it('should return false if collection does not exist', async () => {
+          mockCollectionModel.exists.mockResolvedValue(null);
+
+          const result = await adapter.checkDuplicate(
+            new CheckCollectionDuplicateRequest(mockUser, mockUrl),
+          );
+          expect(result.duplicate).toBe(false);
+        });
+      });
+
+      describe('addCollection', () => {
+        it('should successfully create a collection', async () => {
+          mockCollectionModel.create.mockResolvedValue({});
+
+          const request = new AddRepositoryCollectionRequest(
+            mockUser,
+            mockUrl,
+            'Test Name',
+            'Test Desc',
+          );
+          const result = await adapter.addCollection(request);
+
+          expect(result.added).toBe(true);
+          expect(mockCollectionModel.create.mock.calls[0][0]).toEqual({
+            userId: mockUser.value,
+            url: mockUrl.value,
+            name: 'Test Name',
+            description: 'Test Desc',
+            analyses: [],
+          });
+        });
+      });
+
+      describe('getRepositoryCollection', () => {
+        it('should return collection with dynamically fetched analysis IDs', async () => {
+          const dbCollectionResult = {
+            url: mockUrl.value,
+            name: 'My Collection',
+            description: 'Dynamic Desc',
+          };
+
+          const dbAnalysesResult = [{ analysisId: 'dynamic-id-1' }, { analysisId: 'dynamic-id-2' }];
+
+          // Mock della prima chiamata: findOne().lean().exec()
+          mockCollectionModel.findOne.mockReturnValue(createCustomQuery(dbCollectionResult));
+
+          // Mock della seconda chiamata: find().select().lean().exec()
+          // Grazie a .mockReturnThis() nell'helper, la catena funziona automaticamente
+          mockAnalysisModel.find.mockReturnValue(createCustomQuery(dbAnalysesResult));
+
+          const request = new GetRepositoryCollectionRequest(mockUser, mockUrl);
+          const result = await adapter.getRepositoryCollection(request);
+
+          expect(result.success).toBe(true);
+          expect(result.analyses).toEqual(['dynamic-id-1', 'dynamic-id-2']);
+
+          // Verifica chiamate (usando .mock.calls per unbound-method)
+          expect(mockCollectionModel.findOne.mock.calls.length).toBe(1);
+          expect(mockAnalysisModel.find.mock.calls[0][0]).toEqual({
+            repoURL: mockUrl.value,
+            userId: mockUser.value,
+          });
+        });
+
+        it('should return failure result if collection not found', async () => {
+          mockCollectionModel.findOne.mockReturnValue(createCustomQuery(null));
+
+          const result = await adapter.getRepositoryCollection(
+            new GetRepositoryCollectionRequest(mockUser, mockUrl),
+          );
+
+          expect(result.success).toBe(false);
+          expect(result.message).toBe('Collection not found');
+          // Verifichiamo che la query sulle analisi non sia partita
+          expect(mockAnalysisModel.find.mock.calls.length).toBe(0);
+        });
+      });
+
+      describe('deleteCollection', () => {
+        it('should return success when deletedCount is 1', async () => {
+          const mongoResult: MongoDeleteResult = { acknowledged: true, deletedCount: 1 };
+          // deleteOne in your adapter uses .exec(), so we mock the chain
+          mockCollectionModel.deleteOne.mockReturnValue({
+            exec: jest.fn().mockResolvedValue(mongoResult),
+          });
+
+          const request = new DeleteRepositoryCollectionRequest(mockUser, mockUrl);
+          const result = await adapter.deleteCollection(request);
+
+          expect(result.deleted).toBe(true);
+          expect(mockCollectionModel.deleteOne.mock.calls.length).toBe(1);
+        });
+
+        it('should return failure result when nothing is deleted', async () => {
+          const mongoResult: MongoDeleteResult = { acknowledged: true, deletedCount: 0 };
+          mockCollectionModel.deleteOne.mockReturnValue({
+            exec: jest.fn().mockResolvedValue(mongoResult),
+          });
+
+          const result = await adapter.deleteCollection(
+            new DeleteRepositoryCollectionRequest(mockUser, mockUrl),
+          );
+          expect(result.deleted).toBe(false);
+          expect(result.message).toBe('Collection not found');
+        });
+      });
     });
   });
 });

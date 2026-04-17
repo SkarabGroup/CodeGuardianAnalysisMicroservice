@@ -29,10 +29,6 @@ describe('ConfigurationService', () => {
   };
 
   describe('Validation logic', () => {
-    it('should be defined', () => {
-      expect(new ConfigurationService(new ConfigService())).toBeDefined();
-    });
-
     it('should initialize correctly when all variables are present', async () => {
       const module: TestingModule = await createService(mockConfig);
       service = module.get<ConfigurationService>(ConfigurationService);
