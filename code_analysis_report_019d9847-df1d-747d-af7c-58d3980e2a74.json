@@ -1,0 +1,266 @@
+{
+  "analysis_report": {
+    "metadata": {
+      "language": "javascript/typescript",
+      "status": "success",
+      "repository": "019d9847-df1d-747d-af7c-58d3980e2a74"
+    },
+    "ai_interpretation": {
+      "verdict": "Fair",
+      "executive_summary": "Codebase exhibits widespread neglect in parameter hygiene and defensive programming. 395 static issues dominated by unused parameters across core services indicate incomplete refactors or copy-paste development. While line coverage is high (99.79%), branch coverage (93.97%) reveals untested error paths, particularly in report-entities-provider.ds with 25 missing branches. Critical misuse of forEach callback returns in check-test-symmetry.js risks silent test failures. Optional chaining anti-patterns in VO classes threaten runtime TypeErrors. Code health is propped up by test quantity, not quality.",
+      "static_analysis_evaluation": {
+        "total_issues_analyzed": 395,
+        "key_issues_reasoning": [
+          {
+            "file": "scripts/check-test-symmetry.js",
+            "location": {
+              "line_start": 54,
+              "line_end": 54,
+              "column": 16
+            },
+            "rule": "lint/suspicious/useIterableCallbackReturn",
+            "severity": "high",
+            "original_description": "This callback passed to forEach() iterable method should not return a value.",
+            "ai_reasoning": "Returning values from Array.prototype.forEach() callbacks discards the return value, creating misleading code that suggests filtering or mapping. This indicates a logic error where the developer likely intended to use .filter() or .map(), or forgot to break execution via side effects.",
+            "suggested_resolution": "Replace .forEach() with the appropriate method: use .filter() if returning a subset, .map() if transforming values, or use a plain for/of loop if side effects are required."
+          },
+          {
+            "file": "src/analysis/application/services/analysis-orchestrator-service.as.ts",
+            "location": {
+              "line_start": 47,
+              "line_end": 47,
+              "column": 22
+            },
+            "rule": "lint/correctness/noUnusedFunctionParameters",
+            "severity": "high",
+            "original_description": "This parameter is unused.",
+            "ai_reasoning": "Unused parameters in orchestrator services indicate API drift or abandoned functionality, increasing attack surface. These dead parameters confuse contract expectations and prevent type-based optimizations.",
+            "suggested_resolution": "Remove all unused parameters. If the interface must be preserved, mark them with `_` prefix to indicate intentional discard (e.g., `_context: Context`)."
+          },
+          {
+            "file": "src/analysis/domain/value-objects/branch-name.vo.ts",
+            "location": {
+              "line_start": 31,
+              "line_end": 31,
+              "column": 9
+            },
+            "rule": "lint/complexity/useOptionalChain",
+            "severity": "medium",
+            "original_description": "Change to an optional chain.",
+            "ai_reasoning": "Direct property access without optional chaining creates brittle VOs vulnerable to TypeErrors when processing incomplete data structures, violating fail-fast principles in domain modeling.",
+            "suggested_resolution": "Refactor nested access patterns using `?.` operator (e.g., `obj.a?.b?.c` instead of `obj.a && obj.a.b && obj.a.b.c`)."
+          },
+          {
+            "file": "src/analysis/infrastructure/adapters/externals/docs-agent.adapter.ts",
+            "location": {
+              "line_start": 81,
+              "line_end": 81,
+              "column": 19
+            },
+            "rule": "lint/complexity/useLiteralKeys",
+            "severity": "medium",
+            "original_description": "The computed expression can be simplified without the use of a string literal.",
+            "ai_reasoning": "Computed keys with static strings (e.g., `['prop']`) disable static analysis and introduce unnecessary runtime evaluation overhead compared to direct dot notation or static bracket access.",
+            "suggested_resolution": "Replace computed property syntax `['key']` with direct property access `key` unless dynamic key generation is required."
+          },
+          {
+            "file": "src/analysis/infrastructure/adapters/externals/local-code-agent.adapter.ts",
+            "location": {
+              "line_start": 16,
+              "line_end": 16,
+              "column": 3
+            },
+            "rule": "lint/complexity/noUselessConstructor",
+            "severity": "medium",
+            "original_description": "This constructor is unnecessary.",
+            "ai_reasoning": "Explicit default constructors provide no benefit and signal potential misunderstanding of class initialization, increasing maintenance overhead without runtime utility.",
+            "suggested_resolution": "Remove the constructor entirely to rely on implicit default constructor."
+          },
+          {
+            "file": "scripts/check-test-symmetry.js",
+            "location": {
+              "line_start": 1,
+              "line_end": 1,
+              "column": 20
+            },
+            "rule": "lint/style/useNodejsImportProtocol",
+            "severity": "low",
+            "original_description": "A Node.js builtin module should be imported with the node: protocol.",
+            "ai_reasoning": "Missing `node:` prefix in built-in imports obscures module boundaries and breaks compatibility with certain ESM resolvers and security policies that distinguish between core and third-party modules.",
+            "suggested_resolution": "Prefix all Node.js built-in imports with `node:` (e.g., `import fs from 'node:fs'`)."
+          },
+          {
+            "file": "src/analysis/domain/value-objects/user-id.vo.ts",
+            "location": {
+              "line_start": 17,
+              "line_end": 17,
+              "column": 23
+            },
+            "rule": "lint/style/useTemplate",
+            "severity": "low",
+            "original_description": "Template literals are preferred over string concatenation.",
+            "ai_reasoning": "String concatenation in VO constructors creates verbose, error-prone string formatting that reduces readability and increases injection risks compared to template literals.",
+            "suggested_resolution": "Replace `+` concatenation with template literals (e.g., `` `ID: ${this.value}` ``)."
+          },
+          {
+            "file": "src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter.ts",
+            "location": {
+              "line_start": 62,
+              "line_end": 62,
+              "column": 22
+            },
+            "rule": "lint/correctness/noUnusedFunctionParameters",
+            "severity": "high",
+            "original_description": "This parameter is unused.",
+            "ai_reasoning": "Persistence layer with unused parameters risks incorrect query construction or serialization, indicating potential data loss scenarios during document operations.",
+            "suggested_resolution": "Eliminate unused parameters; if part of interface contract, use underscore prefix to denote intentional discard."
+          },
+          {
+            "file": "src/analysis/presentation/controllers/analysis-controller.controller.ts",
+            "location": {
+              "line_start": 129,
+              "line_end": 129,
+              "column": 13
+            },
+            "rule": "lint/correctness/noUnusedFunctionParameters",
+            "severity": "high",
+            "original_description": "This parameter is unused.",
+            "ai_reasoning": "Unused parameters in controllers violate REST contract expectations and may cause middleware desynchronization, leading to undelivered data in request pipelines.",
+            "suggested_resolution": "Remove unused controller parameters; if required by framework signature, prefix with underscore."
+          },
+          {
+            "file": "src/analysis/domain/value-objects/repo-url.vo.ts",
+            "location": {
+              "line_start": 34,
+              "line_end": 34,
+              "column": 9
+            },
+            "rule": "lint/complexity/useOptionalChain",
+            "severity": "medium",
+            "original_description": "Change to an optional chain.",
+            "ai_reasoning": "Failure to use optional chaining in URL parsing logic risks throwing when handling malformed or partial repository URLs, violating defensive input handling norms.",
+            "suggested_resolution": "Implement optional chaining for all deep property accesses in URL validation logic."
+          }
+        ]
+      },
+      "coverage_evaluation": {
+        "overall_health": "High line coverage with dangerous branch gaps",
+        "critical_files_reasoning": [
+          {
+            "file": "src/analysis/domain/services/report-entities-provider.ds.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 25,
+            "ai_reasoning": "Zero missing lines but 25 untested branches indicate extensive logic gaps in report generation, likely including unhandled audit failure conditions and edge case report aggregations that could cause silent data corruption."
+          },
+          {
+            "file": "src/analysis/presentation/controllers/analysis-controller.controller.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 6,
+            "ai_reasoning": "Untested branches in controller likely represent unhandled error responses, missing validation fallbacks, or untested HTTP status code paths that could expose raw errors to clients."
+          },
+          {
+            "file": "src/analysis/presentation/controllers/pat-controller.controller.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 6,
+            "ai_reasoning": "Missing PAT controller branches suggest untested authentication failure modes, authorization bypass scenarios, or invalid token revocation paths."
+          },
+          {
+            "file": "src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 5,
+            "ai_reasoning": "Uncovered branches in persistence layer may include retry logic, connection failure handling, or indexing errors that could cause data loss under network stress."
+          },
+          {
+            "file": "src/analysis/infrastructure/adapters/externals/local-code-agent.adapter.ts",
+            "line_coverage_pct": 97.22,
+            "missing_lines": [
+              132,
+              136,
+              142
+            ],
+            "missing_branches": 3,
+            "ai_reasoning": "Missing lines in code agent adapter likely correspond to error handling in code analysis subprocesses, risking uncaught rejections during static analysis execution."
+          },
+          {
+            "file": "src/analysis/infrastructure/adapters/externals/docs-agent.adapter.ts",
+            "line_coverage_pct": 98.5,
+            "missing_lines": [
+              194
+            ],
+            "missing_branches": 3,
+            "ai_reasoning": "Uncovered line 194 likely contains documentation parsing error handling, creating risk of unhandled Promise rejections during doc generation."
+          },
+          {
+            "file": "src/analysis/application/services/start-analysis.as.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 2,
+            "ai_reasoning": "Untested branches in analysis startup may include pre-flight validation failures or resource quota checks that could allow invalid analyses to begin."
+          },
+          {
+            "file": "src/analysis/infrastructure/adapters/externals/github-adapter.adapter.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [
+              101
+            ],
+            "missing_branches": 2,
+            "ai_reasoning": "Line 101 gap suggests untested GitHub API response handling, potentially including rate limit or authentication failure scenarios."
+          },
+          {
+            "file": "src/analysis/application/services/git-authorizer-service.as.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 1,
+            "ai_reasoning": "Single missing branch likely represents failed OAuth handshake recovery, risking permanent authorization states."
+          },
+          {
+            "file": "src/analysis/infrastructure/configuration/configuration.service.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 1,
+            "ai_reasoning": "Uncovered configuration branch may involve fallback mechanism failures, leading to undefined behavior when environment variables are missing."
+          },
+          {
+            "file": "src/analysis/application/services/analysis-orchestrator-service.as.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 0,
+            "ai_reasoning": "Perfect coverage indicates robust orchestration logic testing, serving as a positive outlier in the codebase."
+          },
+          {
+            "file": "src/analysis/application/services/delete-pat-service.as.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 0,
+            "ai_reasoning": "Complete branch coverage ensures all PAT deletion outcomes, including idempotent operations, are verified."
+          },
+          {
+            "file": "src/analysis/application/services/get-analysis-service.as.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 0,
+            "ai_reasoning": "Full coverage validates all analysis retrieval pathways, including cache hits/misses and error serialization."
+          },
+          {
+            "file": "src/analysis/application/services/git-cloner-service.as.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 0,
+            "ai_reasoning": "Complete test coverage ensures repository cloning handles all network and authentication scenarios reliably."
+          },
+          {
+            "file": "src/analysis/application/services/git-validator-service.as.ts",
+            "line_coverage_pct": 100,
+            "missing_lines": [],
+            "missing_branches": 0,
+            "ai_reasoning": "Total branch coverage confirms all repository validation rules execute correctly under all input conditions."
+          }
+        ]
+      }
+    }
+  }
+}

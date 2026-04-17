@@ -15,7 +15,6 @@ import {
 describe('ReportEntitiesProvider', () => {
   let provider: ReportEntitiesProvider;
 
-  // FIX: Creazione corretta dei Value Objects reali invece di mock parziali
   const mockReportId = ReportId.create(uuidv7());
   const mockAnalysisId = AnalysisId.create(uuidv7());
 
@@ -81,21 +80,16 @@ describe('ReportEntitiesProvider', () => {
     it('should correctly map the DTO to a DocumentationReport entity', () => {
       const result = provider.fromDocsAgentResponse(mockResponse, mockReportId, mockAnalysisId);
 
-      // FIX: Accesso tramite getter pubblici definiti nelle tue entità
       expect(result.getReportId()).toEqual(mockReportId);
       expect(result.getAnalysisId()).toEqual(mockAnalysisId);
 
-      // Verifica Violazioni API
       expect(result.getApiViolations()).toHaveLength(1);
       expect(result.getApiViolations()[0].getRule()).toBe('REST-001');
-      // FIX: Accesso corretto alla proprietà del Value Object SeverityFinding
       expect(result.getApiViolations()[0].getSeverityFinding().value).toBe(SeverityLevel.HIGH);
 
-      // Verifica Discrepanze
       expect(result.getDocsDiscrepancies()).toHaveLength(1);
       expect(result.getDocsDiscrepancies()[0].getDiscrepancyCategory()).toBe('STALE');
 
-      // Verifica File Mancanti e normalizzazione stato
       expect(result.getMissingFiles()).toHaveLength(1);
       expect(result.getMissingFiles()[0].getStatusMissing()).toBe(StatusMissing.NOT_FOUND);
     });
@@ -123,7 +117,6 @@ describe('ReportEntitiesProvider', () => {
       const result = provider.fromDocsAgentResponse(emptyResponse, mockReportId, mockAnalysisId);
 
       expect(result.getApiViolations()).toEqual([]);
-      // FIX: getDependencyAudit() restituisce un oggetto, non un array
       expect(result.getDependencyAudit()).not.toBeNull();
       expect(result.getDependencyAudit()!.getReadmeDefined()).toEqual([]);
       expect(result.getDependencyAudit()!.getVersionMismatches()).toEqual([]);
@@ -262,56 +255,57 @@ describe('ReportEntitiesProvider', () => {
   describe('Normalization functions logic', () => {
     it('should normalize severity levels correctly from raw strings', () => {
       const result = provider.fromDocsAgentResponse(mockResponse, mockReportId, mockAnalysisId);
-      // 'high' -> SeverityLevel.HIGH
       expect(result.getApiViolations()[0].getSeverityFinding().value).toBe(SeverityLevel.HIGH);
     });
 
     it('should normalize status missing correctly from raw strings', () => {
       const result = provider.fromDocsAgentResponse(mockResponse, mockReportId, mockAnalysisId);
-      // 'FILE_NOT_FOUND' -> StatusMissing.NOT_FOUND
       expect(result.getMissingFiles()[0].getStatusMissing()).toBe(StatusMissing.NOT_FOUND);
     });
   });
 
   describe('fromCodeAgentResponse', () => {
+    // FIX: il payload deve avere analysis_report come wrapper, come richiesto da CodeAgentResponsePayload
     const mockCodeResponsePayload: CodeAgentResponsePayload = {
-      metadata: {
-        language: 'javascript/typescript',
-        status: 'success',
-      },
-      ai_interpretation: {
-        verdict: 'Poor',
-        executive_summary: 'Codebase has 265 static analysis issues...',
-        static_analysis_evaluation: {
-          total_issues_analyzed: 265,
-          key_issues_reasoning: [
-            {
-              file: 'src/analysis/application/services/start-analysis.as.ts',
-              location: {
-                line_start: 54,
-                line_end: 54,
-                column: 16,
-              },
-              rule: 'lint/suspicious/useIterableCallbackReturn',
-              severity: 'high',
-              original_description:
-                'This callback passed to forEach() iterable method should not return a value.',
-              ai_reasoning: 'Returning values inside a forEach...',
-              suggested_resolution: 'Replace forEach with map...',
-            },
-          ],
+      analysis_report: {
+        metadata: {
+          language: 'javascript/typescript',
+          status: 'success',
         },
-        coverage_evaluation: {
-          overall_health: 'Poor',
-          critical_files_reasoning: [
-            {
-              file: 'src/analysis/presentation/controllers/pat-controller.controller.ts',
-              line_coverage_pct: 100,
-              missing_lines: [],
-              missing_branches: 6,
-              ai_reasoning: 'Despite full line coverage, 6 branches are untested...',
-            },
-          ],
+        ai_interpretation: {
+          verdict: 'Poor',
+          executive_summary: 'Codebase has 265 static analysis issues...',
+          static_analysis_evaluation: {
+            total_issues_analyzed: 265,
+            key_issues_reasoning: [
+              {
+                file: 'src/analysis/application/services/start-analysis.as.ts',
+                location: {
+                  line_start: 54,
+                  line_end: 54,
+                  column: 16,
+                },
+                rule: 'lint/suspicious/useIterableCallbackReturn',
+                severity: 'high',
+                original_description:
+                  'This callback passed to forEach() iterable method should not return a value.',
+                ai_reasoning: 'Returning values inside a forEach...',
+                suggested_resolution: 'Replace forEach with map...',
+              },
+            ],
+          },
+          coverage_evaluation: {
+            overall_health: 'Poor',
+            critical_files_reasoning: [
+              {
+                file: 'src/analysis/presentation/controllers/pat-controller.controller.ts',
+                line_coverage_pct: 100,
+                missing_lines: [],
+                missing_branches: 6,
+                ai_reasoning: 'Despite full line coverage, 6 branches are untested...',
+              },
+            ],
+          },
         },
       },
     };
@@ -355,20 +349,23 @@ describe('ReportEntitiesProvider', () => {
     });
 
     it('should handle empty or missing fields gracefully in CodeAgentResponse', () => {
+      // FIX: stesso wrapper analysis_report richiesto
       const emptyCodeResponsePayload: CodeAgentResponsePayload = {
-        metadata: {
-          status: 'success',
-        },
-        ai_interpretation: {
-          verdict: 'UNKNOWN_VERDICT',
-          executive_summary: 'No summary provided',
-          static_analysis_evaluation: {
-            total_issues_analyzed: 0,
-            key_issues_reasoning: [],
+        analysis_report: {
+          metadata: {
+            status: 'success',
           },
-          coverage_evaluation: {
-            overall_health: 'UNKNOWN',
-            critical_files_reasoning: [],
+          ai_interpretation: {
+            verdict: 'UNKNOWN_VERDICT',
+            executive_summary: 'No summary provided',
+            static_analysis_evaluation: {
+              total_issues_analyzed: 0,
+              key_issues_reasoning: [],
+            },
+            coverage_evaluation: {
+              overall_health: 'UNKNOWN',
+              critical_files_reasoning: [],
+            },
           },
         },
       };

@@ -40,6 +40,7 @@ import { CodeReport, CodeReportDocument } from './schema/code-report.schema';
 import { UserId } from '../../../domain/value-objects/user-id.vo';
 import { GetAllAnalysesForUserResponse } from '../../../application/DTOs/models/responses/get-all-analyses-for-user-response.model';
 import { IGetAllAnalysesForUserPort } from '../../../application/ports/repositories/get-all-analyses-for-user-port.port';
+import { CodeAnalysisReportDTO } from '../../../application/DTOs/models/responses/code-agent-response-model.model';
 @Injectable()
 export class MongoDBAdapter
   implements
@@ -267,7 +268,7 @@ export class MongoDBAdapter
       if (!analysisRecord) return null;
 
       let docsReportDTO: DocsAnalysisReportDTO | null = null;
-
+      let codeReportDTO: CodeAnalysisReportDTO | null = null;
       // 2. Se esiste un report di documentazione, lo recupero e lo mappo
       if (analysisRecord.docsReportId) {
         console.log(`Fetching Docs Report with ID: ${analysisRecord.docsReportId}`);
@@ -338,6 +339,58 @@ export class MongoDBAdapter
         }
       }
 
+      if (analysisRecord.codeReportId) {
+        console.log(`Fetching Code Report with ID: ${analysisRecord.codeReportId}`);
+        const codeDoc = await this.codeReportModel
+          .findOne({ reportId: analysisRecord.codeReportId })
+          .lean()
+          .exec();
+
+        if (codeDoc) {
+          codeReportDTO = {
+            metadata: {
+              language: codeDoc.metadata.language || 'UNKNOWN',
+              status: codeDoc.metadata.status,
+            },
+            ai_interpretation: {
+              verdict: codeDoc.interpretation.verdict,
+              executive_summary: codeDoc.interpretation.executiveSummary,
+              static_analysis_evaluation: {
+                total_issues_analyzed:
+                  codeDoc.interpretation.staticAnalysisEvaluation.totalIssuesAnalyzed,
+                key_issues_reasoning:
+                  codeDoc.interpretation.staticAnalysisEvaluation.keyIssuesReasoning.map(
+                    (issue) => ({
+                      file: issue.file,
+                      location: {
+                        line_start: issue.location.lineStart,
+                        line_end: issue.location.lineEnd,
+                        column: issue.location.column,
+                      },
+                      rule: issue.rule,
+                      severity: issue.severity,
+                      original_description: issue.originalDescription,
+                      ai_reasoning: issue.aiReasoning,
+                      suggested_resolution: issue.suggestedResolution || '',
+                    }),
+                  ),
+              },
+              coverage_evaluation: {
+                overall_health: codeDoc.interpretation.coverageEvaluation.overallHealth,
+                critical_files_reasoning:
+                  codeDoc.interpretation.coverageEvaluation.criticalFilesReasoning.map((file) => ({
+                    file: file.file,
+                    line_coverage_pct: file.lineCoveragePct,
+                    missing_lines: file.missingLines || [],
+                    missing_branches: file.missingBranches,
+                    ai_reasoning: file.aiReasoning,
+                  })),
+              },
+            },
+          };
+        }
+      }
+
       const generalData: GitHubAnalysisGeneralDataDTO = {
         analysisId: analysisRecord.analysisId,
         userId: analysisRecord.userId,
@@ -349,8 +402,9 @@ export class MongoDBAdapter
         updatedAt: analysisRecord.updatedAt!,
       };
       console.log('Docs Report DTO:', docsReportDTO);
+      console.log('Code Report DTO:', codeReportDTO);
 
-      return new GitHubAnalysisDetailedResult(generalData, docsReportDTO);
+      return new GitHubAnalysisDetailedResult(generalData, docsReportDTO, codeReportDTO);
     } catch (error) {
       console.error('Error fetching detailed analysis:', error);
       throw new Error('Could not retrieve detailed analysis');

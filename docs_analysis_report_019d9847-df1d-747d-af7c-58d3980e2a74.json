@@ -1,0 +1,543 @@
+{
+  "analysis_report": {
+    "API_standard_violations": [
+      {
+        "file": "tsconfig.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Mapping key must be a string scalar rather than object"
+      },
+      {
+        "file": "tsconfig.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "tsconfig.json",
+        "rule": "parser",
+        "severity": "CRITICAL",
+        "message": "Missed comma between flow collection entries"
+      },
+      {
+        "file": "src/agents/documentation/tools/.spectral.yaml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": ".github/workflows/ci.yml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "infra/docker/docker-compose.yml",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "tsconfig.build.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "tsconfig.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "package.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "package-lock.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      },
+      {
+        "file": "nest-cli.json",
+        "rule": "unrecognized-format",
+        "severity": "HIGH",
+        "message": "The provided document does not match any of the registered formats [OpenAPI 2.0 (Swagger), OpenAPI 3.x, OpenAPI 3.0.x, OpenAPI 3.1.x]"
+      }
+    ],
+    "docs_discrepancies": [
+      {
+        "category": "ARCHITECTURE",
+        "documentation_source": "README.md",
+        "docs_claim": "Project setup requires only npm install and compile/run commands.",
+        "actual_finding": "Repository uses npm, pnpm, and yarn as package managers; development requires Docker Compose usage.",
+        "severity": "HIGH"
+      },
+      {
+        "category": "CONFIG",
+        "documentation_source": "README.md",
+        "docs_claim": "No special environment setup is mentioned beyond standard Node.js.",
+        "actual_finding": "Key services like MongoDB and analysis microservice are containerized using Docker, as shown in docker-compose.yml.",
+        "severity": "HIGH"
+      },
+      {
+        "category": "DEPENDENCY",
+        "documentation_source": "README.md",
+        "docs_claim": "Framework dependencies are not specified.",
+        "actual_finding": "Project uses NestJS v11 for the backend, as seen in package.json dependencies.",
+        "severity": "MEDIUM"
+      },
+      {
+        "category": "DEPENDENCY",
+        "documentation_source": "README.md",
+        "docs_claim": "No testing or linting tools are mentioned.",
+        "actual_finding": "Uses Jest for testing, ESLint with TypeScript rules for linting, Prettier for formatting, all defined in package.json and eslint.config.mjs.",
+        "severity": "MEDIUM"
+      },
+      {
+        "category": "FILE_PATH",
+        "documentation_source": "README.md",
+        "docs_claim": "Standard Node.js project structure is implied.",
+        "actual_finding": "Project has a deeply structured backend with dedicated directories for agents, analysis, and Docker infrastructure.",
+        "severity": "MEDIUM"
+      },
+      {
+        "category": "CI_CD",
+        "documentation_source": "README.md",
+        "docs_claim": "No CI/CD pipeline is documented.",
+        "actual_finding": "GitHub Actions workflow defined in .github/workflows/ci.yml handles linting, testing, building with caching and concurrency control.",
+        "severity": "LOW"
+      },
+      {
+        "category": "DEPENDENCY",
+        "documentation_source": "README.md",
+        "docs_claim": "No version information about Node.js or TypeScript is provided.",
+        "actual_finding": "Development environment uses Node.js 22 (in Dockerfile.dev) and TypeScript ~5.7.3 (in package.json).",
+        "severity": "LOW"
+      },
+      {
+        "category": "CONFIG",
+        "documentation_source": "README.md",
+        "docs_claim": "Default ports and services are not mentioned.",
+        "actual_finding": "Application is configured to use port 3001, and MongoDB listens on 27017, as per docker-compose.yml.",
+        "severity": "LOW"
+      },
+      {
+        "category": "CONFIG",
+        "documentation_source": "README.md",
+        "docs_claim": "No information about code formatting standards.",
+        "actual_finding": "Prettier configuration in .prettierrc enforces single quotes, 100-character line width, and specific spacing rules.",
+        "severity": "LOW"
+      },
+      {
+        "category": "CONFIG",
+        "documentation_source": "README.md",
+        "docs_claim": "Testing coverage threshold is not specified.",
+        "actual_finding": "Jest is configured to enforce minimum 90% coverage on branches, functions, lines, and statements.",
+        "severity": "LOW"
+      }
+    ],
+    "missing_files": [],
+    "dependency_audit": {
+      "readme_defined": [],
+      "config_defined": [
+        {
+          "name": "typescript",
+          "version_pinned": "^5.7.3",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/common",
+          "version_pinned": "^11.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/config",
+          "version_pinned": "^4.0.3",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/core",
+          "version_pinned": "^11.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/jwt",
+          "version_pinned": "^11.0.2",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/mongoose",
+          "version_pinned": "^11.0.4",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/passport",
+          "version_pinned": "^11.0.5",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/platform-express",
+          "version_pinned": "^11.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "class-transformer",
+          "version_pinned": "^0.5.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "class-validator",
+          "version_pinned": "^0.15.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "passport",
+          "version_pinned": "^0.7.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "passport-jwt",
+          "version_pinned": "^4.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "reflect-metadata",
+          "version_pinned": "^0.2.2",
+          "source_file": "package.json"
+        },
+        {
+          "name": "rxjs",
+          "version_pinned": "^7.8.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@aws-sdk/client-ecs",
+          "version_pinned": "^3.1029.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@eslint/eslintrc",
+          "version_pinned": "^3.2.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@eslint/js",
+          "version_pinned": "^9.18.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/cli",
+          "version_pinned": "^11.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/schematics",
+          "version_pinned": "^11.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@nestjs/testing",
+          "version_pinned": "^11.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@types/bcrypt",
+          "version_pinned": "^6.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@types/express",
+          "version_pinned": "^5.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@types/jest",
+          "version_pinned": "^30.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@types/node",
+          "version_pinned": "^22.10.7",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@types/passport-jwt",
+          "version_pinned": "^4.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "@types/supertest",
+          "version_pinned": "^6.0.2",
+          "source_file": "package.json"
+        },
+        {
+          "name": "bcrypt",
+          "version_pinned": "^6.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "eslint",
+          "version_pinned": "^9.18.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "eslint-config-prettier",
+          "version_pinned": "^10.0.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "eslint-plugin-jest",
+          "version_pinned": "^29.15.1",
+          "source_file": "package.json"
+        },
+        {
+          "name": "eslint-plugin-prettier",
+          "version_pinned": "^5.2.2",
+          "source_file": "package.json"
+        },
+        {
+          "name": "globals",
+          "version_pinned": "^16.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "jest",
+          "version_pinned": "^30.3.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "prettier",
+          "version_pinned": "^3.4.2",
+          "source_file": "package.json"
+        },
+        {
+          "name": "source-map-support",
+          "version_pinned": "^0.5.21",
+          "source_file": "package.json"
+        },
+        {
+          "name": "supertest",
+          "version_pinned": "^7.0.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "ts-jest",
+          "version_pinned": "^29.4.9",
+          "source_file": "package.json"
+        },
+        {
+          "name": "ts-loader",
+          "version_pinned": "^9.5.2",
+          "source_file": "package.json"
+        },
+        {
+          "name": "ts-node",
+          "version_pinned": "^10.9.2",
+          "source_file": "package.json"
+        },
+        {
+          "name": "tsconfig-paths",
+          "version_pinned": "^4.2.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "typescript",
+          "version_pinned": "^5.7.3",
+          "source_file": "package.json"
+        },
+        {
+          "name": "typescript-eslint",
+          "version_pinned": "^8.20.0",
+          "source_file": "package.json"
+        },
+        {
+          "name": "uuid",
+          "version_pinned": "^13.0.0",
+          "source_file": "package.json"
+        }
+      ],
+      "missing_in_config": [],
+      "undocumented_in_readme": [
+        {
+          "name": "typescript",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/common",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/config",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/core",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/jwt",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/mongoose",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/passport",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/platform-express",
+          "found_in": "package.json"
+        },
+        {
+          "name": "class-transformer",
+          "found_in": "package.json"
+        },
+        {
+          "name": "class-validator",
+          "found_in": "package.json"
+        },
+        {
+          "name": "passport",
+          "found_in": "package.json"
+        },
+        {
+          "name": "passport-jwt",
+          "found_in": "package.json"
+        },
+        {
+          "name": "reflect-metadata",
+          "found_in": "package.json"
+        },
+        {
+          "name": "rxjs",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@aws-sdk/client-ecs",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@eslint/eslintrc",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@eslint/js",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/cli",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/schematics",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@nestjs/testing",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@types/bcrypt",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@types/express",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@types/jest",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@types/node",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@types/passport-jwt",
+          "found_in": "package.json"
+        },
+        {
+          "name": "@types/supertest",
+          "found_in": "package.json"
+        },
+        {
+          "name": "bcrypt",
+          "found_in": "package.json"
+        },
+        {
+          "name": "eslint",
+          "found_in": "package.json"
+        },
+        {
+          "name": "eslint-config-prettier",
+          "found_in": "package.json"
+        },
+        {
+          "name": "eslint-plugin-jest",
+          "found_in": "package.json"
+        },
+        {
+          "name": "eslint-plugin-prettier",
+          "found_in": "package.json"
+        },
+        {
+          "name": "globals",
+          "found_in": "package.json"
+        },
+        {
+          "name": "jest",
+          "found_in": "package.json"
+        },
+        {
+          "name": "prettier",
+          "found_in": "package.json"
+        },
+        {
+          "name": "source-map-support",
+          "found_in": "package.json"
+        },
+        {
+          "name": "supertest",
+          "found_in": "package.json"
+        },
+        {
+          "name": "ts-jest",
+          "found_in": "package.json"
+        },
+        {
+          "name": "ts-loader",
+          "version_pinned": null,
+          "source_file": "package.json"
+        },
+        {
+          "name": "ts-node",
+          "version_pinned": null,
+          "source_file": "package.json"
+        },
+        {
+          "name": "tsconfig-paths",
+          "found_in": "package.json"
+        },
+        {
+          "name": "typescript-eslint",
+          "found_in": "package.json"
+        },
+        {
+          "name": "uuid",
+          "found_in": "package.json"
+        }
+      ],
+      "version_mismatches": []
+    },
+    "metadata": {
+      "repository": "019d9847-df1d-747d-af7c-58d3980e2a74",
+      "status": "success"
+    }
+  }
+}
