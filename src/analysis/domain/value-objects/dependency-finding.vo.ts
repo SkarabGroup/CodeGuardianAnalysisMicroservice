@@ -9,6 +9,7 @@ export class DependencyFinding {
   private readonly _vulnerabilityId: string;
   private readonly _severity: SeverityFinding;
   private readonly _description: DescriptionFinding;
+  private readonly _remediation: DescriptionFinding;
 
   private constructor(
     path: PathFinding,
@@ -17,6 +18,7 @@ export class DependencyFinding {
     vulnerabilityId: string,
     severity: SeverityFinding,
     description: DescriptionFinding,
+    remediation: DescriptionFinding,
   ) {
     this.validate(vulnerabilityId);
     this._path = path;
@@ -25,6 +27,7 @@ export class DependencyFinding {
     this._vulnerabilityId = vulnerabilityId;
     this._severity = severity;
     this._description = description;
+    this._remediation = remediation;
   }
 
   public static create(
@@ -34,6 +37,7 @@ export class DependencyFinding {
     vulnerabilityId: string,
     severity: SeverityFinding,
     description: DescriptionFinding,
+    remediation: DescriptionFinding
   ): DependencyFinding {
     if (!(path instanceof PathFinding)) {
       throw new Error('Invalid PathFinding');
@@ -59,6 +63,10 @@ export class DependencyFinding {
       throw new Error('Invalid DescriptionFinding');
     }
 
+    if (!(remediation instanceof DescriptionFinding)) {
+      throw new Error('Invalid DescriptionFinding');
+    }
+
     return new DependencyFinding(
       path,
       packageName.trim(),
@@ -66,6 +74,7 @@ export class DependencyFinding {
       vulnerabilityId.trim(),
       severity,
       description,
+      remediation
     );
   }
 
@@ -101,6 +110,10 @@ export class DependencyFinding {
     return this._description;
   }
 
+  public getRemediation(): DescriptionFinding {
+    return this._remediation;
+  }
+
   public equals(other: DependencyFinding): boolean {
     if (!(other instanceof DependencyFinding)) {
       throw new Error('Invalid argument');
@@ -112,7 +125,8 @@ export class DependencyFinding {
       this._packageVersion === other._packageVersion &&
       this._vulnerabilityId === other._vulnerabilityId &&
       this._severity.equals(other._severity) &&
-      this._description.equals(other._description)
+      this._description.equals(other._description) &&
+      this._remediation.equals(other._remediation)
     );
   }
 }

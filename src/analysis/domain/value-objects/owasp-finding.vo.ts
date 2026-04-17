@@ -1,5 +1,6 @@
 import { PathFinding } from './path-finding.vo';
 import { ErrorFinding } from './error-finding.vo';
+import { DescriptionFinding } from './description-finding.vo';
 
 export class OWASPFinding {
   private constructor(
@@ -7,6 +8,7 @@ export class OWASPFinding {
     private readonly _errorFinding: ErrorFinding,
     private readonly _owaspCategory: string,
     private readonly _ruleId: string,
+    private readonly _remediation: DescriptionFinding,
   ) {}
 
   public equals(other: OWASPFinding): boolean {
@@ -17,7 +19,8 @@ export class OWASPFinding {
       this._pathFinding.equals(other._pathFinding) &&
       this._errorFinding.equals(other._errorFinding) &&
       this._owaspCategory === other._owaspCategory &&
-      this._ruleId === other._ruleId
+      this._ruleId === other._ruleId &&
+      this._remediation.equals(other._remediation)
     );
   }
 
@@ -37,11 +40,16 @@ export class OWASPFinding {
     return this._ruleId;
   }
 
+  public getRemediation(): DescriptionFinding {
+    return this._remediation;
+  }
+
   public static create(
     pathFinding: PathFinding,
     errorFinding: ErrorFinding,
     owaspCategory: string,
     ruleId: string,
+    remediation: DescriptionFinding
   ): OWASPFinding {
     if (!(pathFinding instanceof PathFinding)) {
       throw new Error('Invalid PathFinding');
@@ -58,6 +66,10 @@ export class OWASPFinding {
     if (typeof ruleId !== 'string' || !ruleId.trim()) {
       throw new Error('Rule id must be a non-empty string');
     }
-    return new OWASPFinding(pathFinding, errorFinding, owaspCategory.trim(), ruleId.trim());
+
+    if (!(remediation instanceof DescriptionFinding)) {
+      throw new Error('Invalid DescriptionFinding');
+    }
+    return new OWASPFinding(pathFinding, errorFinding, owaspCategory.trim(), ruleId.trim(), remediation);
   }
 }
