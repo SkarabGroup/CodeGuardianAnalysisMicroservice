@@ -5,8 +5,8 @@ import * as fs from 'node:fs';
 import { IAgentPort } from '../../../application/ports/externals/agent-port.port';
 import { AgentRequest } from '../../../application/DTOs/models/requests/agent-request-model.model';
 import {
-  SecurityAgentResponse,
-  SecurityAgentResponsePayload,
+  SecAgentResponse,
+  SecAgentResponsePayload,
 } from '../../../application/DTOs/models/responses/security-agent-response-model.model';
 
 interface AgentRawOutput {
@@ -20,7 +20,7 @@ interface AgentRawOutput {
 export class LocalSecurityAnalysisAdapter implements IAgentPort {
   private readonly logger = new Logger(LocalSecurityAnalysisAdapter.name);
 
-  public async runAnalysis(model: AgentRequest): Promise<SecurityAgentResponse> {
+  public async runAnalysis(model: AgentRequest): Promise<SecAgentResponse> {
     const sharedVolumeName = 'analysis_tmp_data';
     const containerDir = `/tmp/${String(model.id.value)}`;
     const projectRoot = process.cwd();

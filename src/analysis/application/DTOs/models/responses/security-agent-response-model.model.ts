@@ -1,13 +1,11 @@
-// security-agent-response-model.model.ts
-
-// --- Metadata ---
+// Metadata
 
 export interface SecAgentMetadataDTO {
   repository: string;
   status: string;
 }
 
-// --- Trivy (Secret Findings) ---
+// Trivy (Secret Findings)
 
 export interface SecTrivyFindingDTO {
   rule_id: string;
@@ -19,7 +17,7 @@ export interface SecTrivyFindingDTO {
   remediation: string;
 }
 
-// --- Semgrep (OWASP Findings) ---
+// Semgrep (OWASP Findings)
 
 export interface SecSemgrepFindingDTO {
   rule_id: string;
@@ -31,7 +29,7 @@ export interface SecSemgrepFindingDTO {
   remediation: string;
 }
 
-// --- Grype (Dependency Findings) ---
+// Grype (Dependency Findings)
 
 export interface SecGrypeFindingDTO {
   path: string;
@@ -43,14 +41,14 @@ export interface SecGrypeFindingDTO {
   remediation: string;
 }
 
-// --- Tool Errors ---
+// Tool Errors
 
 export interface SecToolErrorDTO {
   tool: string;
   description: string;
 }
 
-// --- Root Report ---
+// Root Report
 
 export interface SecAnalysisReportDTO {
   metadata: SecAgentMetadataDTO;
