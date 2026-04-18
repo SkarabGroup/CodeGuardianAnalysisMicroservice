@@ -1,41 +1,35 @@
 import json
 import os
+from helpers.path_normalizer import normalize_path
+from helpers.deduplicators.deduplicator_grype import dedupe
 
-# -------------------------
-# DEDUPLICATION HELPER
-# -------------------------
-def dedupe(findings):
-    seen = set()
-    result = []
-
-    for f in findings:
-        key = (
-            f["path"],
-            f["package_name"],
-            f["package_version"],
-            f["vulnerability_id"],
-            f["severity"],
-        )
-
-        if key not in seen:
-            seen.add(key)
-            result.append(f)
-
-    return result
-
-# ------------------------
-# PARSER
-# ------------------------
-def parse_grype_report(output_file: str) -> dict:
+def parse_grype_report(output_file: str, repo_path: str) -> dict:
     if not os.path.exists(output_file):
-        return {"error": "Grype report file was not found"}
+        return {
+            "error": {
+                "tool": "grype",
+                "message": "Grype report file was not found"
+            }
+        }
 
     try:
         with open(output_file, "r", encoding="utf-8") as f:
             content = f.read().strip()
             full_data = json.loads(content) if content else {"matches": []}
     except json.JSONDecodeError:
-        return {"error": "Grype report contains invalid JSON"}
+        return {
+            "error": {
+                "tool": "grype",
+                "message": "Grype report contains invalid JSON"
+            }
+        }
+    except Exception as e:
+        return {
+            "error": {
+                "tool": "grype",
+                "message": f"Unexpected error reading Grype report: {str(e)}"
+            }
+        }
 
     matches = full_data.get("matches", [])
 
@@ -49,39 +43,16 @@ def parse_grype_report(output_file: str) -> dict:
         artifact = match.get("artifact") or {}
 
         locations = artifact.get("locations") or []
-        path = locations[0].get("path") if locations else "unknown"
-
-        fix_info = vuln.get("fix") or {}
-        fix_state = (fix_info.get("state") or "").lower()
-        fix_versions = fix_info.get("versions") or []
-
-        match_details = match.get("matchDetails") or []
-        suggested_version = None
-        if match_details:
-            suggested_version = match_details[0].get("fix", {}).get("suggestedVersion")
-
-        if fix_state == "fixed" and fix_versions:
-            fix_hint = f"Update to version {', '.join(fix_versions)}"
-        elif suggested_version:
-            fix_hint = f"Update to version {suggested_version}"
-        elif fix_state == "wont-fix":
-            fix_hint = (
-                "The maintainer has marked this as 'wont-fix'. "
-                "Consider replacing the dependency."
-            )
-        elif fix_state == "not-fixed":
-            fix_hint = "No fix has been released yet. Monitor the advisory for updates."
-        else:
-            fix_hint = "No fix information available."
+        raw_path = locations[0].get("path") if locations else "unknown"
+        clean_path = normalize_path(raw_path, repo_path)
 
         finding = {
-            "path": path,
+            "path": clean_path,
             "package_name": artifact.get("name", ""),
             "package_version": artifact.get("version", ""),
             "vulnerability_id": vuln.get("id", ""),
             "severity": vuln.get("severity", ""),
             "description": vuln.get("description", ""),
-            "fix_hint": fix_hint,
             "remediation": None  
         }
 
@@ -89,4 +60,3 @@ def parse_grype_report(output_file: str) -> dict:
     all_findings = dedupe(all_findings)
 
     return {"raw_findings": all_findings}
-

@@ -1,45 +1,10 @@
 import subprocess
 import json
 import os
+from helpers.path_normalizer import normalize_path
+from helpers.deduplicators.deduplicator_semgrep import dedupe
+from helpers.smaller_description_semgrep import extract_first_sentences
 from strands import tool
-
-def normalize_path(path: str) -> str:
-    return path.replace("/tmp/my-repo/", "").replace("/repo/", "")
-# -------------------------
-# DEDUPLICATION HELPER
-# -------------------------
-def dedupe(findings):
-    seen = set()
-    result = []
-    for f in findings:
-        key = (
-            f["path"],
-            f["line"],
-            f["rule_id"],
-            f["severity"]
-        )
-        if key not in seen:
-            seen.add(key)
-            result.append(f)
-    return result
-
-# -------------------------
-# SMALLER DESCRIPTIONS
-# HELPER
-# -------------------------
-def extract_first_sentences(text: str, max_sentences: int = 2) -> str:
-    if not text:
-        return ""
-
-    sentences = text.split(".")
-    
-    selected = [s.strip() for s in sentences if s.strip()][:max_sentences]
-
-    if not selected:
-        return ""
-
-    return ". ".join(selected) + "."
-
 
 # -------------------------
 # RUNNER FUNCTION
@@ -96,7 +61,7 @@ def run_semgrep_scan(repo_path: str, output_file: str) -> list | None:
 # -------------------------
 # PARSER FUNCTION
 # -------------------------
-def parse_semgrep_report(output_file: str) -> dict:
+def parse_semgrep_report(output_file: str, repo_path: str) -> dict:
     if not os.path.exists(output_file):
         return {"error_obj": {"type": "SemgrepParseError", "message": "Report file was not generated.", "details": None}}
 
@@ -117,12 +82,15 @@ def parse_semgrep_report(output_file: str) -> dict:
         metadata = extra.get("metadata", {})
         owasp_list = metadata.get("owasp", [])
 
+        raw_path = item.get("path", "")
+        clean_path = normalize_path(raw_path, repo_path)
+
         if not owasp_list:
             continue
 
         finding = {
             "rule_id": item.get("check_id"),
-            "path": item.get("path"),
+            "path": clean_path,
             "line": item.get("start", {}).get("line") or -1,
             "description": extract_first_sentences(extra.get("message", "")),
             "severity": severity,
@@ -198,7 +166,7 @@ def run_semgrep(repo_path: str) -> dict:
             "errors": scan_errors  
         }
 
-    result = parse_semgrep_report(output_file)
+    result = parse_semgrep_report(output_file, repo_path)
 
     if "error_obj" in result:
         return {

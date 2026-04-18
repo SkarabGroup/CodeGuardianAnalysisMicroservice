@@ -11,19 +11,20 @@ def merge_grype_findings(raw_findings, agent_findings):
         )
 
     for f in raw_findings:
-        key = make_key(f)
-        merged[key] = f
+        merged[make_key(f)] = f
 
     for f in agent_findings:
         key = make_key(f)
+        
         if key not in merged:
             merged[key] = f
-        else:
-            existing = merged[key]
-            
-            if not existing.get("remediation") and f.get("remediation"):
-                merged[key] = f
-            elif f.get("remediation"):
-                merged[key] = f
+            continue
+        
+        existing = merged[key]
 
+        merged[key] = {
+            **existing,
+            **{k: v for k, v in f.items() if v is not None}
+        }
+    
     return list(merged.values())

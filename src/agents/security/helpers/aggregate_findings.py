@@ -9,17 +9,14 @@ RAW_TRIVY_FILE = "/app/raw_trivy_report.json"
 RAW_SEMGREP_FILE = "/app/raw_semgrep_report.json"
 RAW_GRYPE_FILE = "/app/raw_grype_report.json"
 
-def _extract_raw_findings(parsed_result: dict, tool_name: str, errors: list) -> list:
+def _extract_raw_findings(parsed_result: dict, errors: list) -> list:
   if "error" in parsed_result:
-    errors.append({
-      "tool": tool_name,
-      "message": parsed_result["error"]
-    })
+    errors.append(parsed_result["error"])
     return []
+  
   return parsed_result.get("raw_findings", [])
 
-def aggregate_findings(agent_report: dict) -> dict: 
-
+def aggregate_findings(agent_report: dict, repo_path: str) -> dict: 
   agent_trivy  = agent_report.get("trivy", [])
   agent_semgrep = agent_report.get("semgrep", [])
   agent_grype  = agent_report.get("grype", [])
@@ -27,12 +24,12 @@ def aggregate_findings(agent_report: dict) -> dict:
   errors = list(agent_report.get("errors", []))
 
   parsed_raw_trivy = parse_trivy_report(RAW_TRIVY_FILE)
-  parsed_raw_semgrep = parse_semgrep_report(RAW_SEMGREP_FILE)
-  parsed_raw_grype = parse_grype_report(RAW_GRYPE_FILE)
+  parsed_raw_semgrep = parse_semgrep_report(RAW_SEMGREP_FILE, repo_path)
+  parsed_raw_grype = parse_grype_report(RAW_GRYPE_FILE, repo_path)
 
-  raw_trivy = _extract_raw_findings(parsed_raw_trivy,   "trivy",   errors)
-  raw_semgrep = _extract_raw_findings(parsed_raw_semgrep, "semgrep", errors)
-  raw_grype = _extract_raw_findings(parsed_raw_grype,   "grype",   errors)
+  raw_trivy = _extract_raw_findings(parsed_raw_trivy, errors)
+  raw_semgrep = _extract_raw_findings(parsed_raw_semgrep, errors)
+  raw_grype = _extract_raw_findings(parsed_raw_grype, errors)
 
   final_trivy = merge_trivy_findings(raw_trivy, agent_trivy)
   final_semgrep = merge_semgrep_findings(raw_semgrep, agent_semgrep)
