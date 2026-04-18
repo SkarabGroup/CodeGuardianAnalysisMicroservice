@@ -66,11 +66,11 @@ class CoveragePyRunner:
             req_file = os.path.join(repo_path, cmd[-1]) if cmd[-1] != "." else None
             if req_file and not os.path.exists(req_file): continue
             subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=repo_path)
-        subprocess.run(["pip", "install", "pytest", "pytest-cov", "coverage", "pytest-json-report"], capture_output=True, text=True, check=False)
+        subprocess.run(["pip", "install", "pytest", "pytest-cov", "coverage", "pytest-json-report", "pytest-xdist"], capture_output=True, text=True, check=False)
 
     def run_tests(self, repo_path: str) -> None:
         subprocess.run(
-            ["coverage", "run", "--branch", "-m", "pytest", "--json-report", f"--json-report-file={TEST_REPORT_PATH}"],
+            ["coverage", "run", "--branch", "-m", "pytest", "-n", "auto", "--json-report", f"--json-report-file={TEST_REPORT_PATH}"],
             capture_output=True, text=True, check=False, cwd=repo_path,
         )
 

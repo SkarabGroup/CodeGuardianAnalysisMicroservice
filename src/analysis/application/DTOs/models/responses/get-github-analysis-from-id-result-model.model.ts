@@ -1,4 +1,5 @@
 import { AnalysisStatus } from '../../../../domain/enums/analysis-status.enum';
+import { CodeAnalysisReportDTO } from './code-agent-response-model.model';
 import { DocsAnalysisReportDTO } from './docs-agent-response-model.model';
 
 /**
@@ -19,12 +20,15 @@ export interface GitHubAnalysisGeneralDataDTO {
 export class GitHubAnalysisDetailedResult {
   generalData: GitHubAnalysisGeneralDataDTO;
   docsReport: DocsAnalysisReportDTO | null;
+  codeReport: CodeAnalysisReportDTO | null;
 
   constructor(
     record: GitHubAnalysisGeneralDataDTO,
     docsReport: DocsAnalysisReportDTO | null = null,
+    codeReport: CodeAnalysisReportDTO | null = null,
   ) {
     this.generalData = record;
     this.docsReport = docsReport;
+    this.codeReport = codeReport;
   }
 }

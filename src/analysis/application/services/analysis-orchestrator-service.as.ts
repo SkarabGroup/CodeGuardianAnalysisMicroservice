@@ -117,16 +117,17 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
           );
           const reportFilename = `code_analysis_report_${String(analysis.getAnalysisId().value)}.json`;
           const reportPath = path.join(process.cwd(), reportFilename);
-          // await fs.writeFile(reportPath, JSON.stringify(response, null, 2), 'utf-8');
-          if (!response || response.metadata.status !== 'success') {
+          await fs.writeFile(reportPath, JSON.stringify(response, null, 2), 'utf-8');
+          if (!response || response.analysis_report.metadata.status !== 'success') {
             console.error(
               `Code Agent Analysis failed or returned an unsuccessful status. Check the report at ${reportPath} for details.`,
             );
+            code = false;
             return;
           }
           const entity = this.codeReportProvider.fromCodeAgentResponse(
             response,
-            ReportId.create(uuidv7()),
+            codeReportId,
             analysis.getAnalysisId(),
           );
           await this.codeReportSavePort.saveCodeReport(

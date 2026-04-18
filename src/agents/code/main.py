@@ -2,6 +2,7 @@ import sys
 import json
 import os
 import re
+import concurrent.futures
 from dotenv import load_dotenv
 from strands import Agent
 
@@ -96,38 +97,38 @@ You will receive a JSON payload containing `static_analysis` (from tools like Bi
 OUTPUT FORMAT:
 Return ONLY a raw, valid JSON object matching this exact schema. DO NOT wrap it in markdown blockquotes (no ```json).
 {
-  "verdict": "Critical|Poor|Fair|Good|Excellent",
-  "executive_summary": "A brutally honest, highly technical summary of the codebase health. No fluff. Cite concrete metrics.",
-  "static_analysis_evaluation": {
-    "total_issues_analyzed": int,
-    "key_issues_reasoning": [
-      {
-        "file": "string",
-        "location": {
-          "line_start": int,
-          "line_end": int,
-          "column": int
-        },
-        "rule": "string",
-        "severity": "string",
-        "original_description": "string",
-        "ai_reasoning": "Deeply technical explanation of the underlying vulnerability, memory leak, or architectural bottleneck.",
-        "suggested_resolution": "Exact refactoring strategy, design pattern, or code-level fix."
-      }
-    ]
-  },
-  "coverage_evaluation": {
-    "overall_health": "string",
-    "critical_files_reasoning": [
-      {
-        "file": "string",
-        "line_coverage_pct": float,
-        "missing_lines": [int],
-        "missing_branches": int,
-        "ai_reasoning": "Analysis of the specific missing test execution paths (e.g., unhandled Promise rejections, missing auth branches) and their production impact."
-      }
-    ]
-  }
+    "verdict": "Critical|Poor|Fair|Good|Excellent",
+    "executive_summary": "A brutally honest, highly technical summary of the codebase health. No fluff. Cite concrete metrics.",
+    "static_analysis_evaluation": {
+        "total_issues_analyzed": int,
+        "key_issues_reasoning": [
+        {
+            "file": "string",
+            "location": {
+            "line_start": int,
+            "line_end": int,
+            "column": int
+            },
+            "rule": "string",
+            "severity": "string",
+            "original_description": "string",
+            "ai_reasoning": "Deeply technical explanation of the underlying vulnerability, memory leak, or architectural bottleneck.",
+            "suggested_resolution": "Exact refactoring strategy, design pattern, or code-level fix."
+        }
+        ]
+    },
+    "coverage_evaluation": {
+        "overall_health": "string",
+        "critical_files_reasoning": [
+        {
+            "file": "string",
+            "line_coverage_pct": float,
+            "missing_lines": [int],
+            "missing_branches": int,
+            "ai_reasoning": "Analysis of the specific missing test execution paths (e.g., unhandled Promise rejections, missing auth branches) and their production impact."
+        }
+        ]
+    }
 }
 
 STRICT ENGINEERING RULES - PENALTY FOR NON-COMPLIANCE:
@@ -160,8 +161,12 @@ def main():
     try:
         language, project_root = detect_project_info(repo)
 
-        coverage_data = json.loads(COVERAGE_TOOLS[language](project_root))
-        static_data = json.loads(STATIC_TOOLS[language](project_root))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_cov = executor.submit(COVERAGE_TOOLS[language], project_root)
+            future_static = executor.submit(STATIC_TOOLS[language], project_root)
+
+            coverage_data = json.loads(future_cov.result())
+            static_data = json.loads(future_static.result())
 
         payload = build_agent_payload(static_data, coverage_data)
 
@@ -174,19 +179,29 @@ def main():
         ai_output = safe_parse_ai_output(response)
 
         print(json.dumps({
-            "metadata": {
-                "repository": repo,
-                "project_root": project_root,
+            "analysis_report": {
+                "metadata": {
                 "language": language,
                 "status": "success"
-            },
-            "ai_interpretation": ai_output
+                },
+                "ai_interpretation": ai_output
+            }
         }))
 
     except Exception as e:
         print(json.dumps({
-            "status": "error",
-            "message": str(e)
+            "analysis_report": {
+                "metadata": {
+                    "language": "unknown",
+                    "status": "error"
+                },
+                "ai_interpretation": {
+                    "verdict": "CRITICAL",
+                    "executive_summary": f"Execution Error: {str(e)}",
+                    "static_analysis_evaluation": { "total_issues_analyzed": 0, "key_issues_reasoning": [] },
+                    "coverage_evaluation": { "overall_health": "Error", "critical_files_reasoning": [] }
+                }
+            }
         }))
 
 if __name__ == "__main__":

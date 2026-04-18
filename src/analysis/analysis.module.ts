@@ -20,16 +20,19 @@ import {
   GET_DETAILED_ANALYSIS_PORT,
   GET_ALL_ANALYSES_FOR_USER_PORT,
   CODE_REPORT_SAVE_PORT,
+  COLLECTION_DUPLICATE_PORT,
+  COLLECTION_ADDER_PORT,
+  COLLECTION_GETTER_PORT,
+  COLLECTION_DELETER_PORT,
+  // Assicurati di esportare e importare la porta per la collezione se la usi nell'adapter
+  // CHECK_COLLECTION_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 import {
   GitCredential,
   GitCredentialSchema,
 } from './infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
-import {
-  AnalysisController,
-  JwtStrategy,
-} from './presentation/controllers/analysis-controller.controller';
+import { AnalysisController } from './presentation/controllers/analysis-controller.controller';
 import {
   ACCESS_AUTHORIZER,
   GitAuthorizerService,
@@ -57,6 +60,13 @@ import {
   GitHubAnalysisRecord,
   GitHubAnalysisSchema,
 } from './infrastructure/adapters/persistence/schema/github-analysis.schema';
+
+// AGGIUNTA: Importa il nuovo schema della collezione
+import {
+  GitHubCollection,
+  GitHubCollectionSchema,
+} from './infrastructure/adapters/persistence/schema/github-collection.schema'; // Adegua il path se necessario
+
 import {
   DOCS_AGENT,
   DocumentationAnalysisAdapter,
@@ -87,6 +97,26 @@ import {
   GET_ALL_ANALYSES_FOR_USER_SERVICE,
   GetAnalysisService,
 } from './application/services/get-analysis-service.as';
+
+import { JwtStrategy } from './presentation/controllers/helper/jwt-guard.helper';
+import { RepositoriesController } from './presentation/controllers/repositories-controller.controller';
+import {
+  ADD_COLLECTION_SERVICE,
+  AddRepositoryCollectionService,
+} from './application/services/add-repository-collection.as';
+import {
+  COLLECTION_DUPLICATE_CHECKER,
+  GitHubCollectionChecker,
+} from './application/services/github-collection-checker.as';
+import {
+  GET_COLLECTION_SERVICE,
+  GitHubCollectionGetter,
+} from './application/services/github-collection-getter.as';
+import {
+  DELETE_COLLECTION_SERVICE,
+  GitHubCollectionDeleter,
+} from './application/services/github-collection-deleter.as';
+
 @Module({
   imports: [
     MongooseModule.forFeature(
@@ -98,6 +128,11 @@ import {
         {
           name: GitHubAnalysisRecord.name,
           schema: GitHubAnalysisSchema,
+        },
+        // AGGIUNTA: Registrazione del nuovo modello Mongoose
+        {
+          name: GitHubCollection.name,
+          schema: GitHubCollectionSchema,
         },
         {
           name: DocumentationReport.name,
@@ -226,9 +261,44 @@ import {
       provide: GET_ALL_ANALYSES_FOR_USER_PORT,
       useClass: MongoDBAdapter,
     },
-    { provide: GET_ALL_ANALYSES_FOR_USER_SERVICE, useClass: GetAnalysisService },
+    {
+      provide: GET_ALL_ANALYSES_FOR_USER_SERVICE,
+      useClass: GetAnalysisService,
+    },
+    {
+      provide: ADD_COLLECTION_SERVICE,
+      useClass: AddRepositoryCollectionService,
+    },
+    {
+      provide: COLLECTION_DUPLICATE_CHECKER,
+      useClass: GitHubCollectionChecker,
+    },
+    {
+      provide: COLLECTION_DUPLICATE_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: COLLECTION_ADDER_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: COLLECTION_GETTER_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: COLLECTION_DELETER_PORT,
+      useClass: MongoDBAdapter,
+    },
+    {
+      provide: GET_COLLECTION_SERVICE,
+      useClass: GitHubCollectionGetter,
+    },
+    {
+      provide: DELETE_COLLECTION_SERVICE,
+      useClass: GitHubCollectionDeleter,
+    },
   ],
-  controllers: [AnalysisController, PatController],
+  controllers: [AnalysisController, PatController, RepositoriesController],
   exports: [START_ANALYSIS_SERVICE],
 })
 export class AnalysisModule {}
