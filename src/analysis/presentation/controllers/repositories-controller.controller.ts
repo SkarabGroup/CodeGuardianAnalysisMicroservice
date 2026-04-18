@@ -119,7 +119,13 @@ export class RepositoriesController {
       }
 
       const dtos = result.collections.map(
-        (c) => new RepositoryCollectionItemDTO(c.url, c.name, c.description ?? undefined),
+        (c) =>
+          new RepositoryCollectionItemDTO(
+            c.url,
+            c.name,
+            c.description ?? undefined,
+            c.lastAnalysisDate ?? undefined,
+          ),
       );
 
       return GetAllRepositoryCollectionsResponseDTO.success(dtos);
