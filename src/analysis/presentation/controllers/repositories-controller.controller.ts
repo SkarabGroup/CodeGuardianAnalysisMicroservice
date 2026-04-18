@@ -4,7 +4,7 @@ import { JwtAuthGuard, UserId } from './helper/jwt-guard.helper';
 import { AddRepositoryCollectionRequestDTO } from '../DTOs/requests/add-repository-collection-request.dto';
 import { DeleteRepositoryCollectionResponseDTO } from '../DTOs/responses/delete-repository-collection-response.dto';
 import { AddRepositoryCollectionResponseDTO } from '../DTOs/responses/add-repository-collection-response.dto';
-import { GetRepositoryCollectionResponseDTO } from '../DTOs/responses/get-repository-collection-responsee.dto';
+import { GetRepositoryCollectionResponseDTO } from '../DTOs/responses/get-repository-collection-response.dto';
 import { GetAnalysisResponseDTO } from '../DTOs/responses/get-analysis-by-id.dto';
 import { GetAllAnalysesForUserResponseDTO } from '../DTOs/responses/get-all-analyses-for-user-response.dto';
 
@@ -32,6 +32,12 @@ import {
   GET_ALL_ANALYSES_FOR_USER_SERVICE,
 } from '../../application/services/get-analysis-service.as';
 import { GetFullRepositoryCollectionDetailsResponseDTO } from '../DTOs/responses/get-all-analysis-from-collection-response.dto';
+import {
+  GetAllRepositoryCollectionsResponseDTO,
+  RepositoryCollectionItemDTO,
+} from '../DTOs/responses/get-all-repository-collections-response.dto';
+import { GetAllRepositoryCollectionsCommand } from '../../application/commands/get-all-repository-collections-command.command';
+import { GetAllRepositoryCollectionsUseCase } from '../../application/use-case/get-all-repository-collection-use-case.uc';
 
 @Controller('repositories')
 export class RepositoriesController {
@@ -39,7 +45,8 @@ export class RepositoriesController {
     @Inject(ADD_COLLECTION_SERVICE)
     private readonly repoCollectionAdder: AddRepositoryCollectionUseCase,
     @Inject(GET_COLLECTION_SERVICE)
-    private readonly repoCollectionGetter: GetRepositoryCollectionUseCase,
+    private readonly repoCollectionGetter: GetRepositoryCollectionUseCase &
+      GetAllRepositoryCollectionsUseCase,
     @Inject(DELETE_COLLECTION_SERVICE)
     private readonly repoCollectionDeleter: DeleteRepositoryCollectionUseCase,
     @Inject(GET_ANALYSIS_SERVICE)
@@ -79,7 +86,7 @@ export class RepositoriesController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get()
+  @Get('all-analyses')
   public async getAllAnalysesForUser(
     @UserId() userId: string,
   ): Promise<GetAllAnalysesForUserResponseDTO> {
@@ -90,6 +97,34 @@ export class RepositoriesController {
     } catch (error) {
       return new GetAllAnalysesForUserResponseDTO(
         false,
+        error instanceof Error ? error.message : 'Internal Server Error',
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('all-collections')
+  public async getAllCollections(
+    @UserId() id: string,
+  ): Promise<GetAllRepositoryCollectionsResponseDTO> {
+    try {
+      const command = new GetAllRepositoryCollectionsCommand(id);
+
+      const result = await this.repoCollectionGetter.executeAll(command);
+
+      if (!result.success) {
+        return GetAllRepositoryCollectionsResponseDTO.failure(
+          result.message || 'Impossible to retrieve collections',
+        );
+      }
+
+      const dtos = result.collections.map(
+        (c) => new RepositoryCollectionItemDTO(c.url, c.name, c.description ?? undefined),
+      );
+
+      return GetAllRepositoryCollectionsResponseDTO.success(dtos);
+    } catch (error) {
+      return GetAllRepositoryCollectionsResponseDTO.failure(
         error instanceof Error ? error.message : 'Internal Server Error',
       );
     }

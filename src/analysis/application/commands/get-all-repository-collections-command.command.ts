@@ -1,10 +1,10 @@
 import { IsNotEmpty, IsString } from 'class-validator';
 
-export class GetAllAnalysesForUserCommand {
+export class GetAllRepositoryCollectionsCommand {
   @IsNotEmpty()
   @IsString()
-  public readonly _userId: string;
+  public readonly user: string;
   constructor(public readonly userId: string) {
-    this._userId = userId;
+    this.user = userId;
   }
 }
