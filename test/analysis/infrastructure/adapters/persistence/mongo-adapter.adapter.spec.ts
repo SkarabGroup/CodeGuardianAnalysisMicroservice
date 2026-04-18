@@ -24,6 +24,7 @@ import { DocumentationReport } from '../../../../../src/analysis/infrastructure/
 import { ReportId } from '../../../../../src/analysis/domain/value-objects/report-id.vo';
 import { SaveDocsReportRequest } from '../../../../../src/analysis/application/DTOs/models/requests/save-docs-report-request-model.model';
 import { CodeReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/code-report.schema';
+import { SecurityReport } from '../../../../../src/analysis/infrastructure/adapters/persistence/schema/security-report.schema';
 import { AddReportsToAnalysisRequest } from '../../../../../src/analysis/application/DTOs/models/requests/add-reports-request-model.model';
 import { DeleteRepositoryCollectionRequest } from '../../../../../src/analysis/application/DTOs/models/requests/delete-repository-collection-request.model';
 import { GetRepositoryCollectionRequest } from '../../../../../src/analysis/application/DTOs/models/requests/get-repository-collection-request.model';
@@ -80,6 +81,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
   let mockAnalysisModel: MockModel;
   let mockDocsReportModel: MockModel;
   let mockCodeReportModel: MockModel;
+  let mockSecurityReportModel: MockModel;
   let mockCollectionModel: MockModel;
   let consoleLogSpy: jest.SpyInstance;
 
@@ -108,6 +110,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
     mockAnalysisModel = createMockModel();
     mockDocsReportModel = createMockModel();
     mockCodeReportModel = createMockModel();
+    mockSecurityReportModel = createMockModel();
     mockCollectionModel = createMockModel();
 
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -130,6 +133,10 @@ describe('MongoDBAdapter (Unit Test)', () => {
         {
           provide: getModelToken(CodeReport.name, 'DatabaseConnection'),
           useValue: mockCodeReportModel,
+        },
+        {
+          provide: getModelToken(SecurityReport.name, 'DatabaseConnection'),
+          useValue: mockSecurityReportModel,
         },
         {
           provide: getModelToken(GitHubCollection.name, 'DatabaseConnection'),
@@ -826,6 +833,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
       expect(result.errorMessage).toBe('Unknown error during Code Report save');
     });
   });
+
   describe('addReportsToAnalysis', () => {
     const mockAnalysisId = 'analysis-uuid-123';
     const mockCodeId = 'code-report-456';
@@ -833,7 +841,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
     const mockSecId = 'sec-report-000';
 
     it('should successfully update the analysis record with all report IDs', async () => {
-      // 1. Arrange
       const request = new AddReportsToAnalysisRequest(
         mockAnalysisId,
         mockCodeId,
@@ -841,13 +848,10 @@ describe('MongoDBAdapter (Unit Test)', () => {
         mockSecId,
       );
 
-      // Mongoose updateOne restituisce un oggetto di stato (es. { matchedCount: 1 })
       mockAnalysisModel.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
-      // 2. Act
       const result = await adapter.addReportsToAnalysis(request);
 
-      // 3. Assert
       expect(mockAnalysisModel.updateOne).toHaveBeenCalledWith(
         { analysisId: mockAnalysisId },
         {
@@ -863,7 +867,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
     });
 
     it('should handle partial report updates (null values)', async () => {
-      // Caso in cui alcuni report non sono presenti
       const request = new AddReportsToAnalysisRequest(
         mockAnalysisId,
         mockCodeId,
@@ -890,22 +893,18 @@ describe('MongoDBAdapter (Unit Test)', () => {
     });
 
     it('should return failure with error message when update fails', async () => {
-      // 1. Arrange
       const errorMessage = 'Database connection timeout';
       mockAnalysisModel.updateOne.mockRejectedValue(new Error(errorMessage));
 
       const request = new AddReportsToAnalysisRequest(mockAnalysisId, null, null, null);
 
-      // 2. Act
       const result = await adapter.addReportsToAnalysis(request);
 
-      // 3. Assert
       expect(result.success).toBe(false);
       expect(result.message).toBe(errorMessage);
     });
 
     it('should return generic failure message for unknown error types', async () => {
-      // Simuliamo un errore che non è un'istanza di Error
       mockAnalysisModel.updateOne.mockRejectedValue('String error');
 
       const request = new AddReportsToAnalysisRequest(mockAnalysisId, null, null, null);
@@ -916,13 +915,243 @@ describe('MongoDBAdapter (Unit Test)', () => {
       expect(result.message).toBe('Unknown error during adding reports to analysis');
     });
   });
+
+  describe('saveSecurityReport', () => {
+    const buildSecurityReportRequest = () => ({
+      reportId: { value: uuid() },
+      analysisId: { value: uuid() },
+
+      dependencyFindings: [
+        {
+          getPathFinding: jest.fn().mockReturnValue({ value: '/package-lock.json' }),
+          getPackageName: jest.fn().mockReturnValue('lodash'),
+          getPackageVersion: jest.fn().mockReturnValue('4.17.23'),
+          getVulnerabilityId: jest.fn().mockReturnValue('GHSA-r5fr-rjxr-66jc'),
+          getSeverityFinding: jest.fn().mockReturnValue({ value: 'High' }),
+          getDescriptionFinding: jest.fn().mockReturnValue({
+            value: 'lodash vulnerable to Code Injection via `_.template` imports key names',
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value:
+              'Update lodash to version 4.18.0 or later to mitigate the code injection vulnerability in `_.template`.',
+          }),
+        },
+        {
+          getPathFinding: jest.fn().mockReturnValue({ value: '/package-lock.json' }),
+          getPackageName: jest.fn().mockReturnValue('path-to-regexp'),
+          getPackageVersion: jest.fn().mockReturnValue('8.3.0'),
+          getVulnerabilityId: jest.fn().mockReturnValue('GHSA-j3q9-mxjg-w52f'),
+          getSeverityFinding: jest.fn().mockReturnValue({ value: 'High' }),
+          getDescriptionFinding: jest.fn().mockReturnValue({
+            value: 'path-to-regexp vulnerable to Denial of Service via sequential optional groups',
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value:
+              'Update path-to-regexp to version 8.4.0 or later to fix the Denial of Service vulnerability.',
+          }),
+        },
+      ],
+
+      owaspFindings: [
+        {
+          getPathFinding: jest.fn().mockReturnValue({
+            value: '/tmp/my-repo/data/static/codefixes/dbSchemaChallenge_1.ts',
+          }),
+          getOWASPCategory: jest
+            .fn()
+            .mockReturnValue('A01:2017 - Injection, A03:2021 - Injection, A05:2025 - Injection'),
+          getRuleId: jest.fn().mockReturnValue('semgrep-rule-001'),
+          getErrorFinding: jest.fn().mockReturnValue({
+            getErrorLine: jest.fn().mockReturnValue(5),
+            getDescriptionFinding: jest.fn().mockReturnValue({
+              value: 'Detected a sequelize statement that is tainted by user-input.',
+            }),
+            getSeverityFinding: jest.fn().mockReturnValue({ value: 'ERROR' }),
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value: "Use parameterized queries or Sequelize's built-in query building methods.",
+          }),
+        },
+        {
+          getPathFinding: jest.fn().mockReturnValue({
+            value: '/tmp/my-repo/routes/userProfile.ts',
+          }),
+          getOWASPCategory: jest.fn().mockReturnValue('A03:2021 - Injection, A05:2025 - Injection'),
+          getRuleId: jest.fn().mockReturnValue('semgrep-rule-002'),
+          getErrorFinding: jest.fn().mockReturnValue({
+            getErrorLine: jest.fn().mockReturnValue(62),
+            getDescriptionFinding: jest.fn().mockReturnValue({
+              value: 'Found data from an Express request flowing to `eval`.',
+            }),
+            getSeverityFinding: jest.fn().mockReturnValue({ value: 'ERROR' }),
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value: 'Avoid using `eval()` with user input.',
+          }),
+        },
+      ],
+
+      secretFindings: [
+        {
+          getPathFinding: jest.fn().mockReturnValue({ value: 'lib/insecurity.ts' }),
+          getSecretCategory: jest.fn().mockReturnValue('AsymmetricPrivateKey'),
+          getRuleId: jest.fn().mockReturnValue('trivy-rule-001'),
+          getErrorFinding: jest.fn().mockReturnValue({
+            getErrorLine: jest.fn().mockReturnValue(23),
+            getDescriptionFinding: jest.fn().mockReturnValue({
+              value: 'Asymmetric Private Key',
+            }),
+            getSeverityFinding: jest.fn().mockReturnValue({ value: 'HIGH' }),
+          }),
+          getRemediation: jest.fn().mockReturnValue({
+            value: 'Remove the private key from the source code immediately.',
+          }),
+        },
+      ],
+
+      toolErrors: [
+        {
+          getToolName: jest.fn().mockReturnValue('trivy'),
+          getDescriptionFinding: jest.fn().mockReturnValue({ value: 'Tool execution failed' }),
+        },
+      ],
+    });
+
+    it('should return success and persist the full mapped payload', async () => {
+      const request = buildSecurityReportRequest();
+      mockSecurityReportModel.create.mockResolvedValue({});
+
+      const result = await adapter.saveSecurityReport(request as never);
+
+      expect(result.isSuccess).toBe(true);
+      expect(mockSecurityReportModel.create).toHaveBeenCalledTimes(1);
+      expect(mockSecurityReportModel.create).toHaveBeenCalledWith({
+        reportId: request.reportId.value,
+        analysisId: request.analysisId.value,
+
+        dependencyFindings: [
+          {
+            path: '/package-lock.json',
+            packageName: 'lodash',
+            packageVersion: '4.17.23',
+            vulnerabilityId: 'GHSA-r5fr-rjxr-66jc',
+            severity: 'High',
+            description: 'lodash vulnerable to Code Injection via `_.template` imports key names',
+            remediation:
+              'Update lodash to version 4.18.0 or later to mitigate the code injection vulnerability in `_.template`.',
+          },
+          {
+            path: '/package-lock.json',
+            packageName: 'path-to-regexp',
+            packageVersion: '8.3.0',
+            vulnerabilityId: 'GHSA-j3q9-mxjg-w52f',
+            severity: 'High',
+            description:
+              'path-to-regexp vulnerable to Denial of Service via sequential optional groups',
+            remediation:
+              'Update path-to-regexp to version 8.4.0 or later to fix the Denial of Service vulnerability.',
+          },
+        ],
+
+        owaspFindings: [
+          {
+            path: '/tmp/my-repo/data/static/codefixes/dbSchemaChallenge_1.ts',
+            owaspCategory: 'A01:2017 - Injection, A03:2021 - Injection, A05:2025 - Injection',
+            ruleId: 'semgrep-rule-001',
+            errorFinding: {
+              line: 5,
+              description: 'Detected a sequelize statement that is tainted by user-input.',
+              severity: 'ERROR',
+            },
+            remediation:
+              "Use parameterized queries or Sequelize's built-in query building methods.",
+          },
+          {
+            path: '/tmp/my-repo/routes/userProfile.ts',
+            owaspCategory: 'A03:2021 - Injection, A05:2025 - Injection',
+            ruleId: 'semgrep-rule-002',
+            errorFinding: {
+              line: 62,
+              description: 'Found data from an Express request flowing to `eval`.',
+              severity: 'ERROR',
+            },
+            remediation: 'Avoid using `eval()` with user input.',
+          },
+        ],
+
+        secretFindings: [
+          {
+            path: 'lib/insecurity.ts',
+            secretCategory: 'AsymmetricPrivateKey',
+            ruleId: 'trivy-rule-001',
+            errorFinding: {
+              line: 23,
+              description: 'Asymmetric Private Key',
+              severity: 'HIGH',
+            },
+            remediation: 'Remove the private key from the source code immediately.',
+          },
+        ],
+
+        toolErrors: [
+          {
+            tool: 'trivy',
+            description: 'Tool execution failed',
+          },
+        ],
+      });
+    });
+
+    it('should return success when all arrays are empty', async () => {
+      const request = {
+        reportId: { value: uuid() },
+        analysisId: { value: uuid() },
+        dependencyFindings: [],
+        owaspFindings: [],
+        secretFindings: [],
+        toolErrors: [],
+      };
+      mockSecurityReportModel.create.mockResolvedValue({});
+
+      const result = await adapter.saveSecurityReport(request as never);
+
+      expect(result.isSuccess).toBe(true);
+      expect(mockSecurityReportModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dependencyFindings: [],
+          owaspFindings: [],
+          secretFindings: [],
+          toolErrors: [],
+        }),
+      );
+    });
+
+    it('should return failure message for Error thrown by persistence', async () => {
+      const request = buildSecurityReportRequest();
+      mockSecurityReportModel.create.mockRejectedValue(new Error('security report write failed'));
+
+      const result = await adapter.saveSecurityReport(request as never);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toContain('security report write failed');
+    });
+
+    it('should return unknown error message for non-Error thrown by persistence', async () => {
+      const request = buildSecurityReportRequest();
+      mockSecurityReportModel.create.mockRejectedValue('random failure');
+
+      const result = await adapter.saveSecurityReport(request as never);
+
+      expect(result.isSuccess).toBe(false);
+      expect(result.errorMessage).toBe('Unknown error during Security Report save');
+    });
+  });
+
   describe('getAnalysisFromId', () => {
-    // UUID v7 valido per superare la validazione del Value Object
     const validAnalysisIdStr = '018f6f8b-7b00-7000-8000-000000000000';
     const analysisIdVO = AnalysisId.create(validAnalysisIdStr);
 
     it('should return the analysis with the mapped docs report when both exist', async () => {
-      // 1. Arrange - Mock del record dell'analisi
       const mockAnalysisRecord = {
         analysisId: validAnalysisIdStr,
         userId: 'user-123',
@@ -935,7 +1164,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
         updatedAt: new Date(),
       };
 
-      // Mock del record del report (struttura DB in CamelCase)
       const mockReportDoc = {
         reportId: 'report-999',
         apiViolations: [{ path: 'file1.ts', rule: 'rule1', severity: 'high', description: 'err' }],
@@ -965,46 +1193,35 @@ describe('MongoDBAdapter (Unit Test)', () => {
         },
       };
 
-      // Configurazione dei mock per le query concatenate
-      // Prima chiamata: trova l'analisi
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockAnalysisRecord),
       });
 
-      // Seconda chiamata: trova il report
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockDocsReportModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockReportDoc),
       });
 
-      // 2. Act
       const result = await adapter.getAnalysisFromId(analysisIdVO);
 
-      // 3. Assert
       expect(result).not.toBeNull();
       expect(result?.generalData.analysisId).toBe(validAnalysisIdStr);
-
-      // Verifica il mapping del report (da DB CamelCase a DTO SnakeCase)
       expect(result?.docsReport).toBeDefined();
       expect(result?.docsReport?.API_standard_violations[0].file).toBe('file1.ts');
       expect(result?.docsReport?.dependency_audit.readme_defined[0].name).toBe('deps1');
-
-      // Verifica che le query siano state chiamate con i parametri corretti
       expect(mockAnalysisModel.findOne).toHaveBeenCalledWith({ analysisId: validAnalysisIdStr });
       expect(mockDocsReportModel.findOne).toHaveBeenCalledWith({ reportId: 'report-999' });
     });
 
     it('should return general data and null report if docsReportId is missing', async () => {
-      // Record senza docsReportId
       const mockAnalysisRecord = {
         analysisId: validAnalysisIdStr,
         docsReportId: null,
         status: 'pending',
         repoURL: 'url',
-        // ... altri campi
       };
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -1017,7 +1234,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
       expect(result?.generalData.status).toBe('pending');
       expect(result?.docsReport).toBeNull();
-      // Verifica che non sia stata fatta la seconda query
       expect(mockDocsReportModel.findOne).not.toHaveBeenCalled();
     });
 
@@ -1120,10 +1336,10 @@ describe('MongoDBAdapter (Unit Test)', () => {
         'Could not retrieve detailed analysis',
       );
     });
+
     it('should have 100% coverage by mapping all nested arrays', async () => {
       const mockReportDoc = {
         reportId: 'report-999',
-        // Popola OGNI array con almeno un oggetto
         apiViolations: [{ path: 'f.ts', rule: 'r', severity: 'h', description: 'd' }],
         docsDiscrepancies: [
           {
@@ -1144,7 +1360,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
         },
       };
 
-      // Configura i mock come fatto in precedenza...
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       mockAnalysisModel.findOne = jest.fn().mockReturnValue({
         lean: jest.fn().mockReturnThis(),
@@ -1160,7 +1375,6 @@ describe('MongoDBAdapter (Unit Test)', () => {
         AnalysisId.create('018f6f8b-7b00-7000-8000-000000000000'),
       );
 
-      // Verifica che ogni array sia stato mappato correttamente
       expect(mockDocsReportModel.findOne).toHaveBeenCalledWith({ reportId: 'report-999' });
       expect(result?.docsReport?.API_standard_violations[0].file).toBe('f.ts');
       expect(result?.docsReport?.missing_files[0].referenced_path).toBe('rp');
@@ -1235,6 +1449,7 @@ describe('MongoDBAdapter (Unit Test)', () => {
         'Error fetching analyses for user: Unknown error',
       );
     });
+
     describe('Collection Management Methods', () => {
       const mockUser = UserId.create(uuid());
       const mockUrl = RepoURL.create('https://github.com/owner/repo');

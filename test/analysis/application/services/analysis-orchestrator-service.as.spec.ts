@@ -14,6 +14,9 @@ import {
   CODE_REPORT_SAVE_PORT,
   ADD_REPORTS_TO_ANALYSIS_PORT,
 } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
+import { SECURITY_AGENT } from '../../../../src/analysis/infrastructure/adapters/externals/security-agent.adapter';
+import { SECURITY_REPORT_PROVIDER } from '../../../../src/analysis/domain/services/report-entities-provider.ds';
+import { SECURITY_REPORT_SAVE_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 
 jest.mock('node:fs/promises');
 
@@ -51,6 +54,10 @@ describe('AnalysisOrchestratorService', () => {
     },
   };
 
+  const securityAgentMock = { runAnalysis: jest.fn() };
+  const securityReportProviderMock = { fromSecurityAgentResponse: jest.fn() };
+  const securityReportSavePortMock = { saveSecurityReport: jest.fn() };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -86,6 +93,18 @@ describe('AnalysisOrchestratorService', () => {
         {
           provide: ADD_REPORTS_TO_ANALYSIS_PORT,
           useValue: updateAnalysisPortMock,
+        },
+        {
+          provide: SECURITY_AGENT,
+          useValue: securityAgentMock,
+        },
+        {
+          provide: SECURITY_REPORT_PROVIDER,
+          useValue: securityReportProviderMock,
+        },
+        {
+          provide: SECURITY_REPORT_SAVE_PORT,
+          useValue: securityReportSavePortMock,
         },
       ],
     }).compile();
@@ -311,6 +330,20 @@ describe('AnalysisOrchestratorService', () => {
       };
       docsReportProviderMock.fromDocsAgentResponse.mockReturnValue(mockDocsEntity);
 
+      // Mock Security Agent success
+      securityAgentMock.runAnalysis.mockResolvedValue({
+        analysis_report: { metadata: { status: 'success' } },
+      });
+      const mockSecurityEntity = {
+        getReportId: () => ({ value: 'sec-report-id' }),
+        getAnalysisId: () => mockAnalysisId,
+        getDependencyFindings: () => [],
+        getOwaspFindings: () => [],
+        getSecretFindings: () => [],
+        getToolErrors: () => [],
+      };
+      securityReportProviderMock.fromSecurityAgentResponse.mockReturnValue(mockSecurityEntity);
+
       updateAnalysisPortMock.addReportsToAnalysis.mockResolvedValue({
         success: true,
       });
@@ -326,6 +359,134 @@ describe('AnalysisOrchestratorService', () => {
       expect(console.log).toHaveBeenCalledWith(
         'Analysis reports added to the analysis record successfully.',
       );
+    });
+  });
+
+  describe('analyze - Security Analysis Flow', () => {
+    const mockSecurityResponse = {
+      analysis_report: {
+        metadata: { status: 'success' },
+        grype: [
+          {
+            path: '/package-lock.json',
+            package_name: 'lodash',
+            package_version: '4.17.23',
+            vulnerability_id: 'GHSA-r5fr-rjxr-66jc',
+            severity: 'High',
+            description: 'lodash vulnerable to Code Injection',
+            remediation: 'Update to 4.18.0',
+          },
+        ],
+        semgrep: [
+          {
+            rule_id: 'semgrep-rule-001',
+            path: '/tmp/my-repo/routes/userProfile.ts',
+            line: 62,
+            severity: 'ERROR',
+            description: 'Found data flowing to eval',
+            owasp_category: 'A03:2021 - Injection',
+            remediation: 'Avoid using eval() with user input',
+          },
+        ],
+        trivy: [
+          {
+            rule_id: 'trivy-rule-001',
+            path: 'lib/insecurity.ts',
+            line: 23,
+            severity: 'HIGH',
+            description: 'Asymmetric Private Key',
+            secret_category: 'AsymmetricPrivateKey',
+            remediation: 'Remove the private key from source code',
+          },
+        ],
+        errors: [
+          {
+            tool: 'trivy',
+            description: 'Tool execution failed',
+          },
+        ],
+      },
+    };
+
+    const mockSecurityEntity = {
+      getReportId: () => ({ value: 'sec-report-id' }),
+      getAnalysisId: () => mockAnalysisId,
+      getDependencyFindings: () => [],
+      getOwaspFindings: () => [],
+      getSecretFindings: () => [],
+      getToolErrors: () => [],
+    };
+
+    it('should run full security flow: agent -> provider -> save -> update', async () => {
+      securityAgentMock.runAnalysis.mockResolvedValue(mockSecurityResponse);
+      securityReportProviderMock.fromSecurityAgentResponse.mockReturnValue(mockSecurityEntity);
+
+      service.analyze(mockAnalysis, '/tmp/repo', false, false, true);
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(securityAgentMock.runAnalysis).toHaveBeenCalled();
+      expect(securityReportProviderMock.fromSecurityAgentResponse).toHaveBeenCalled();
+      expect(securityReportSavePortMock.saveSecurityReport).toHaveBeenCalled();
+      expect(updateAnalysisPortMock.addReportsToAnalysis).toHaveBeenCalledWith(
+        expect.objectContaining({
+          analysisId: 'test-uuid',
+        }),
+      );
+    });
+
+    it('should not save to DB if security agent returns failure status', async () => {
+      securityAgentMock.runAnalysis.mockResolvedValue({
+        analysis_report: { metadata: { status: 'failure' } },
+      });
+
+      service.analyze(mockAnalysis, '/tmp/repo', false, false, true);
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(securityReportSavePortMock.saveSecurityReport).not.toHaveBeenCalled();
+      expect(securityReportProviderMock.fromSecurityAgentResponse).not.toHaveBeenCalled();
+    });
+
+    it('should handle security agent failure gracefully', async () => {
+      securityAgentMock.runAnalysis.mockResolvedValue({
+        analysis_report: { metadata: { status: 'error' } },
+      });
+
+      service.analyze(mockAnalysis, '/tmp/repo', false, false, true);
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('Security Agent Analysis failed'),
+      );
+      expect(securityReportProviderMock.fromSecurityAgentResponse).not.toHaveBeenCalled();
+    });
+
+    it('should pass null securityReportId to update when security agent fails', async () => {
+      securityAgentMock.runAnalysis.mockResolvedValue({
+        analysis_report: { metadata: { status: 'failure' } },
+      });
+
+      service.analyze(mockAnalysis, '/tmp/repo', false, false, true);
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(updateAnalysisPortMock.addReportsToAnalysis).toHaveBeenCalledWith(
+        expect.objectContaining({
+          securityReportId: null,
+        }),
+      );
+    });
+
+    it('should handle security agent throwing an exception', async () => {
+      securityAgentMock.runAnalysis.mockRejectedValue(new Error('Security agent crashed'));
+
+      service.analyze(mockAnalysis, '/tmp/repo', false, false, true);
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(console.error).toHaveBeenCalledWith('AI Orchestration failed:', expect.any(Error));
     });
   });
 });

@@ -1,0 +1,10 @@
+{
+  "results": [],
+  "errors": [
+    {
+      "type": "SemgrepError",
+      "path": "app.py",
+      "message": "Parsing error"
+    }
+  ]
+}

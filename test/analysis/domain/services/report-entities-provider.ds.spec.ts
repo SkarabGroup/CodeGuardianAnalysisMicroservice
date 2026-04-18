@@ -11,6 +11,7 @@ import {
   CodeAgentResponse,
   CodeAgentResponsePayload,
 } from '../../../../src/analysis/application/DTOs/models/responses/code-agent-response-model.model';
+import { SecAgentResponse } from '../../../../src/analysis/application/DTOs/models/responses/security-agent-response-model.model';
 
 describe('ReportEntitiesProvider', () => {
   let provider: ReportEntitiesProvider;
@@ -382,6 +383,220 @@ describe('ReportEntitiesProvider', () => {
       expect(result.interpretation.verdict).toBe(VerdictStatus.POOR);
       expect(result.interpretation.staticAnalysisEvaluation.keyIssuesReasoning).toEqual([]);
       expect(result.interpretation.coverageEvaluation.criticalFilesReasoning).toEqual([]);
+    });
+  });
+
+  describe('fromSecurityAgentResponse', () => {
+    const mockSecAgentResponse = {
+      analysis_report: {
+        metadata: {
+          repository: 'test-repo',
+          status: 'success',
+        },
+        grype: [
+          {
+            path: '/package-lock.json',
+            package_name: 'lodash',
+            package_version: '4.17.23',
+            vulnerability_id: 'GHSA-r5fr-rjxr-66jc',
+            severity: 'High',
+            description: 'lodash vulnerable to Code Injection via `_.template` imports key names',
+            remediation: 'Update lodash to version 4.18.0 or later.',
+          },
+          {
+            path: '/package-lock.json',
+            package_name: 'path-to-regexp',
+            package_version: '8.3.0',
+            vulnerability_id: 'GHSA-j3q9-mxjg-w52f',
+            severity: 'High',
+            description: 'path-to-regexp vulnerable to Denial of Service',
+            remediation: 'Update path-to-regexp to version 8.4.0 or later.',
+          },
+        ],
+        semgrep: [
+          {
+            rule_id: 'semgrep-rule-001',
+            path: '/tmp/my-repo/data/static/codefixes/dbSchemaChallenge_1.ts',
+            line: 5,
+            severity: 'ERROR',
+            description: 'Detected a sequelize statement tainted by user-input.',
+            owasp_category: 'A01:2017 - Injection, A03:2021 - Injection, A05:2025 - Injection',
+            remediation: 'Use parameterized queries.',
+          },
+          {
+            rule_id: 'semgrep-rule-002',
+            path: '/tmp/my-repo/routes/userProfile.ts',
+            line: 62,
+            severity: 'ERROR',
+            description: 'Found data from an Express request flowing to `eval`.',
+            owasp_category: 'A03:2021 - Injection, A05:2025 - Injection',
+            remediation: 'Avoid using `eval()` with user input.',
+          },
+        ],
+        trivy: [
+          {
+            rule_id: 'trivy-rule-001',
+            path: 'lib/insecurity.ts',
+            line: 23,
+            severity: 'HIGH',
+            description: 'Asymmetric Private Key',
+            secret_category: 'AsymmetricPrivateKey',
+            remediation: 'Remove the private key from the source code immediately.',
+          },
+        ],
+        errors: [
+          {
+            tool: 'trivy',
+            description: 'Tool execution failed',
+          },
+        ],
+      },
+    };
+
+    it('should correctly map the DTO to a SecurityReport entity', () => {
+      const mockSecResponse = new SecAgentResponse({
+        analysis_report: mockSecAgentResponse.analysis_report,
+      });
+      const result = provider.fromSecurityAgentResponse(
+        mockSecResponse,
+        mockReportId,
+        mockAnalysisId,
+      );
+
+      expect(result.getReportId()).toEqual(mockReportId);
+      expect(result.getAnalysisId()).toEqual(mockAnalysisId);
+
+      // DependencyFindings da grype
+      expect(result.getDependencyFindings()).toHaveLength(2);
+      const dep = result.getDependencyFindings()[0];
+      expect(dep.getPathFinding().value).toBe('/package-lock.json');
+      expect(dep.getPackageName()).toBe('lodash');
+      expect(dep.getPackageVersion()).toBe('4.17.23');
+      expect(dep.getVulnerabilityId()).toBe('GHSA-r5fr-rjxr-66jc');
+      expect(dep.getSeverityFinding().value).toBe(SeverityLevel.HIGH);
+      expect(dep.getDescriptionFinding().value).toContain('lodash vulnerable');
+      expect(dep.getRemediation().value).toContain('Update lodash');
+
+      // OWASPFindings da semgrep
+      expect(result.getOwaspFindings()).toHaveLength(2);
+      const owasp = result.getOwaspFindings()[0];
+      expect(owasp.getPathFinding().value).toBe(
+        '/tmp/my-repo/data/static/codefixes/dbSchemaChallenge_1.ts',
+      );
+      expect(owasp.getOWASPCategory()).toBe(
+        'A01:2017 - Injection, A03:2021 - Injection, A05:2025 - Injection',
+      );
+      expect(owasp.getRuleId()).toBe('semgrep-rule-001');
+      expect(owasp.getErrorFinding().getErrorLine()).toBe(5);
+      expect(owasp.getErrorFinding().getSeverityFinding().value).toBe(SeverityLevel.HIGH);
+      expect(owasp.getRemediation().value).toContain('parameterized queries');
+
+      // SecretFindings da trivy
+      expect(result.getSecretFindings()).toHaveLength(1);
+      const secret = result.getSecretFindings()[0];
+      expect(secret.getPathFinding().value).toBe('lib/insecurity.ts');
+      expect(secret.getSecretCategory()).toBe('AsymmetricPrivateKey');
+      expect(secret.getRuleId()).toBe('trivy-rule-001');
+      expect(secret.getErrorFinding().getErrorLine()).toBe(23);
+      expect(secret.getErrorFinding().getSeverityFinding().value).toBe(SeverityLevel.HIGH);
+      expect(secret.getRemediation().value).toContain('Remove the private key');
+
+      // ToolErrors
+      expect(result.getToolErrors()).toHaveLength(1);
+      const toolError = result.getToolErrors()[0];
+      expect(toolError.getToolName()).toBe('trivy');
+      expect(toolError.getDescriptionFinding().value).toBe('Tool execution failed');
+    });
+
+    it('should handle empty arrays gracefully', () => {
+      const emptyResponse = {
+        analysis_report: {
+          metadata: { repository: 'test-repo', status: 'success' },
+          grype: [],
+          semgrep: [],
+          trivy: [],
+          errors: [],
+        },
+      };
+
+      const result = provider.fromSecurityAgentResponse(
+        emptyResponse as never,
+        mockReportId,
+        mockAnalysisId,
+      );
+
+      expect(result.getDependencyFindings()).toEqual([]);
+      expect(result.getOwaspFindings()).toEqual([]);
+      expect(result.getSecretFindings()).toEqual([]);
+      expect(result.getToolErrors()).toEqual([]);
+    });
+
+    it('should normalize severity aliases correctly', () => {
+      const responseWithAliases = {
+        analysis_report: {
+          metadata: { repository: 'test-repo', status: 'success' },
+          grype: [
+            {
+              path: '/package-lock.json',
+              package_name: 'lodash',
+              package_version: '4.17.23',
+              vulnerability_id: 'GHSA-r5fr-rjxr-66jc',
+              severity: 'CRITICAL',
+              description: 'desc',
+              remediation: 'fix',
+            },
+          ],
+          semgrep: [],
+          trivy: [],
+          errors: [],
+        },
+      };
+
+      const result = provider.fromSecurityAgentResponse(
+        responseWithAliases as never,
+        mockReportId,
+        mockAnalysisId,
+      );
+
+      expect(result.getDependencyFindings()[0].getSeverityFinding().value).toBe(
+        SeverityLevel.CRITICAL,
+      );
+    });
+
+    it('should apply fallback values for missing fields', () => {
+      const responseWithMissingFields = {
+        analysis_report: {
+          metadata: { repository: 'test-repo', status: 'success' },
+          grype: [
+            {
+              path: '',
+              package_name: '',
+              package_version: '',
+              vulnerability_id: 'GHSA-0000-0000-0000',
+              severity: '',
+              description: '',
+              remediation: '',
+            },
+          ],
+          semgrep: [],
+          trivy: [],
+          errors: [],
+        },
+      };
+
+      const result = provider.fromSecurityAgentResponse(
+        responseWithMissingFields as never,
+        mockReportId,
+        mockAnalysisId,
+      );
+
+      const dep = result.getDependencyFindings()[0];
+      expect(dep.getPathFinding().value).toBe('UNKNOWN');
+      expect(dep.getPackageName()).toBe('UNKNOWN');
+      expect(dep.getPackageVersion()).toBe('UNKNOWN');
+      expect(dep.getSeverityFinding().value).toBe(SeverityLevel.MEDIUM);
+      expect(dep.getDescriptionFinding().value).toBe('No description provided');
+      expect(dep.getRemediation().value).toBe('No remediation provided');
     });
   });
 });

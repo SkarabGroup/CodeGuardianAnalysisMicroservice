@@ -1,0 +1,17 @@
+{
+  "Results": [
+    {
+      "Target": "app.py",
+      "Class": "secret",
+      "Secrets": [
+        {
+          "RuleID": "private-key",
+          "Category": "AsymmetricPrivateKey",
+          "Severity": "HIGH",
+          "Title": "Private Key",
+          "StartLine": 10
+        }
+      ]
+    }
+  ]
+}

@@ -32,6 +32,17 @@ import { CoveragePercentage } from '../value-objects/coverage-percentage.vo';
 import { CoverageEvaluation } from '../value-objects/coverage-evaluation.vo';
 import { ICodeReportEntityProvider } from './interfaces/code-report-entity-provider.interface';
 
+import { SecAgentResponse } from '../../application/DTOs/models/responses/security-agent-response-model.model';
+import { SecurityReport } from '../entities/security-report.entity';
+import { DependencyFinding } from '../value-objects/dependency-finding.vo';
+import { OWASPFinding } from '../value-objects/owasp-finding.vo';
+import { SecretFinding } from '../value-objects/secret-finding.vo';
+import { ToolError } from '../value-objects/tool-error.vo';
+import { ErrorFinding } from '../value-objects/error-finding.vo';
+import { ISecurityReportEntityProvider } from './interfaces/security-report-entity-provider.interface';
+
+// --------- Documentation Report ---------
+
 const STATUS_MISSING_ALIASES: Record<string, StatusMissing> = {
   NOT_FOUND: StatusMissing.NOT_FOUND,
   POSSIBLY_RENAMED: StatusMissing.POSSIBLY_RENAMED,
@@ -236,9 +247,75 @@ export function mapCodeAgentResponseToCodeAgentReport(
   return CodeAgentReport.create(reportId, analysisId, metadata, aiInterpretation);
 }
 
+// --------- Security Report ---------
+
+export function mapSecurityAgentResponseToSecurityReport(
+  response: SecAgentResponse,
+  reportId: ReportId,
+  analysisId: AnalysisId,
+): SecurityReport {
+  const report = response.analysis_report;
+
+  const dependencyFindings = (report.grype || []).map((dto) =>
+    DependencyFinding.create(
+      PathFinding.create(dto.path || 'UNKNOWN'),
+      dto.package_name || 'UNKNOWN',
+      dto.package_version || 'UNKNOWN',
+      dto.vulnerability_id || 'UNKNOWN',
+      SeverityFinding.create(normalizeSeverity(dto.severity)),
+      DescriptionFinding.create(dto.description || 'No description provided'),
+      DescriptionFinding.create(dto.remediation || 'No remediation provided'),
+    ),
+  );
+
+  const owaspFindings = (report.semgrep || []).map((dto) =>
+    OWASPFinding.create(
+      PathFinding.create(dto.path || 'UNKNOWN'),
+      ErrorFinding.create(
+        dto.line,
+        DescriptionFinding.create(dto.description || 'No description provided'),
+        SeverityFinding.create(normalizeSeverity(dto.severity)),
+      ),
+      dto.owasp_category || 'UNKNOWN',
+      dto.rule_id || 'UNSPECIFIED_RULE',
+      DescriptionFinding.create(dto.remediation || 'No remediation provided'),
+    ),
+  );
+
+  const secretFindings = (report.trivy || []).map((dto) =>
+    SecretFinding.create(
+      PathFinding.create(dto.path || 'UNKNOWN'),
+      ErrorFinding.create(
+        dto.line,
+        DescriptionFinding.create(dto.description || 'No description provided'),
+        SeverityFinding.create(normalizeSeverity(dto.severity)),
+      ),
+      dto.secret_category || 'UNKNOWN',
+      dto.rule_id || 'UNSPECIFIED_RULE',
+      DescriptionFinding.create(dto.remediation || 'No remediation provided'),
+    ),
+  );
+
+  const toolErrors = (report.errors || []).map((dto) =>
+    ToolError.create(
+      dto.tool || 'No tools encountered an error',
+      DescriptionFinding.create(dto.description || 'No errors'),
+    ),
+  );
+
+  return SecurityReport.create({
+    reportId,
+    analysisId,
+    dependencyFindings,
+    owaspFindings,
+    secretFindings,
+    toolErrors,
+  });
+}
+
 @Injectable()
 export class ReportEntitiesProvider
-  implements IDocsReportEntityProvider, ICodeReportEntityProvider
+  implements IDocsReportEntityProvider, ICodeReportEntityProvider, ISecurityReportEntityProvider
 {
   public fromDocsAgentResponse(
     response: DocsAgentResponse,
@@ -255,7 +332,16 @@ export class ReportEntitiesProvider
   ): CodeAgentReport {
     return mapCodeAgentResponseToCodeAgentReport(response, reportId, analysisId);
   }
+
+  public fromSecurityAgentResponse(
+    response: SecAgentResponse,
+    reportId: ReportId,
+    analysisId: AnalysisId,
+  ): SecurityReport {
+    return mapSecurityAgentResponseToSecurityReport(response, reportId, analysisId);
+  }
 }
 
 export const DOCS_REPORT_PROVIDER = Symbol('IDocsReportEntityProvider');
 export const CODE_REPORT_PROVIDER = Symbol('ICodeReportEntityProvider');
+export const SECURITY_REPORT_PROVIDER = Symbol('ISecurityReportEntityProvider');
