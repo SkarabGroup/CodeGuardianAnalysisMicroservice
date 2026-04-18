@@ -9,6 +9,15 @@ import { SecAgentResponse } from '../../../../../src/analysis/application/DTOs/m
 
 jest.mock('node:child_process');
 
+jest.mock('node:fs', () => {
+  const actualFs = jest.requireActual<typeof import('node:fs')>('node:fs');
+
+  return {
+    ...actualFs,
+    existsSync: jest.fn(),
+  };
+});
+
 interface MockChildProcess extends EventEmitter {
   stdout: EventEmitter;
   stderr: EventEmitter;
@@ -70,6 +79,24 @@ describe('LocalSecurityAnalysisAdapter', () => {
       expect(result).toBeInstanceOf(SecAgentResponse);
       expect(result.analysis_report.metadata.status).toBe('SUCCESS');
       expect(result.analysis_report.trivy).toEqual([]);
+    });
+
+    it('should include env-file when .env exists', async () => {
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+
+      const proc = createMockProcess();
+      const spawnMock = (childProcess.spawn as jest.Mock).mockReturnValue(proc);
+
+      const promise = adapter.runAnalysis(mockRequest);
+
+      process.nextTick(() => {
+        proc.stdout.emit('data', Buffer.from(JSON.stringify(validReport)));
+        proc.emit('close', 0);
+      });
+
+      await promise;
+
+      expect(spawnMock).toHaveBeenCalledWith('docker', expect.arrayContaining(['--env-file']));
     });
 
     it('should extract JSON even with noisy logs', async () => {
@@ -150,7 +177,7 @@ describe('LocalSecurityAnalysisAdapter', () => {
     });
 
     it('should warn when .env file is missing', async () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      (fs.existsSync as jest.Mock).mockReturnValue(false);
 
       const proc = createMockProcess();
       (childProcess.spawn as jest.Mock).mockReturnValue(proc);
