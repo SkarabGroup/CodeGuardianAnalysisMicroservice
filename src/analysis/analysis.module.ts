@@ -24,6 +24,7 @@ import {
   COLLECTION_ADDER_PORT,
   COLLECTION_GETTER_PORT,
   COLLECTION_DELETER_PORT,
+  ALL_COLLECTION_GETTER_PORT,
   // Assicurati di esportare e importare la porta per la collezione se la usi nell'adapter
   // CHECK_COLLECTION_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
@@ -109,6 +110,7 @@ import {
   GitHubCollectionChecker,
 } from './application/services/github-collection-checker.as';
 import {
+  GET_ALL_COLLECTIONS_SERVICE,
   GET_COLLECTION_SERVICE,
   GitHubCollectionGetter,
 } from './application/services/github-collection-getter.as';
@@ -296,6 +298,14 @@ import {
     {
       provide: DELETE_COLLECTION_SERVICE,
       useClass: GitHubCollectionDeleter,
+    },
+    {
+      provide: GET_ALL_COLLECTIONS_SERVICE,
+      useClass: GitHubCollectionGetter,
+    },
+    {
+      provide: ALL_COLLECTION_GETTER_PORT,
+      useClass: MongoDBAdapter,
     },
   ],
   controllers: [AnalysisController, PatController, RepositoriesController],

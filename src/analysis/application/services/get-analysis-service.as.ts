@@ -10,7 +10,8 @@ import { GET_ALL_ANALYSES_FOR_USER_PORT } from '../../infrastructure/adapters/pe
 import type { IGetAllAnalysesForUserPort } from '../ports/repositories/get-all-analyses-for-user-port.port';
 import { GetAllAnalysesForUserCommand } from '../commands/get-all-analyses-for-user-command.command';
 import { GetAllAnalysesForUserResult } from '../results/get-all-analyses-for-user-result.result';
-export class GetAnalysisService implements GetAnalysisUseCase {
+import { GetAllAnalysesForUserUseCase } from '../use-case/get-all-analyses-for-user.uc';
+export class GetAnalysisService implements GetAnalysisUseCase, GetAllAnalysesForUserUseCase {
   constructor(
     @Inject(GET_DETAILED_ANALYSIS_PORT)
     private readonly getAnalysisFromIdPort: IGetAnalysisFromIdPort,

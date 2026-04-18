@@ -54,6 +54,12 @@ import { GetRepositoryCollectionResponse } from '../../../application/DTOs/model
 import { GetRepositoryCollectionResult } from '../../../application/results/get-repository-collection-result.result';
 import { DeleteRepositoryCollectionRequest } from '../../../application/DTOs/models/requests/delete-repository-collection-request.model';
 import { DeleteRepositoryCollectionResult } from '../../../application/results/delete-repository-collection-result.result';
+import { GetAllRepositoryCollectionsRequest } from '../../../application/DTOs/models/requests/get-all-repository-collection-request.model';
+import {
+  CollectionDataResponse,
+  GetAllRepositoryCollectionsResponse,
+} from '../../../application/DTOs/models/responses/get-all-repository-collections-response.model';
+import { IGetAllRepositoryCollectionsPort } from '../../../application/ports/repositories/get-all-repository-collections-port.port';
 
 export interface MongoDeleteResult {
   acknowledged: boolean;
@@ -74,7 +80,8 @@ export class MongoDBAdapter
     IGetAllAnalysesForUserPort,
     ICollectionDuplicateCheckerPort,
     ICollectionAdderPort,
-    IGetRepositoryCollectionPort
+    IGetRepositoryCollectionPort,
+    IGetAllRepositoryCollectionsPort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
@@ -592,6 +599,43 @@ export class MongoDBAdapter
     }
   }
 
+  async getAllCollections(
+    request: GetAllRepositoryCollectionsRequest,
+  ): Promise<GetAllRepositoryCollectionsResponse> {
+    try {
+      const collections = await this.collectionModel
+        .find({ userId: request.user.value })
+        .lean()
+        .exec();
+
+      const mappedCollections: CollectionDataResponse[] = await Promise.all(
+        collections.map(async (c) => {
+          const analyses = await this.analysisModel
+            .find({
+              repoURL: c.url,
+              userId: request.user.value,
+            })
+            .select('analysisId')
+            .lean()
+            .exec();
+
+          return {
+            url: c.url,
+            name: c.name,
+            description: c.description || null,
+            analyses: analyses.map((a) => a.analysisId),
+          };
+        }),
+      );
+
+      return GetAllRepositoryCollectionsResponse.success(mappedCollections);
+    } catch (error) {
+      return GetAllRepositoryCollectionsResponse.failure(
+        error instanceof Error ? error.message : 'Error fetching user collections',
+      );
+    }
+  }
+
   async deleteCollection(
     model: DeleteRepositoryCollectionRequest,
   ): Promise<DeleteRepositoryCollectionResult> {
@@ -637,3 +681,4 @@ export const COLLECTION_DUPLICATE_PORT = Symbol('ICollectionDuplicateCheckerPort
 export const COLLECTION_ADDER_PORT = Symbol('ICollectionAdderPort');
 export const COLLECTION_GETTER_PORT = Symbol('IGetCollectionRepositoryPort');
 export const COLLECTION_DELETER_PORT = Symbol('IDeleteCollectionRepositoryPort');
+export const ALL_COLLECTION_GETTER_PORT = Symbol('IGetAllCollectionRepositoryPort');

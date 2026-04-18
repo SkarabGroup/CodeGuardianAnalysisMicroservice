@@ -3,5 +3,5 @@ export class AddRepositoryCollectionRequestDTO {
     public readonly url: string,
     public readonly name: string,
     public readonly description?: string,
-  ){}
+  ) {}
 }

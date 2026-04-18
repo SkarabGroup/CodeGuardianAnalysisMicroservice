@@ -1,18 +1,16 @@
-import { RepoURL } from '../../domain/value-objects/repo-url.vo';
-import { UserId } from '../../domain/value-objects/user-id.vo';
 import { IsString, IsNotEmpty } from 'class-validator';
 
 export class GetRepositoryCollectionCommand {
   @IsString()
   @IsNotEmpty()
-  public readonly url: RepoURL;
+  public readonly url: string;
 
   @IsString()
   @IsNotEmpty()
-  public readonly user: UserId;
+  public readonly user: string;
 
   constructor(data: { url: string; user: string }) {
-    this.url = RepoURL.create(data.url);
-    this.user = UserId.create(data.user);
+    this.url = data.url;
+    this.user = data.user;
   }
 }
