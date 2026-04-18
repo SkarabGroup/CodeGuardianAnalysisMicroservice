@@ -4,6 +4,7 @@ from helpers.raw_parsers.raw_grype_parser import parse_grype_report
 from helpers.aggregators.semgrep_aggregator import merge_semgrep_findings
 from helpers.aggregators.trivy_aggregator import merge_trivy_findings
 from helpers.aggregators.grype_aggregator import merge_grype_findings
+from helpers.report_builder import build_analysis_report
 
 RAW_TRIVY_FILE = "/app/raw_trivy_report.json"
 RAW_SEMGREP_FILE = "/app/raw_semgrep_report.json"
@@ -35,9 +36,10 @@ def aggregate_findings(agent_report: dict, repo_path: str) -> dict:
   final_semgrep = merge_semgrep_findings(raw_semgrep, agent_semgrep)
   final_grype = merge_grype_findings(raw_grype, agent_grype)
 
-  return {
-        "trivy":   final_trivy,
-        "semgrep": final_semgrep,
-        "grype":   final_grype,
-        "errors":  errors
-    }
+  return build_analysis_report(
+  final_trivy,
+  final_semgrep,
+  final_grype,
+  errors,
+  repo_path
+  )

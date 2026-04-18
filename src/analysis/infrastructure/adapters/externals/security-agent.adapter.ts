@@ -2,22 +2,31 @@ import { Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import * as fs from 'node:fs';
-import { IAgentPort } from '../../../application/ports/externals/agent-port.port';
+import { ISecurityAgentPort } from '../../../application/ports/externals/security-agent-port.port';
 import { AgentRequest } from '../../../application/DTOs/models/requests/agent-request-model.model';
 import {
+  SecTrivyFindingDTO,
+  SecSemgrepFindingDTO,
+  SecGrypeFindingDTO,
   SecAgentResponse,
   SecAgentResponsePayload,
 } from '../../../application/DTOs/models/responses/security-agent-response-model.model';
 
 interface AgentRawOutput {
-  trivy: unknown[];
-  semgrep: unknown[];
-  grype: unknown[];
-  errors: { tool: string; message: string }[];
+  analysis_report: {
+    metadata: {
+      repository: string;
+      status: string;
+    };
+    trivy: SecTrivyFindingDTO[];
+    semgrep: SecSemgrepFindingDTO[];
+    grype: SecGrypeFindingDTO[];
+    errors: { tool: string; description: string }[];
+  };
 }
 
 @Injectable()
-export class LocalSecurityAnalysisAdapter implements IAgentPort {
+export class LocalSecurityAnalysisAdapter implements ISecurityAgentPort {
   private readonly logger = new Logger(LocalSecurityAnalysisAdapter.name);
 
   public async runAnalysis(model: AgentRequest): Promise<SecAgentResponse> {
@@ -44,21 +53,28 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
       const rawOutput = await this.runContainer(dockerArgs);
       const parsed = this.extractAgentOutput(rawOutput);
 
+      if (!parsed.analysis_report) {
+        throw new Error('Invalid agent output: missing analysis_report');
+      }
+      const report = parsed.analysis_report;
+
       this.logger.log(
         `[Adapter] Analysis complete. ` +
-          `trivy=${parsed.trivy.length}, semgrep=${parsed.semgrep.length}, ` +
-          `grype=${parsed.grype.length}, errors=${parsed.errors.length}`,
+          `trivy=${report.trivy.length}, semgrep=${report.semgrep.length}, ` +
+          `grype=${report.grype.length}, errors=${report.errors.length}`,
       );
 
-      const payload: SecurityAgentResponsePayload = {
-        repositoryId: model.id.value,
-        trivy: parsed.trivy,
-        semgrep: parsed.semgrep,
-        grype: parsed.grype,
-        errors: parsed.errors,
+      const payload: SecAgentResponsePayload = {
+        analysis_report: {
+          metadata: report.metadata,
+          trivy: report.trivy,
+          semgrep: report.semgrep,
+          grype: report.grype,
+          errors: report.errors,
+        },
       };
 
-      return new SecurityAgentResponse(payload);
+      return new SecAgentResponse(payload);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`[Adapter] Container execution failed: ${errorMessage}`);
@@ -66,15 +82,19 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
     }
   }
 
-  private createFallbackResponse(reason: string, repositoryId: string): SecurityAgentResponse {
-    const payload: SecurityAgentResponsePayload = {
-      repositoryId,
-      trivy: [],
-      semgrep: [],
-      grype: [],
-      errors: [{ tool: 'agent', message: reason }],
-    };
-    return new SecurityAgentResponse(payload);
+  private createFallbackResponse(reason: string, repositoryId: string): SecAgentResponse {
+    return new SecAgentResponse({
+      analysis_report: {
+        metadata: {
+          repository: repositoryId,
+          status: 'FAILED',
+        },
+        trivy: [],
+        semgrep: [],
+        grype: [],
+        errors: [{ tool: 'agent', description: reason }],
+      },
+    });
   }
 
   private runContainer(dockerArgs: string[]): Promise<string> {
@@ -107,7 +127,9 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
     try {
       const parsed = JSON.parse(raw.trim()) as AgentRawOutput;
       if (this.isValidAgentOutput(parsed)) return parsed;
-    } catch {}
+    } catch {
+      // If direct parsing fails, attempt to extract JSON from mixed output (e.g., logs + JSON).
+    }
 
     const startIndex = raw.indexOf('{');
     if (startIndex === -1) {
@@ -124,7 +146,9 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
         try {
           const parsed = JSON.parse(candidate) as AgentRawOutput;
           if (this.isValidAgentOutput(parsed)) return parsed;
-        } catch {}
+        } catch {
+          // Continue searching if parsing fails.
+        }
         break;
       }
     }
@@ -134,8 +158,20 @@ export class LocalSecurityAnalysisAdapter implements IAgentPort {
 
   private isValidAgentOutput(obj: unknown): obj is AgentRawOutput {
     if (typeof obj !== 'object' || obj === null) return false;
+
     const o = obj as Record<string, unknown>;
-    return Array.isArray(o['trivy']) && Array.isArray(o['semgrep']) && Array.isArray(o['grype']);
+    const report = o['analysis_report'];
+
+    if (typeof report !== 'object' || report === null) return false;
+
+    const r = report as Record<string, unknown>;
+
+    return (
+      Array.isArray(r['trivy']) &&
+      Array.isArray(r['semgrep']) &&
+      Array.isArray(r['grype']) &&
+      Array.isArray(r['errors'])
+    );
   }
 }
 

@@ -6,10 +6,11 @@ from tools.grype_functions import run_grype
 from helpers.agent_normalizer import normalize_agent_output
 import contextlib
 import io
+import os
 
 model = BedrockModel(
-    model_id="qwen.qwen3-235b-a22b-2507-v1:0",
-    region_name="eu-north-1"
+    model_id=os.getenv("BEDROCK_MODEL_ID"),
+    region_name=os.getenv("AWS_REGION")
 )
 
 SYSTEM_PROMPT = """
