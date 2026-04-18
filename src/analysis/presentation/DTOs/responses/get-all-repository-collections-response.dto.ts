@@ -3,6 +3,7 @@ export class RepositoryCollectionItemDTO {
     public readonly url: string,
     public readonly name: string,
     public readonly description?: string,
+    public readonly lastAnalysisDate?: Date,
   ) {}
 }
 

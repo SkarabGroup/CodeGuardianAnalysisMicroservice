@@ -3,6 +3,7 @@ export interface CollectionDataResponse {
   name: string;
   description: string | null;
   analyses: string[];
+  lastAnalysisDate: Date | null;
 }
 
 export class GetAllRepositoryCollectionsResponse {

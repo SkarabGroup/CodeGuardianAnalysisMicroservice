@@ -615,15 +615,20 @@ export class MongoDBAdapter
               repoURL: c.url,
               userId: request.user.value,
             })
-            .select('analysisId')
+            .sort({ createdAt: -1 })
+            .select('analysisId createdAt')
             .lean()
             .exec();
+
+          const allIds = analyses.map((a: GitHubAnalysisDocument) => a.analysisId);
+          const lastDate = analyses.length > 0 ? analyses[0].createdAt : null;
 
           return {
             url: c.url,
             name: c.name,
             description: c.description || null,
-            analyses: analyses.map((a) => a.analysisId),
+            analyses: allIds,
+            lastAnalysisDate: lastDate || null,
           };
         }),
       );
@@ -647,10 +652,8 @@ export class MongoDBAdapter
         })
         .exec()) as MongoDeleteResult;
 
-      // LOG FONDAMENTALE: vedi cosa risponde davvero il driver
       console.log('[Adapter] Mongoose Result:', result);
 
-      // In alcune versioni di Mongoose/MongoDB, il campo potrebbe chiamarsi 'n' invece di 'deletedCount'
       const isDeleted = result.deletedCount > 0 || (result.n ?? 0) > 0;
 
       if (!isDeleted) {
