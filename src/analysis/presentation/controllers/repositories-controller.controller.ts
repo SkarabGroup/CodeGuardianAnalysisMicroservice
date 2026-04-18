@@ -3,7 +3,7 @@ import { JwtAuthGuard, UserId } from './helper/jwt-guard.helper';
 
 import { AddRepositoryCollectionRequestDTO } from '../DTOs/requests/add-repository-collection-request.dto';
 import { DeleteRepositoryCollectionResponseDTO } from '../DTOs/responses/delete-repository-collection-response.dto';
-import { AddRepositoryCollectionResponseDTO } from '../DTOs/responses/add-repository-collection-reponse.dto';
+import { AddRepositoryCollectionResponseDTO } from '../DTOs/responses/add-repository-collection-response.dto';
 import { GetRepositoryCollectionResponseDTO } from '../DTOs/responses/get-repository-collection-responsee.dto';
 import { GetAnalysisResponseDTO } from '../DTOs/responses/get-analysis-by-id.dto';
 import { GetAllAnalysesForUserResponseDTO } from '../DTOs/responses/get-all-analyses-for-user-response.dto';
@@ -79,7 +79,7 @@ export class RepositoriesController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('all')
+  @Get()
   public async getAllAnalysesForUser(
     @UserId() userId: string,
   ): Promise<GetAllAnalysesForUserResponseDTO> {
