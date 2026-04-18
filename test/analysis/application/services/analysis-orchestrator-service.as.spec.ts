@@ -18,7 +18,6 @@ import { SECURITY_AGENT } from '../../../../src/analysis/infrastructure/adapters
 import { SECURITY_REPORT_PROVIDER } from '../../../../src/analysis/domain/services/report-entities-provider.ds';
 import { SECURITY_REPORT_SAVE_PORT } from '../../../../src/analysis/infrastructure/adapters/persistence/mongo-adapter.adapter';
 
-// Mock dei file system
 jest.mock('node:fs/promises');
 
 describe('AnalysisOrchestratorService', () => {
@@ -46,6 +45,14 @@ describe('AnalysisOrchestratorService', () => {
   const mockAnalysis = {
     getAnalysisId: jest.fn().mockReturnValue(mockAnalysisId),
   } as unknown as GitHubAnalysis;
+
+  // Struttura corretta per il code agent mock: deve avere analysis_report come wrapper
+  const successfulCodeAgentResponse = {
+    analysis_report: {
+      metadata: { status: 'success' },
+      ai_interpretation: { verdict: 'Good' },
+    },
+  };
 
   const securityAgentMock = { runAnalysis: jest.fn() };
   const securityReportProviderMock = { fromSecurityAgentResponse: jest.fn() };
@@ -104,7 +111,6 @@ describe('AnalysisOrchestratorService', () => {
 
     service = module.get<AnalysisOrchestratorService>(AnalysisOrchestratorService);
 
-    // Setup di default per i mock
     jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
     updateAnalysisPortMock.addReportsToAnalysis.mockResolvedValue({ success: true });
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -121,10 +127,7 @@ describe('AnalysisOrchestratorService', () => {
 
   describe('analyze - Code Analysis Flow', () => {
     it('should start orchestration, call code agent, map entity and save report', async () => {
-      codeAgentMock.runAnalysis.mockResolvedValue({
-        metadata: { status: 'success' },
-        ai_interpretation: { verdict: 'Safe' },
-      });
+      codeAgentMock.runAnalysis.mockResolvedValue(successfulCodeAgentResponse);
 
       const mockEntity = {
         id: { value: 'fake-id' },
@@ -145,12 +148,8 @@ describe('AnalysisOrchestratorService', () => {
     });
 
     it('should call code agent and write local file when code analysis is requested', async () => {
-      // CORREZIONE: La struttura deve avere 'metadata' alla root, non dentro 'analysis_report'
-      codeAgentMock.runAnalysis.mockResolvedValue({
-        metadata: { status: 'success' },
-      });
+      codeAgentMock.runAnalysis.mockResolvedValue(successfulCodeAgentResponse);
 
-      // Necessario anche mockare il provider dell'entità per evitare che il flusso si interrompa dopo la scrittura file
       const mockEntity = {
         id: { value: 'code-id' },
         analysisId: mockAnalysisId,
@@ -169,8 +168,11 @@ describe('AnalysisOrchestratorService', () => {
     });
 
     it('should handle code agent failure gracefully', async () => {
+      // FIX: struttura corretta con analysis_report wrapper, status != 'success'
       codeAgentMock.runAnalysis.mockResolvedValue({
-        metadata: { status: 'failed' },
+        analysis_report: {
+          metadata: { status: 'failed' },
+        },
       });
 
       service.analyze(mockAnalysis, '/tmp/repo', true, false, false);
@@ -209,12 +211,10 @@ describe('AnalysisOrchestratorService', () => {
         setImmediate(resolve);
       });
 
-      // Verifica trasformazione in Entity e salvataggio
       expect(docsAgentMock.runAnalysis).toHaveBeenCalled();
       expect(docsReportProviderMock.fromDocsAgentResponse).toHaveBeenCalled();
       expect(docsReportSavePortMock.saveDocsReport).toHaveBeenCalled();
 
-      // Verifica aggiornamento dell'analisi principale con i nuovi report IDs
       expect(updateAnalysisPortMock.addReportsToAnalysis).toHaveBeenCalledWith(
         expect.objectContaining({
           analysisId: 'test-uuid',
@@ -255,15 +255,15 @@ describe('AnalysisOrchestratorService', () => {
 
   describe('analyze - Error Handling & Orchestration', () => {
     it('should log error when updateAnalysisPort fails', async () => {
-      // 1. Corretta la struttura del mock per il codeAgent
-      codeAgentMock.runAnalysis.mockResolvedValue({
-        metadata: { status: 'success' },
-      });
+      // FIX: struttura corretta con analysis_report wrapper
+      codeAgentMock.runAnalysis.mockResolvedValue(successfulCodeAgentResponse);
 
-      // 2. Aggiunto il mock dell'entità per fornire un ID valido al metodo di update
       const mockEntity = {
         getReportId: () => ({ value: 'fake-id' }),
         id: { value: 'fake-id' },
+        analysisId: mockAnalysisId,
+        metadata: {},
+        interpretation: {},
       };
       codeReportProviderMock.fromCodeAgentResponse.mockReturnValue(mockEntity);
 
@@ -283,7 +283,6 @@ describe('AnalysisOrchestratorService', () => {
     });
 
     it('should handle general orchestration failure (catch block)', async () => {
-      // Forziamo un errore immediato
       docsAgentMock.runAnalysis.mockRejectedValue(new Error('Fatal Agent Error'));
 
       service.analyze(mockAnalysis, '/tmp/repo', false, true, false);
@@ -307,10 +306,9 @@ describe('AnalysisOrchestratorService', () => {
     });
 
     it('should successfully orchestrate all selected tasks (code, docs, security) and log success', async () => {
-      // Mock Code Agent success
-      codeAgentMock.runAnalysis.mockResolvedValue({
-        metadata: { status: 'success' },
-      });
+      // FIX: struttura corretta per code agent
+      codeAgentMock.runAnalysis.mockResolvedValue(successfulCodeAgentResponse);
+
       const mockCodeEntity = {
         id: { value: 'code-id' },
         analysisId: mockAnalysisId,
@@ -319,7 +317,6 @@ describe('AnalysisOrchestratorService', () => {
       };
       codeReportProviderMock.fromCodeAgentResponse.mockReturnValue(mockCodeEntity);
 
-      // Mock Docs Agent success
       docsAgentMock.runAnalysis.mockResolvedValue({
         analysis_report: { metadata: { status: 'success' } },
       });
@@ -347,23 +344,18 @@ describe('AnalysisOrchestratorService', () => {
       };
       securityReportProviderMock.fromSecurityAgentResponse.mockReturnValue(mockSecurityEntity);
 
-      // Mock DB save success
       updateAnalysisPortMock.addReportsToAnalysis.mockResolvedValue({
         success: true,
       });
 
-      // Eseguiamo l'analisi passando `true` a code, docs e security
       service.analyze(mockAnalysis, '/tmp/repo', true, true, true);
 
       await new Promise<void>((resolve) => {
         setImmediate(resolve);
       });
 
-      // Verifica che la chiamata di update sia stata effettuata
-      // (attivando così tutti i rami dei ternari nell'oggetto AddReportsToAnalysisRequest)
       expect(updateAnalysisPortMock.addReportsToAnalysis).toHaveBeenCalled();
 
-      // Verifica che il log di successo finale sia stato emesso
       expect(console.log).toHaveBeenCalledWith(
         'Analysis reports added to the analysis record successfully.',
       );

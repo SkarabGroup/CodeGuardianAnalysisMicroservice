@@ -20,9 +20,8 @@ class JaCoCoStrategy:
 
     @staticmethod
     def build_command(has_plugin: bool) -> list[str]:
-        if has_plugin: return ["mvn", "clean", "test", "jacoco:report"]
-        return ["mvn", "clean", f"org.jacoco:jacoco-maven-plugin:{JACOCO_VERSION}:prepare-agent", "test", f"org.jacoco:jacoco-maven-plugin:{JACOCO_VERSION}:report"]
-
+        if has_plugin: return ["mvn", "-T", "1C", "test", "jacoco:report"]
+        return ["mvn", "-T", "1C", f"org.jacoco:jacoco-maven-plugin:{JACOCO_VERSION}:prepare-agent", "test", f"org.jacoco:jacoco-maven-plugin:{JACOCO_VERSION}:report"]
 class JaCoCoRunner:
     def run(self, repo_path: str) -> str:
         pom_path = os.path.join(repo_path, "pom.xml")

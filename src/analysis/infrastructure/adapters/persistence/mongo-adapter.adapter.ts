@@ -44,6 +44,32 @@ import { UserId } from '../../../domain/value-objects/user-id.vo';
 import { GetAllAnalysesForUserResponse } from '../../../application/DTOs/models/responses/get-all-analyses-for-user-response.model';
 import { IGetAllAnalysesForUserPort } from '../../../application/ports/repositories/get-all-analyses-for-user-port.port';
 import { ISecurityReportSavePort } from '../../../application/ports/repositories/security-report-save-port.repository';
+import { CodeAnalysisReportDTO } from '../../../application/DTOs/models/responses/code-agent-response-model.model';
+import { ICollectionDuplicateCheckerPort } from '../../../application/ports/repositories/collection-duplicate-checker-port.port';
+import { CheckCollectionDuplicateRequest } from '../../../application/DTOs/models/requests/check-collection-duplicate-request.model';
+import { CheckCollectionDuplicateResponse } from '../../../application/DTOs/models/responses/check-collection-duplicate-response.model';
+import { GitHubCollection, GitHubCollectionDocument } from './schema/github-collection.schema';
+import { ICollectionAdderPort } from '../../../application/ports/repositories/add-collection-port.port';
+import { AddRepositoryCollectionRequest } from '../../../application/DTOs/models/requests/add-repository-collection-request.model';
+import { AddRepositoryCollectionResponse } from '../../../application/DTOs/models/responses/add-repository-collection-response.model.model';
+import { IGetRepositoryCollectionPort } from '../../../application/ports/repositories/get-repository-collection-port.port';
+import { GetRepositoryCollectionRequest } from '../../../application/DTOs/models/requests/get-repository-collection-request.model';
+import { GetRepositoryCollectionResponse } from '../../../application/DTOs/models/responses/get-repository-collection-response.model';
+import { GetRepositoryCollectionResult } from '../../../application/results/get-repository-collection-result.result';
+import { DeleteRepositoryCollectionRequest } from '../../../application/DTOs/models/requests/delete-repository-collection-request.model';
+import { DeleteRepositoryCollectionResult } from '../../../application/results/delete-repository-collection-result.result';
+import { GetAllRepositoryCollectionsRequest } from '../../../application/DTOs/models/requests/get-all-repository-collection-request.model';
+import {
+  CollectionDataResponse,
+  GetAllRepositoryCollectionsResponse,
+} from '../../../application/DTOs/models/responses/get-all-repository-collections-response.model';
+import { IGetAllRepositoryCollectionsPort } from '../../../application/ports/repositories/get-all-repository-collections-port.port';
+
+export interface MongoDeleteResult {
+  acknowledged: boolean;
+  deletedCount: number;
+  n?: number; // Legacy property for older MongoDB/Mongoose versions
+}
 @Injectable()
 export class MongoDBAdapter
   implements
@@ -56,7 +82,11 @@ export class MongoDBAdapter
     IDocsReportSavePort,
     ISecurityReportSavePort,
     IUpdateAnalysisPort,
-    IGetAllAnalysesForUserPort
+    IGetAllAnalysesForUserPort,
+    ICollectionDuplicateCheckerPort,
+    ICollectionAdderPort,
+    IGetRepositoryCollectionPort,
+    IGetAllRepositoryCollectionsPort
 {
   public constructor(
     @InjectModel(GitCredential.name, 'DatabaseConnection')
@@ -69,6 +99,8 @@ export class MongoDBAdapter
     private readonly codeReportModel: Model<CodeReportDocument>,
     @InjectModel(SecurityReport.name, 'DatabaseConnection')
     private readonly securityReportModel: Model<SecurityReportDocument>,
+    @InjectModel(GitHubCollection.name, 'DatabaseConnection')
+    private readonly collectionModel: Model<GitHubCollectionDocument>,
   ) {}
 
   async authorize(model: GetGitCredentialRequest): Promise<GetGitCredentialResponse> {
@@ -248,7 +280,7 @@ export class MongoDBAdapter
         { analysisId: model.analysisId },
         {
           $set: {
-            status: 'completed',
+            status: 'COMPLETED',
             codeReportId: model.codeReportId,
             docsReportId: model.documentationReportId,
             securityReportId: model.securityReportId,
@@ -274,8 +306,7 @@ export class MongoDBAdapter
       if (!analysisRecord) return null;
 
       let docsReportDTO: DocsAnalysisReportDTO | null = null;
-
-      // 2. Se esiste un report di documentazione, lo recupero e lo mappo
+      let codeReportDTO: CodeAnalysisReportDTO | null = null;
       if (analysisRecord.docsReportId) {
         console.log(`Fetching Docs Report with ID: ${analysisRecord.docsReportId}`);
         const reportDoc = await this.docsReportModel
@@ -289,7 +320,6 @@ export class MongoDBAdapter
               repository: analysisRecord.repoURL,
               status: analysisRecord.status,
             },
-            // Mapping da CamelCase (DB) a Snake/PascalCase (DTO)
             API_standard_violations: reportDoc.apiViolations.map((v) => ({
               file: v.path,
               rule: v.rule,
@@ -345,6 +375,58 @@ export class MongoDBAdapter
         }
       }
 
+      if (analysisRecord.codeReportId) {
+        console.log(`Fetching Code Report with ID: ${analysisRecord.codeReportId}`);
+        const codeDoc = await this.codeReportModel
+          .findOne({ reportId: analysisRecord.codeReportId })
+          .lean()
+          .exec();
+
+        if (codeDoc) {
+          codeReportDTO = {
+            metadata: {
+              language: codeDoc.metadata.language || 'UNKNOWN',
+              status: codeDoc.metadata.status,
+            },
+            ai_interpretation: {
+              verdict: codeDoc.interpretation.verdict,
+              executive_summary: codeDoc.interpretation.executiveSummary,
+              static_analysis_evaluation: {
+                total_issues_analyzed:
+                  codeDoc.interpretation.staticAnalysisEvaluation.totalIssuesAnalyzed,
+                key_issues_reasoning:
+                  codeDoc.interpretation.staticAnalysisEvaluation.keyIssuesReasoning.map(
+                    (issue) => ({
+                      file: issue.file,
+                      location: {
+                        line_start: issue.location.lineStart,
+                        line_end: issue.location.lineEnd,
+                        column: issue.location.column,
+                      },
+                      rule: issue.rule,
+                      severity: issue.severity,
+                      original_description: issue.originalDescription,
+                      ai_reasoning: issue.aiReasoning,
+                      suggested_resolution: issue.suggestedResolution || '',
+                    }),
+                  ),
+              },
+              coverage_evaluation: {
+                overall_health: codeDoc.interpretation.coverageEvaluation.overallHealth,
+                critical_files_reasoning:
+                  codeDoc.interpretation.coverageEvaluation.criticalFilesReasoning.map((file) => ({
+                    file: file.file,
+                    line_coverage_pct: file.lineCoveragePct,
+                    missing_lines: file.missingLines || [],
+                    missing_branches: file.missingBranches,
+                    ai_reasoning: file.aiReasoning,
+                  })),
+              },
+            },
+          };
+        }
+      }
+
       const generalData: GitHubAnalysisGeneralDataDTO = {
         analysisId: analysisRecord.analysisId,
         userId: analysisRecord.userId,
@@ -356,8 +438,9 @@ export class MongoDBAdapter
         updatedAt: analysisRecord.updatedAt!,
       };
       console.log('Docs Report DTO:', docsReportDTO);
+      console.log('Code Report DTO:', codeReportDTO);
 
-      return new GitHubAnalysisDetailedResult(generalData, docsReportDTO);
+      return new GitHubAnalysisDetailedResult(generalData, docsReportDTO, codeReportDTO);
     } catch (error) {
       console.error('Error fetching detailed analysis:', error);
       throw new Error('Could not retrieve detailed analysis');
@@ -494,6 +577,156 @@ export class MongoDBAdapter
       );
     }
   }
+
+  async checkDuplicate(
+    model: CheckCollectionDuplicateRequest,
+  ): Promise<CheckCollectionDuplicateResponse> {
+    try {
+      const result = await this.collectionModel.exists({
+        userId: model.user.value,
+        url: model.url.value,
+      });
+
+      const exists = result !== null;
+
+      return new CheckCollectionDuplicateResponse(exists);
+    } catch (error) {
+      console.error('Error checking collection existence:', error);
+      return new CheckCollectionDuplicateResponse(false);
+    }
+  }
+
+  async addCollection(
+    model: AddRepositoryCollectionRequest,
+  ): Promise<AddRepositoryCollectionResponse> {
+    try {
+      await this.collectionModel.create({
+        userId: model.user.value,
+        url: model.url.value,
+        name: model.name,
+        description: model.description ?? '',
+        analyses: [],
+      });
+
+      return new AddRepositoryCollectionResponse(true);
+    } catch (error) {
+      console.error('Could not create collection:', (error as Error).message);
+
+      return new AddRepositoryCollectionResponse(false);
+    }
+  }
+
+  async getRepositoryCollection(
+    model: GetRepositoryCollectionRequest,
+  ): Promise<GetRepositoryCollectionResponse> {
+    try {
+      // 1. Recupera i dati anagrafici della collezione (nome, descrizione, ecc.)
+      const collection = await this.collectionModel
+        .findOne({
+          url: model.url.value,
+          userId: model.user.value,
+        })
+        .lean()
+        .exec();
+
+      if (!collection) {
+        return GetRepositoryCollectionResult.failure('Collection not found');
+      }
+
+      // 2. Recupera dinamicamente TUTTE le analisi fatte da questo utente su questo URL.
+      // Questo garantisce che vengano trovate anche le analisi effettuate PRIMA
+      // della creazione della collezione.
+      const analyses = await this.analysisModel
+        .find({
+          repoURL: model.url.value,
+          userId: model.user.value,
+        })
+        .select('analysisId') // Ottimizzazione: scarichiamo solo l'ID dal DB
+        .lean()
+        .exec();
+
+      const analysisIds = analyses.map((a) => a.analysisId);
+
+      return GetRepositoryCollectionResult.success({
+        url: collection.url,
+        name: collection.name,
+        description: collection.description || null,
+        analyses: analysisIds,
+      });
+    } catch (error) {
+      console.error('Error fetching collection:', error);
+      return GetRepositoryCollectionResult.failure('Internal database error');
+    }
+  }
+
+  async getAllCollections(
+    request: GetAllRepositoryCollectionsRequest,
+  ): Promise<GetAllRepositoryCollectionsResponse> {
+    try {
+      const collections = await this.collectionModel
+        .find({ userId: request.user.value })
+        .lean()
+        .exec();
+
+      const mappedCollections: CollectionDataResponse[] = await Promise.all(
+        collections.map(async (c) => {
+          const analyses = await this.analysisModel
+            .find({
+              repoURL: c.url,
+              userId: request.user.value,
+            })
+            .sort({ createdAt: -1 })
+            .select('analysisId createdAt')
+            .lean()
+            .exec();
+
+          const allIds = analyses.map((a: GitHubAnalysisDocument) => a.analysisId);
+          const lastDate = analyses.length > 0 ? analyses[0].createdAt : null;
+
+          return {
+            url: c.url,
+            name: c.name,
+            description: c.description || null,
+            analyses: allIds,
+            lastAnalysisDate: lastDate || null,
+          };
+        }),
+      );
+
+      return GetAllRepositoryCollectionsResponse.success(mappedCollections);
+    } catch (error) {
+      return GetAllRepositoryCollectionsResponse.failure(
+        error instanceof Error ? error.message : 'Error fetching user collections',
+      );
+    }
+  }
+
+  async deleteCollection(
+    model: DeleteRepositoryCollectionRequest,
+  ): Promise<DeleteRepositoryCollectionResult> {
+    try {
+      const result = (await this.collectionModel
+        .deleteOne({
+          url: model.url.value,
+          userId: model.user.value,
+        })
+        .exec()) as MongoDeleteResult;
+
+      console.log('[Adapter] Mongoose Result:', result);
+
+      const isDeleted = result.deletedCount > 0 || (result.n ?? 0) > 0;
+
+      if (!isDeleted) {
+        console.log('[Adapter] No document matched the criteria for deletion.');
+        return DeleteRepositoryCollectionResult.failure('Collection not found');
+      }
+
+      return DeleteRepositoryCollectionResult.success();
+    } catch (error) {
+      console.error('[Adapter] Exception during deletion:', error);
+      return DeleteRepositoryCollectionResult.failure((error as Error).message);
+    }
+  }
 }
 
 export const GIT_CREDENTIAL_READ_PORT = Symbol('IGitCredentialReadPort');
@@ -507,3 +740,9 @@ export const SECURITY_REPORT_SAVE_PORT = Symbol('ISecurityReportSavePort');
 export const ADD_REPORTS_TO_ANALYSIS_PORT = Symbol('IUpdateAnalysisPort');
 export const GET_DETAILED_ANALYSIS_PORT = Symbol('IGetAnalysisFromIdPort');
 export const GET_ALL_ANALYSES_FOR_USER_PORT = Symbol('IGetAllAnalysesForUserPort');
+
+export const COLLECTION_DUPLICATE_PORT = Symbol('ICollectionDuplicateCheckerPort');
+export const COLLECTION_ADDER_PORT = Symbol('ICollectionAdderPort');
+export const COLLECTION_GETTER_PORT = Symbol('IGetCollectionRepositoryPort');
+export const COLLECTION_DELETER_PORT = Symbol('IDeleteCollectionRepositoryPort');
+export const ALL_COLLECTION_GETTER_PORT = Symbol('IGetAllCollectionRepositoryPort');

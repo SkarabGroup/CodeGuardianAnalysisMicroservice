@@ -17,7 +17,7 @@ import { UpdatePatResponseDTO } from '../DTOs/responses/update-pat-response.dto'
 import { UpdatePatCommand } from '../../application/commands/update-pat-command.command';
 import type { UpdatePatUseCase } from '../../application/use-case/update-pat-use-case.uc';
 
-@Controller('analysis')
+@Controller('pat')
 export class PatController {
   constructor(
     @Inject(ADD_NEW_PAT)
@@ -28,7 +28,7 @@ export class PatController {
     private readonly updatePatService: UpdatePatUseCase,
   ) {}
 
-  @Post('pat')
+  @Post()
   async addNewPat(@Body() dto: PostPatRequestDTO): Promise<PostPatResponseDTO> {
     const command = new NewPatCommand({
       repositoryUrl: dto.repositoryUrl,
@@ -49,7 +49,7 @@ export class PatController {
       );
     }
   }
-  @Delete('pat')
+  @Delete()
   async deletePat(@Body() dto: DeletePatRequestDTO): Promise<DeletePatResponseDTO> {
     const command = new DeletePatCommand({
       repositoryUrl: dto.repositoryUrl,
@@ -70,7 +70,7 @@ export class PatController {
     }
   }
 
-  @Put('pat')
+  @Put()
   async updatePat(@Body() dto: UpdatePatRequestDTO): Promise<UpdatePatResponseDTO> {
     const command = new UpdatePatCommand({
       repositoryUrl: dto.repositoryUrl,

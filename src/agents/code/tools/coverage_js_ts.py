@@ -43,8 +43,17 @@ class IstanbulResolver:
 
 class JSTSCoverageRunner:
     def install_deps(self, repo_path: str, pkg_manager: str) -> None:
-        cmds = {"npm": ["npm", "install"], "yarn": ["yarn", "install"], "pnpm": ["pnpm", "install"]}
-        subprocess.run(cmds[pkg_manager], capture_output=True, check=False, cwd=repo_path)
+        if pkg_manager == "npm" and os.path.exists(os.path.join(repo_path, "package-lock.json")):
+            cmd = ["npm", "ci", "--prefer-offline"]
+        else:
+            cmds = {
+                "npm": ["npm", "install", "--prefer-offline"], 
+                "yarn": ["yarn", "install"], 
+                "pnpm": ["pnpm", "install"]
+            }
+            cmd = cmds.get(pkg_manager, ["npm", "install", "--prefer-offline"])
+            
+        subprocess.run(cmd, capture_output=True, check=False, cwd=repo_path)
 
     def run_jest(self, repo_path: str) -> None:
         coverage_dir = os.path.join(repo_path, "coverage")

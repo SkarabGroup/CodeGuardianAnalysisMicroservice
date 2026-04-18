@@ -91,23 +91,21 @@ export interface AIInterpretationDTO {
   };
 }
 
-export interface CodeAgentResponsePayload {
+export interface CodeAnalysisReportDTO {
   metadata: AgentMetadataDTO;
   static_analysis?: AgentStaticAnalysisDTO;
   coverage?: AgentCoverageDTO;
   ai_interpretation: AIInterpretationDTO;
 }
 
+export interface CodeAgentResponsePayload {
+  analysis_report: CodeAnalysisReportDTO;
+}
+
 export class CodeAgentResponse {
-  public readonly metadata: AgentMetadataDTO;
-  public readonly static_analysis?: AgentStaticAnalysisDTO;
-  public readonly coverage?: AgentCoverageDTO;
-  public readonly ai_interpretation: AIInterpretationDTO;
+  public readonly analysis_report: CodeAnalysisReportDTO;
 
   constructor(data: CodeAgentResponsePayload) {
-    this.metadata = data.metadata;
-    if (data.static_analysis) this.static_analysis = data.static_analysis;
-    if (data.coverage) this.coverage = data.coverage;
-    this.ai_interpretation = data.ai_interpretation;
+    this.analysis_report = data.analysis_report;
   }
 }

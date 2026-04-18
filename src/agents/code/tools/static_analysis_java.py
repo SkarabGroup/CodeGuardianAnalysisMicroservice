@@ -3,6 +3,7 @@ import json
 import os
 import re
 from strands import tool
+import multiprocessing
 from tools.models import StaticIssue, IssueLocation, StaticAnalysisReport
 
 MAX_ISSUES    = 100
@@ -79,7 +80,8 @@ class PMDRunner:
 
     def run(self, repo_path: str) -> dict:
         pmd = self._find_pmd_executable()
-        cmd = [pmd, "check", "-d", repo_path, "-R", ",".join(PMD_RULESETS), "-f", "json"]
+        threads = str(multiprocessing.cpu_count())
+        cmd = [pmd, "check", "-d", repo_path, "-R", ",".join(PMD_RULESETS), "-f", "json", "-t", threads]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         raw = result.stdout.strip()
         if not raw: return {}
@@ -88,7 +90,6 @@ class PMDRunner:
             return parsed if isinstance(parsed, dict) else {}
         except json.JSONDecodeError:
             return {}
-
 @tool
 def java_static_analysis(repo_path: str) -> str:
     try:

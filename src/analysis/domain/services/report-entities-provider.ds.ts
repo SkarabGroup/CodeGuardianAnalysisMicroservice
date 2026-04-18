@@ -192,12 +192,14 @@ export function mapCodeAgentResponseToCodeAgentReport(
   reportId: ReportId,
   analysisId: AnalysisId,
 ): CodeAgentReport {
+  const report = response.analysis_report;
+
   const metadata = CodeAgentMetadata.create(
-    response.metadata.language ?? 'UNKNOWN',
-    response.metadata.status,
+    report.metadata.language ?? 'UNKNOWN',
+    report.metadata.status,
   );
 
-  const interpretationDto = response.ai_interpretation;
+  const interpretationDto = report.ai_interpretation;
 
   const keyIssuesReasoning = (
     interpretationDto.static_analysis_evaluation.key_issues_reasoning || []

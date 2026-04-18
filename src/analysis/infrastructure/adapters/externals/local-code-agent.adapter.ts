@@ -38,35 +38,41 @@ export class LocalCodeAnalysisAdapter implements ICodeAgentPort {
     try {
       const rawOutput = await this.runContainer(dockerArgs);
       const parsed = this.extractJson(rawOutput);
-
-      if (parsed['status'] === 'error' || parsed['error']) {
-        const rawError = parsed['message'] ?? parsed['error'] ?? 'Unknown error from Python tool';
-        const errorMsg = typeof rawError === 'string' ? rawError : JSON.stringify(rawError);
-
-        this.logger.error(`[Adapter] Agent returned an error: ${errorMsg}`);
-        return this.createFallbackResponse(errorMsg);
+      if (!parsed['analysis_report']) {
+        console.debug('Raw container output:', rawOutput);
+        throw new Error(rawOutput || 'Container did not return a valid analysis report.');
       }
 
-      this.logger.log('[Adapter] Analysis result successfully extracted.');
+      console.log('[Adapter] Analysis result successfully extracted.');
+
+      const report = parsed['analysis_report'] as Record<string, unknown>;
+      report['metadata'] = {
+        ...(report['metadata'] as Record<string, unknown>),
+        repository: model.id.value,
+        status: 'success',
+      };
 
       return new CodeAgentResponse(parsed as unknown as CodeAgentResponsePayload);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(`[Adapter] Critical error during execution: ${errorMessage}`);
-      return this.createFallbackResponse(errorMessage);
+      console.log(`[Adapter] Critical error during execution: ${errorMessage}`);
+      return this.createFallbackResponse(model.id.value);
     }
   }
 
   private createFallbackResponse(reason: string): CodeAgentResponse {
+    console.log("I have failed and I'm now in createFallbackResponse");
     return new CodeAgentResponse({
-      metadata: {
-        status: 'error',
-      },
-      ai_interpretation: {
-        verdict: 'Critical',
-        executive_summary: `The automated analysis failed due to an infrastructure error or resource limit. Details: ${reason}`,
-        static_analysis_evaluation: { total_issues_analyzed: 0, key_issues_reasoning: [] },
-        coverage_evaluation: { overall_health: 'Unknown', critical_files_reasoning: [] },
+      analysis_report: {
+        metadata: {
+          status: 'error',
+        },
+        ai_interpretation: {
+          verdict: 'Critical',
+          executive_summary: `The automated analysis failed due to an infrastructure error or resource limit. Details: ${reason}`,
+          static_analysis_evaluation: { total_issues_analyzed: 0, key_issues_reasoning: [] },
+          coverage_evaluation: { overall_health: 'Unknown', critical_files_reasoning: [] },
+        },
       },
     });
   }
@@ -104,7 +110,7 @@ export class LocalCodeAnalysisAdapter implements ICodeAgentPort {
           const errString = raw.substring(errorIndex, closingBrace + 1);
           return JSON.parse(errString) as Record<string, unknown>;
         } catch (e) {
-          this.logger.debug('Failed JSON Extraction', String(e));
+          console.debug('Failed JSON Extraction', String(e));
         }
       }
     }
@@ -125,13 +131,13 @@ export class LocalCodeAnalysisAdapter implements ICodeAgentPort {
           try {
             const parsed = JSON.parse(candidate) as Record<string, unknown>;
 
-            if (parsed['metadata'] || parsed['ai_interpretation'] || parsed['status'] === 'error') {
+            if (parsed['analysis_report']) {
               return parsed;
             }
 
             bestCandidate = parsed;
           } catch {
-            /* Iterative scanning: ignore malformed JSON chunks and continue searching */
+            // Iterative scanning: ignore malformed JSON chunks and continue searching
           }
           break;
         }
@@ -141,7 +147,7 @@ export class LocalCodeAnalysisAdapter implements ICodeAgentPort {
 
     if (bestCandidate) return bestCandidate;
 
-    throw new Error('Unterminated JSON in container output (probable Max Tokens Limit).');
+    throw new Error('Unterminated JSON in container output.');
   }
 }
 
