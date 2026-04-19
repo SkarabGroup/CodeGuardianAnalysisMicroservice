@@ -77,7 +77,7 @@ describe('LocalSecurityAnalysisAdapter', () => {
       const result = await promise;
 
       expect(result).toBeInstanceOf(SecAgentResponse);
-      expect(result.analysis_report.metadata.status).toBe('SUCCESS');
+      expect(result.analysis_report.metadata.status).toBe('success');
       expect(result.analysis_report.trivy).toEqual([]);
     });
 
@@ -118,7 +118,7 @@ describe('LocalSecurityAnalysisAdapter', () => {
 
       const result = await promise;
 
-      expect(result.analysis_report.metadata.status).toBe('SUCCESS');
+      expect(result.analysis_report.metadata.status).toBe('success');
     });
   });
 
@@ -191,7 +191,7 @@ describe('LocalSecurityAnalysisAdapter', () => {
 
       const result = await promise;
 
-      expect(result.analysis_report.metadata.status).toBe('SUCCESS');
+      expect(result.analysis_report.metadata.status).toBe('success');
     });
 
     it('should fallback when analysis_report is missing in parsed output', async () => {
