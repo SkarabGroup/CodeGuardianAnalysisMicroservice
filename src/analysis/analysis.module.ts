@@ -120,7 +120,10 @@ import {
   DELETE_COLLECTION_SERVICE,
   GitHubCollectionDeleter,
 } from './application/services/github-collection-deleter.as';
-import { LocalSecurityAnalysisAdapter, SECURITY_AGENT } from './infrastructure/adapters/externals/security-agent.adapter';
+import {
+  LocalSecurityAnalysisAdapter,
+  SECURITY_AGENT,
+} from './infrastructure/adapters/externals/security-agent.adapter';
 import { SecurityReport } from './domain/entities/security-report.entity';
 import { SecurityReportSchema } from './infrastructure/adapters/persistence/schema/security-report.schema';
 
@@ -150,8 +153,8 @@ import { SecurityReportSchema } from './infrastructure/adapters/persistence/sche
         },
         {
           name: SecurityReport.name,
-          schema: SecurityReportSchema
-        }
+          schema: SecurityReportSchema,
+        },
       ],
       'DatabaseConnection',
     ),
@@ -241,7 +244,7 @@ import { SecurityReportSchema } from './infrastructure/adapters/persistence/sche
     },
     {
       provide: SECURITY_REPORT_SAVE_PORT,
-      useClass: MongoDBAdapter
+      useClass: MongoDBAdapter,
     },
     {
       provide: CODE_AGENT,
@@ -253,7 +256,7 @@ import { SecurityReportSchema } from './infrastructure/adapters/persistence/sche
     },
     {
       provide: SECURITY_AGENT,
-      useClass: LocalSecurityAnalysisAdapter
+      useClass: LocalSecurityAnalysisAdapter,
     },
     {
       provide: DOCS_REPORT_PROVIDER,
@@ -265,7 +268,7 @@ import { SecurityReportSchema } from './infrastructure/adapters/persistence/sche
     },
     {
       provide: SECURITY_REPORT_PROVIDER,
-      useClass: ReportEntitiesProvider
+      useClass: ReportEntitiesProvider,
     },
     {
       provide: ADD_REPORTS_TO_ANALYSIS_PORT,

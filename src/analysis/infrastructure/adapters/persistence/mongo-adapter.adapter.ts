@@ -45,6 +45,7 @@ import { GetAllAnalysesForUserResponse } from '../../../application/DTOs/models/
 import { IGetAllAnalysesForUserPort } from '../../../application/ports/repositories/get-all-analyses-for-user-port.port';
 import { ISecurityReportSavePort } from '../../../application/ports/repositories/security-report-save-port.repository';
 import { CodeAnalysisReportDTO } from '../../../application/DTOs/models/responses/code-agent-response-model.model';
+import { SecAnalysisReportDTO } from '../../../application/DTOs/models/responses/security-agent-response-model.model';
 import { ICollectionDuplicateCheckerPort } from '../../../application/ports/repositories/collection-duplicate-checker-port.port';
 import { CheckCollectionDuplicateRequest } from '../../../application/DTOs/models/requests/check-collection-duplicate-request.model';
 import { CheckCollectionDuplicateResponse } from '../../../application/DTOs/models/responses/check-collection-duplicate-response.model';
@@ -307,6 +308,7 @@ export class MongoDBAdapter
 
       let docsReportDTO: DocsAnalysisReportDTO | null = null;
       let codeReportDTO: CodeAnalysisReportDTO | null = null;
+      let securityReportDTO: SecAnalysisReportDTO | null = null;
       if (analysisRecord.docsReportId) {
         console.log(`Fetching Docs Report with ID: ${analysisRecord.docsReportId}`);
         const reportDoc = await this.docsReportModel
@@ -427,6 +429,54 @@ export class MongoDBAdapter
         }
       }
 
+      if (analysisRecord.securityReportId) {
+        console.log(`Fetching Security Report with ID: ${analysisRecord.securityReportId}`);
+        const securityDoc = await this.securityReportModel
+          .findOne({ reportId: analysisRecord.securityReportId })
+          .lean()
+          .exec();
+
+        if (securityDoc) {
+          securityReportDTO = {
+            metadata: {
+              repository: analysisRecord.repoURL,
+              status: analysisRecord.status,
+            },
+            trivy: securityDoc.secretFindings.map((sf) => ({
+              rule_id: sf.ruleId,
+              path: sf.path,
+              line: sf.errorFinding.line,
+              severity: sf.errorFinding.severity,
+              description: sf.errorFinding.description,
+              secret_category: sf.secretCategory,
+              remediation: sf.remediation,
+            })),
+            semgrep: securityDoc.owaspFindings.map((of) => ({
+              rule_id: of.ruleId,
+              path: of.path,
+              line: of.errorFinding.line,
+              severity: of.errorFinding.severity,
+              description: of.errorFinding.description,
+              owasp_category: of.owaspCategory,
+              remediation: of.remediation,
+            })),
+            grype: securityDoc.dependencyFindings.map((df) => ({
+              path: df.path,
+              package_name: df.packageName,
+              package_version: df.packageVersion,
+              vulnerability_id: df.vulnerabilityId,
+              severity: df.severity,
+              description: df.description,
+              remediation: df.remediation,
+            })),
+            errors: securityDoc.toolErrors.map((te) => ({
+              tool: te.tool,
+              description: te.description,
+            })),
+          };
+        }
+      }
+
       const generalData: GitHubAnalysisGeneralDataDTO = {
         analysisId: analysisRecord.analysisId,
         userId: analysisRecord.userId,
@@ -440,7 +490,12 @@ export class MongoDBAdapter
       console.log('Docs Report DTO:', docsReportDTO);
       console.log('Code Report DTO:', codeReportDTO);
 
-      return new GitHubAnalysisDetailedResult(generalData, docsReportDTO, codeReportDTO);
+      return new GitHubAnalysisDetailedResult(
+        generalData,
+        docsReportDTO,
+        codeReportDTO,
+        securityReportDTO,
+      );
     } catch (error) {
       console.error('Error fetching detailed analysis:', error);
       throw new Error('Could not retrieve detailed analysis');

@@ -1571,6 +1571,66 @@ describe('MongoDBAdapter (Unit Test)', () => {
           expect(result.message).toBe('Collection not found');
         });
       });
+
+      describe('getAnalysisFromIdSecurity', () => {
+        it('should return null if analysis record is not found', async () => {
+          mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+            lean: jest.fn().mockReturnThis(),
+            exec: jest.fn().mockResolvedValue(null),
+          }) as jest.Mock<MockQuery, [Record<string, unknown>]>;
+
+          const analysisId: AnalysisId = { value: '123' };
+
+          const result = await adapter.getAnalysisFromId(analysisId);
+
+          expect(result).toBeNull();
+        });
+
+        it('should correctly map and return a Security Report', async () => {
+          mockAnalysisModel.findOne = jest.fn().mockReturnValue({
+            lean: jest.fn().mockReturnThis(),
+            exec: jest.fn().mockResolvedValue({
+              analysisId: 'analysis-123',
+              repoURL: 'https://github.com/test',
+              status: 'COMPLETED',
+              securityReportId: 'sec-456',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }),
+          }) as jest.Mock<MockQuery, [Record<string, unknown>]>;
+
+          mockSecurityReportModel.findOne = jest.fn().mockReturnValue({
+            lean: jest.fn().mockReturnThis(),
+            exec: jest.fn().mockResolvedValue({
+              reportId: 'sec-456',
+              secretFindings: [
+                {
+                  ruleId: 'secret-rule',
+                  path: 'env.ts',
+                  errorFinding: {
+                    line: 5,
+                    severity: 'CRITICAL',
+                    description: 'Leaked Key',
+                  },
+                  secretCategory: 'Secrets',
+                  remediation: 'Remove it',
+                },
+              ],
+              owaspFindings: [],
+              dependencyFindings: [],
+              toolErrors: [],
+            }),
+          }) as jest.Mock<MockQuery, [Record<string, unknown>]>;
+
+          const analysisId: AnalysisId = { value: 'analysis-123' };
+
+          const result = await adapter.getAnalysisFromId(analysisId);
+
+          expect(result?.securityReport).toBeDefined();
+          expect(result?.securityReport?.trivy[0].rule_id).toBe('secret-rule');
+          expect(result?.securityReport?.trivy[0].description).toBe('Leaked Key');
+        });
+      });
     });
   });
 });
