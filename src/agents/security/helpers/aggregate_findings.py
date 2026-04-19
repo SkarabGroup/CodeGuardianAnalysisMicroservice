@@ -36,10 +36,17 @@ def aggregate_findings(agent_report: dict, repo_path: str) -> dict:
   final_semgrep = merge_semgrep_findings(raw_semgrep, agent_semgrep)
   final_grype = merge_grype_findings(raw_grype, agent_grype)
 
+  if not final_grype and not final_semgrep and final_trivy and errors:
+    status = 'failure'
+
+  else:
+    status = 'success'
+
   return build_analysis_report(
-  final_trivy,
-  final_semgrep,
-  final_grype,
-  errors,
-  repo_path
+    final_trivy,
+    final_semgrep,
+    final_grype,
+    errors,
+    repo_path,
+    status
   )

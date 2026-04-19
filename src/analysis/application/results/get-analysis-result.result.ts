@@ -1,6 +1,7 @@
 import { GitHubAnalysisDetailedResult } from '../DTOs/models/responses/get-github-analysis-from-id-result-model.model';
 import { DocsAnalysisReportDTO } from '../DTOs/models/responses/docs-agent-response-model.model';
 import { CodeAnalysisReportDTO } from '../DTOs/models/responses/code-agent-response-model.model';
+import { SecAnalysisReportDTO } from '../DTOs/models/responses/security-agent-response-model.model';
 
 export class GetAnalysisResult {
   private constructor(
@@ -18,6 +19,7 @@ export class GetAnalysisResult {
     },
     public readonly docsReport?: DocsAnalysisReportDTO | null,
     public readonly codeReport?: CodeAnalysisReportDTO | null,
+    public readonly secReport?: SecAnalysisReportDTO | null
   ) {}
 
   public static success(data: GitHubAnalysisDetailedResult, message?: string): GetAnalysisResult {
@@ -36,6 +38,7 @@ export class GetAnalysisResult {
       },
       data.docsReport,
       data.codeReport,
+      data.secReport
     );
   }
 
