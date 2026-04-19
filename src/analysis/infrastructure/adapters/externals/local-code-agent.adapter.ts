@@ -56,7 +56,7 @@ export class LocalCodeAnalysisAdapter implements ICodeAgentPort {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.log(`[Adapter] Critical error during execution: ${errorMessage}`);
-      return this.createFallbackResponse(model.id.value);
+      return this.createFallbackResponse(errorMessage);
     }
   }
 
@@ -94,7 +94,8 @@ export class LocalCodeAnalysisAdapter implements ICodeAgentPort {
 
       docker.on('close', (code: number | null) => {
         if (code === 0) resolve(stdout);
-        else reject(new Error(`Docker exit code ${String(code)}.\nStderr: ${stderr}`));
+        else if (stdout.trim()) resolve(stdout);
+        else reject(new Error(`Docker exit code ${String(code)}.\nStderr: ${stderr}`))
       });
     });
   }
