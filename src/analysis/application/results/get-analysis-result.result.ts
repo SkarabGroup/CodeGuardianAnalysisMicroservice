@@ -19,7 +19,7 @@ export class GetAnalysisResult {
     },
     public readonly docsReport?: DocsAnalysisReportDTO | null,
     public readonly codeReport?: CodeAnalysisReportDTO | null,
-    public readonly secReport?: SecAnalysisReportDTO | null
+    public readonly secReport?: SecAnalysisReportDTO | null,
   ) {}
 
   public static success(data: GitHubAnalysisDetailedResult, message?: string): GetAnalysisResult {
@@ -38,7 +38,7 @@ export class GetAnalysisResult {
       },
       data.docsReport,
       data.codeReport,
-      data.secReport
+      data.secReport,
     );
   }
 

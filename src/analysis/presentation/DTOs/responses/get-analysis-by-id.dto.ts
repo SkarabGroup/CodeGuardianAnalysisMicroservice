@@ -17,7 +17,7 @@ export class GetAnalysisResponseDTO {
     public readonly updatedAt?: string,
     public readonly docsReportJson?: DocsAnalysisReportDTO | null,
     public readonly codeReportJson?: CodeAnalysisReportDTO | null,
-    public readonly secReportJson?: SecAnalysisReportDTO | null
+    public readonly secReportJson?: SecAnalysisReportDTO | null,
   ) {}
 
   public static fromResult(result: GetAnalysisResult): GetAnalysisResponseDTO {
@@ -34,7 +34,7 @@ export class GetAnalysisResponseDTO {
       result.analysisData?.updatedAt,
       result.docsReport,
       result.codeReport,
-      result.secReport
+      result.secReport,
     );
   }
 }

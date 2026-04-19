@@ -95,7 +95,7 @@ export class LocalCodeAnalysisAdapter implements ICodeAgentPort {
       docker.on('close', (code: number | null) => {
         if (code === 0) resolve(stdout);
         else if (stdout.trim()) resolve(stdout);
-        else reject(new Error(`Docker exit code ${String(code)}.\nStderr: ${stderr}`))
+        else reject(new Error(`Docker exit code ${String(code)}.\nStderr: ${stderr}`));
       });
     });
   }
