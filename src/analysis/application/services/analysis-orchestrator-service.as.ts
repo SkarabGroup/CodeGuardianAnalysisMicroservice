@@ -171,7 +171,7 @@ export class AnalysisOrchestratorService implements IAnalysisOrchestrator {
           );
           const reportFilename = `security_analysis_report_${String(analysis.getAnalysisId().value)}.json`;
           const reportPath = path.join(process.cwd(), reportFilename);
-          if (!response || response.analysis_report.metadata.status !== 'success') {
+          if (!response || response.analysis_report.metadata.status.toLocaleLowerCase() !== 'success') {
             console.error(
               `Security Agent Analysis failed or returned an unsuccessful status. Check the report at ${reportPath} for details.`,
             );
