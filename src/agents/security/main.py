@@ -17,11 +17,7 @@ def main():
         print(f"[CRITICAL] Agent execution failed: {e}", file=sys.stderr)
         sys.exit(1)
 
-    try:
-        enriched_result = aggregate_findings(agent_result, repo_path)
-    except Exception as e:
-        print(f"[CRITICAL] Aggregation failed: {e}", file=sys.stderr)
-        sys.exit(1)
+    enriched_result = aggregate_findings(agent_result, repo_path)
 
     print(json.dumps(enriched_result, indent=2, ensure_ascii=False))
 

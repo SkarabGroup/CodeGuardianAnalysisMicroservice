@@ -1,5 +1,6 @@
 import { CodeAnalysisReportDTO } from '../../../application/DTOs/models/responses/code-agent-response-model.model';
 import { DocsAnalysisReportDTO } from '../../../application/DTOs/models/responses/docs-agent-response-model.model';
+import { SecAnalysisReportDTO } from '../../../application/DTOs/models/responses/security-agent-response-model.model';
 import { GetAnalysisResult } from '../../../application/results/get-analysis-result.result';
 
 export class GetAnalysisResponseDTO {
@@ -16,6 +17,7 @@ export class GetAnalysisResponseDTO {
     public readonly updatedAt?: string,
     public readonly docsReportJson?: DocsAnalysisReportDTO | null,
     public readonly codeReportJson?: CodeAnalysisReportDTO | null,
+    public readonly secReportJson?: SecAnalysisReportDTO | null,
   ) {}
 
   public static fromResult(result: GetAnalysisResult): GetAnalysisResponseDTO {
@@ -32,6 +34,7 @@ export class GetAnalysisResponseDTO {
       result.analysisData?.updatedAt,
       result.docsReport,
       result.codeReport,
+      result.secReport,
     );
   }
 }

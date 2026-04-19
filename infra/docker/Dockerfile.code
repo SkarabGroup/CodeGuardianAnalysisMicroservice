@@ -18,7 +18,6 @@ COPY --from=node-binaries /usr/local/bin/ /usr/local/bin/
 COPY --from=pmd-fetcher /opt/pmd-bin-7.0.0 /opt/pmd-bin-7.0.0
 ENV PATH="$PATH:/opt/pmd-bin-7.0.0/bin"
 
-# Sostituisci la riga che fallisce (riga 21) con questa:
 RUN npm install -g pnpm yarn @biomejs/biome typescript eslint jest --force && npm cache clean --force
 
 WORKDIR /app

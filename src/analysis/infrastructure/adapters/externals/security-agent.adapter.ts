@@ -5,25 +5,9 @@ import * as fs from 'node:fs';
 import { ISecurityAgentPort } from '../../../application/ports/externals/security-agent-port.port';
 import { AgentRequest } from '../../../application/DTOs/models/requests/agent-request-model.model';
 import {
-  SecTrivyFindingDTO,
-  SecSemgrepFindingDTO,
-  SecGrypeFindingDTO,
   SecAgentResponse,
   SecAgentResponsePayload,
 } from '../../../application/DTOs/models/responses/security-agent-response-model.model';
-
-interface AgentRawOutput {
-  analysis_report: {
-    metadata: {
-      repository: string;
-      status: string;
-    };
-    trivy: SecTrivyFindingDTO[];
-    semgrep: SecSemgrepFindingDTO[];
-    grype: SecGrypeFindingDTO[];
-    errors: { tool: string; description: string }[];
-  };
-}
 
 @Injectable()
 export class LocalSecurityAnalysisAdapter implements ISecurityAgentPort {
@@ -51,30 +35,21 @@ export class LocalSecurityAnalysisAdapter implements ISecurityAgentPort {
 
     try {
       const rawOutput = await this.runContainer(dockerArgs);
-      const parsed = this.extractAgentOutput(rawOutput);
+      const parsed = this.extractJson(rawOutput);
 
-      if (!parsed.analysis_report) {
-        throw new Error('Invalid agent output: missing analysis_report');
+      if (!parsed['analysis_report']) {
+        console.debug('Raw container output:', rawOutput);
+        throw new Error(rawOutput || 'Container did not return a valid analysis report.');
       }
-      const report = parsed.analysis_report;
 
-      this.logger.log(
-        `[Adapter] Analysis complete. ` +
-          `trivy=${report.trivy.length}, semgrep=${report.semgrep.length}, ` +
-          `grype=${report.grype.length}, errors=${report.errors.length}`,
-      );
-
-      const payload: SecAgentResponsePayload = {
-        analysis_report: {
-          metadata: report.metadata,
-          trivy: report.trivy,
-          semgrep: report.semgrep,
-          grype: report.grype,
-          errors: report.errors,
-        },
+      const report = parsed['analysis_report'] as Record<string, unknown>;
+      report['metadata'] = {
+        ...(report['metadata'] as Record<string, unknown>),
+        repository: model.id.value,
+        status: 'success',
       };
 
-      return new SecAgentResponse(payload);
+      return new SecAgentResponse(parsed as unknown as SecAgentResponsePayload);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`[Adapter] Container execution failed: ${errorMessage}`);
@@ -115,63 +90,61 @@ export class LocalSecurityAnalysisAdapter implements ISecurityAgentPort {
       docker.on('close', (code: number | null) => {
         if (code === 0) {
           resolve(stdout);
-        } else {
-          if (stderr) this.logger.error(`[Container stderr] ${stderr.trim()}`);
-          reject(new Error(`Container exited with code ${String(code)}.`));
-        }
+        } else if (stdout.trim()) resolve(stdout);
+        else reject(new Error(`Container exited with code ${String(code)}.\nStderr: ${stderr}`));
       });
     });
   }
 
-  private extractAgentOutput(raw: string): AgentRawOutput {
-    try {
-      const parsed = JSON.parse(raw.trim()) as AgentRawOutput;
-      if (this.isValidAgentOutput(parsed)) return parsed;
-    } catch {
-      // If direct parsing fails, attempt to extract JSON from mixed output (e.g., logs + JSON).
-    }
+  private extractJson(raw: string): Record<string, unknown> {
+    const errorToken = '{"status": "error"';
+    const errorIndex = raw.lastIndexOf(errorToken);
 
-    const startIndex = raw.indexOf('{');
-    if (startIndex === -1) {
-      throw new Error('No JSON object found in container stdout.');
-    }
-
-    let depth = 0;
-    for (let i = startIndex; i < raw.length; i++) {
-      if (raw[i] === '{') depth++;
-      else if (raw[i] === '}') depth--;
-
-      if (depth === 0) {
-        const candidate = raw.substring(startIndex, i + 1);
+    if (errorIndex !== -1) {
+      const closingBrace = raw.indexOf('}', errorIndex);
+      if (closingBrace !== -1) {
         try {
-          const parsed = JSON.parse(candidate) as AgentRawOutput;
-          if (this.isValidAgentOutput(parsed)) return parsed;
-        } catch {
-          // Continue searching if parsing fails.
+          const errString = raw.substring(errorIndex, closingBrace + 1);
+          return JSON.parse(errString) as Record<string, unknown>;
+        } catch (e) {
+          console.debug('Failed JSON Extraction', String(e));
         }
-        break;
       }
     }
 
-    throw new Error('Could not extract a valid agent report from container output.');
-  }
+    let startIndex = raw.indexOf('{');
+    if (startIndex === -1) throw new Error('No JSON found in the container output.');
 
-  private isValidAgentOutput(obj: unknown): obj is AgentRawOutput {
-    if (typeof obj !== 'object' || obj === null) return false;
+    let bestCandidate: Record<string, unknown> | null = null;
 
-    const o = obj as Record<string, unknown>;
-    const report = o['analysis_report'];
+    while (startIndex !== -1) {
+      let depth = 0;
+      for (let i = startIndex; i < raw.length; i++) {
+        if (raw[i] === '{') depth++;
+        else if (raw[i] === '}') depth--;
 
-    if (typeof report !== 'object' || report === null) return false;
+        if (depth === 0) {
+          const candidate = raw.substring(startIndex, i + 1);
+          try {
+            const parsed = JSON.parse(candidate) as Record<string, unknown>;
 
-    const r = report as Record<string, unknown>;
+            if (parsed['analysis_report']) {
+              return parsed;
+            }
 
-    return (
-      Array.isArray(r['trivy']) &&
-      Array.isArray(r['semgrep']) &&
-      Array.isArray(r['grype']) &&
-      Array.isArray(r['errors'])
-    );
+            bestCandidate = parsed;
+          } catch {
+            // Iterative scanning: ignore malformed JSON chunks and continue searching
+          }
+          break;
+        }
+      }
+      startIndex = raw.indexOf('{', startIndex + 1);
+    }
+
+    if (bestCandidate) return bestCandidate;
+
+    throw new Error('Unterminated JSON in container output.');
   }
 }
 
