@@ -1626,9 +1626,9 @@ describe('MongoDBAdapter (Unit Test)', () => {
 
           const result = await adapter.getAnalysisFromId(analysisId);
 
-          expect(result?.securityReport).toBeDefined();
-          expect(result?.securityReport?.trivy[0].rule_id).toBe('secret-rule');
-          expect(result?.securityReport?.trivy[0].description).toBe('Leaked Key');
+          expect(result?.secReport).toBeDefined();
+          expect(result?.secReport?.trivy[0].rule_id).toBe('secret-rule');
+          expect(result?.secReport?.trivy[0].description).toBe('Leaked Key');
         });
       });
     });
