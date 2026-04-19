@@ -25,6 +25,7 @@ import {
   COLLECTION_GETTER_PORT,
   COLLECTION_DELETER_PORT,
   ALL_COLLECTION_GETTER_PORT,
+  SECURITY_REPORT_SAVE_PORT,
   // Assicurati di esportare e importare la porta per la collezione se la usi nell'adapter
   // CHECK_COLLECTION_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
@@ -91,6 +92,7 @@ import {
   ReportEntitiesProvider,
   DOCS_REPORT_PROVIDER,
   CODE_REPORT_PROVIDER,
+  SECURITY_REPORT_PROVIDER,
 } from './domain/services/report-entities-provider.ds';
 
 import {
@@ -118,6 +120,9 @@ import {
   DELETE_COLLECTION_SERVICE,
   GitHubCollectionDeleter,
 } from './application/services/github-collection-deleter.as';
+import { LocalSecurityAnalysisAdapter, SECURITY_AGENT } from './infrastructure/adapters/externals/security-agent.adapter';
+import { SecurityReport } from './domain/entities/security-report.entity';
+import { SecurityReportSchema } from './infrastructure/adapters/persistence/schema/security-report.schema';
 
 @Module({
   imports: [
@@ -131,7 +136,6 @@ import {
           name: GitHubAnalysisRecord.name,
           schema: GitHubAnalysisSchema,
         },
-        // AGGIUNTA: Registrazione del nuovo modello Mongoose
         {
           name: GitHubCollection.name,
           schema: GitHubCollectionSchema,
@@ -144,6 +148,10 @@ import {
           name: CodeReport.name,
           schema: CodeReportSchema,
         },
+        {
+          name: SecurityReport.name,
+          schema: SecurityReportSchema
+        }
       ],
       'DatabaseConnection',
     ),
@@ -232,6 +240,10 @@ import {
       useClass: MongoDBAdapter,
     },
     {
+      provide: SECURITY_REPORT_SAVE_PORT,
+      useClass: MongoDBAdapter
+    },
+    {
       provide: CODE_AGENT,
       useClass: LocalCodeAnalysisAdapter,
     },
@@ -240,12 +252,20 @@ import {
       useClass: DocumentationAnalysisAdapter,
     },
     {
+      provide: SECURITY_AGENT,
+      useClass: LocalSecurityAnalysisAdapter
+    },
+    {
       provide: DOCS_REPORT_PROVIDER,
       useClass: ReportEntitiesProvider,
     },
     {
       provide: CODE_REPORT_PROVIDER,
       useClass: ReportEntitiesProvider,
+    },
+    {
+      provide: SECURITY_REPORT_PROVIDER,
+      useClass: ReportEntitiesProvider
     },
     {
       provide: ADD_REPORTS_TO_ANALYSIS_PORT,
