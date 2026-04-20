@@ -3,11 +3,31 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
+// Services & Ports
 import {
   StartAnalysisService,
   START_ANALYSIS_SERVICE,
 } from './application/services/start-analysis.as';
+import {
+  GET_ANALYSIS_SERVICE,
+  GET_ALL_ANALYSES_FOR_USER_SERVICE,
+  GetAnalysisService,
+} from './application/services/get-analysis-service.as';
+import {
+  ANALYSIS_ORCHESTRATOR,
+  AnalysisOrchestratorService,
+} from './application/services/analysis-orchestrator-service.as';
+import {
+  ACCESS_AUTHORIZER,
+  GitAuthorizerService,
+} from './application/services/git-authorizer-service.as';
+import {
+  CLONE_VALIDATOR,
+  GitValidatorService,
+} from './application/services/git-validator-service.as';
+import { GitClonerService, REPOSITORY_CLONER } from './application/services/git-cloner-service.as';
 
+// Adapters
 import {
   MongoDBAdapter,
   GIT_CREDENTIAL_SAVE_PORT,
@@ -26,57 +46,40 @@ import {
   COLLECTION_DELETER_PORT,
   ALL_COLLECTION_GETTER_PORT,
   SECURITY_REPORT_SAVE_PORT,
-  // Assicurati di esportare e importare la porta per la collezione se la usi nell'adapter
-  // CHECK_COLLECTION_PORT,
 } from './infrastructure/adapters/persistence/mongo-adapter.adapter';
-
-import {
-  GitCredential,
-  GitCredentialSchema,
-} from './infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
-import { AnalysisController } from './presentation/controllers/analysis-controller.controller';
-import {
-  ACCESS_AUTHORIZER,
-  GitAuthorizerService,
-} from './application/services/git-authorizer-service.as';
-import {
-  CLONE_VALIDATOR,
-  GitValidatorService,
-} from './application/services/git-validator-service.as';
-import { GitClonerService, REPOSITORY_CLONER } from './application/services/git-cloner-service.as';
 import {
   AVAILABILITY_PORT,
   CLONING_PORT,
   GitHubAdapter,
 } from './infrastructure/adapters/externals/github-adapter.adapter';
-import { PatController } from './presentation/controllers/pat-controller.controller';
-import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-service.as';
-import { DELETE_PAT, DeletePatService } from './application/services/delete-pat-service.as';
-import { UPDATE_PAT, UpdatePatService } from './application/services/update-pat-service.as';
-import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-password-provider.ds';
+import { S3Adapter } from './infrastructure/adapters/externals/s3-adapter.adapter.aws';
 import {
-  ANALYSIS_ORCHESTRATOR,
-  AnalysisOrchestratorService,
-} from './application/services/analysis-orchestrator-service.as';
-import {
-  GitHubAnalysisRecord,
-  GitHubAnalysisSchema,
-} from './infrastructure/adapters/persistence/schema/github-analysis.schema';
-
-// AGGIUNTA: Importa il nuovo schema della collezione
-import {
-  GitHubCollection,
-  GitHubCollectionSchema,
-} from './infrastructure/adapters/persistence/schema/github-collection.schema'; // Adegua il path se necessario
-
+  CODE_AGENT,
+  LocalCodeAnalysisAdapter,
+} from './infrastructure/adapters/externals/local-code-agent.adapter';
+import { ECSCodeAnalysisAdapter } from './infrastructure/adapters/externals/strands-code-adapter.adapter.aws';
 import {
   DOCS_AGENT,
   DocumentationAnalysisAdapter,
 } from './infrastructure/adapters/externals/docs-agent.adapter';
 import {
-  CODE_AGENT,
-  LocalCodeAnalysisAdapter,
-} from './infrastructure/adapters/externals/local-code-agent.adapter';
+  LocalSecurityAnalysisAdapter,
+  SECURITY_AGENT,
+} from './infrastructure/adapters/externals/security-agent.adapter';
+
+// Schemas
+import {
+  GitCredential,
+  GitCredentialSchema,
+} from './infrastructure/adapters/persistence/schema/github-repo-credentials.schema';
+import {
+  GitHubAnalysisRecord,
+  GitHubAnalysisSchema,
+} from './infrastructure/adapters/persistence/schema/github-analysis.schema';
+import {
+  GitHubCollection,
+  GitHubCollectionSchema,
+} from './infrastructure/adapters/persistence/schema/github-collection.schema';
 import {
   DocumentationReport,
   DocumentationReportSchema,
@@ -85,24 +88,29 @@ import {
   CodeReport,
   CodeReportSchema,
 } from './infrastructure/adapters/persistence/schema/code-report.schema';
-import { ConfigurationService } from './infrastructure/configuration/configuration.service';
-import { ConfigurationModule } from './infrastructure/configuration/configuration.module';
+import {
+  SecurityReport,
+  SecurityReportSchema,
+} from './infrastructure/adapters/persistence/schema/security-report.schema';
 
+// Configuration & Domain
+import { ConfigurationModule } from './infrastructure/configuration/configuration.module';
+import { ConfigurationService } from './infrastructure/configuration/configuration.service';
 import {
   ReportEntitiesProvider,
   DOCS_REPORT_PROVIDER,
   CODE_REPORT_PROVIDER,
   SECURITY_REPORT_PROVIDER,
 } from './domain/services/report-entities-provider.ds';
+import { PASSWORD_PROVIDER, PATPasswordProvider } from './domain/services/pat-password-provider.ds';
 
-import {
-  GET_ANALYSIS_SERVICE,
-  GET_ALL_ANALYSES_FOR_USER_SERVICE,
-  GetAnalysisService,
-} from './application/services/get-analysis-service.as';
-
-import { JwtStrategy } from './presentation/controllers/helper/jwt-guard.helper';
+// Controllers & Others
+import { AnalysisController } from './presentation/controllers/analysis-controller.controller';
+import { PatController } from './presentation/controllers/pat-controller.controller';
 import { RepositoriesController } from './presentation/controllers/repositories-controller.controller';
+import { ADD_NEW_PAT, NewPatService } from './application/services/new-pat-service.as';
+import { DELETE_PAT, DeletePatService } from './application/services/delete-pat-service.as';
+import { UPDATE_PAT, UpdatePatService } from './application/services/update-pat-service.as';
 import {
   ADD_COLLECTION_SERVICE,
   AddRepositoryCollectionService,
@@ -120,54 +128,40 @@ import {
   DELETE_COLLECTION_SERVICE,
   GitHubCollectionDeleter,
 } from './application/services/github-collection-deleter.as';
-import {
-  LocalSecurityAnalysisAdapter,
-  SECURITY_AGENT,
-} from './infrastructure/adapters/externals/security-agent.adapter';
-import { SecurityReport } from './domain/entities/security-report.entity';
-import { SecurityReportSchema } from './infrastructure/adapters/persistence/schema/security-report.schema';
+import { JwtStrategy } from './presentation/controllers/helper/jwt-guard.helper';
+import { ECSDocumentationAnalysisAdapter } from './infrastructure/adapters/externals/strands-docs-adapter.adapter.aws';
+import { ECSSecurityAnalysisAdapter } from './infrastructure/adapters/externals/strands-security-adapter.adapter.aws';
 
 @Module({
   imports: [
+    // 1. Carichiamo ConfigurationModule PER PRIMO per rendere disponibile ConfigurationService alle factory
+    ConfigurationModule,
+
+    // 2. Moduli DB
     MongooseModule.forFeature(
       [
-        {
-          name: GitCredential.name,
-          schema: GitCredentialSchema,
-        },
-        {
-          name: GitHubAnalysisRecord.name,
-          schema: GitHubAnalysisSchema,
-        },
-        {
-          name: GitHubCollection.name,
-          schema: GitHubCollectionSchema,
-        },
-        {
-          name: DocumentationReport.name,
-          schema: DocumentationReportSchema,
-        },
-        {
-          name: CodeReport.name,
-          schema: CodeReportSchema,
-        },
-        {
-          name: SecurityReport.name,
-          schema: SecurityReportSchema,
-        },
+        { name: GitCredential.name, schema: GitCredentialSchema },
+        { name: GitHubAnalysisRecord.name, schema: GitHubAnalysisSchema },
+        { name: GitHubCollection.name, schema: GitHubCollectionSchema },
+        { name: DocumentationReport.name, schema: DocumentationReportSchema },
+        { name: CodeReport.name, schema: CodeReportSchema },
+        { name: SecurityReport.name, schema: SecurityReportSchema },
       ],
       'DatabaseConnection',
     ),
+
+    // 3. Auth Moduli con factory async
     PassportModule,
     JwtModule.registerAsync({
+      imports: [ConfigurationModule],
+      inject: [ConfigurationService],
       useFactory: (config: ConfigurationService) => ({
         secret: config.jwtSecret,
         signOptions: { expiresIn: '1h' },
       }),
-      inject: [ConfigurationService],
     }),
-    ConfigurationModule,
   ],
+  controllers: [AnalysisController, PatController, RepositoriesController],
   providers: [
     JwtStrategy,
     {
@@ -206,132 +200,80 @@ import { SecurityReportSchema } from './infrastructure/adapters/persistence/sche
       provide: REPOSITORY_CLONER,
       useClass: GitClonerService,
     },
-    {
-      provide: GIT_CREDENTIAL_SAVE_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: GIT_CREDENTIAL_DELETE_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: GIT_CREDENTIAL_UPDATE_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: GIT_CREDENTIAL_READ_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: AVAILABILITY_PORT,
-      useClass: GitHubAdapter,
-    },
+    // Persistence Ports
+    { provide: GIT_CREDENTIAL_SAVE_PORT, useClass: MongoDBAdapter },
+    { provide: GIT_CREDENTIAL_DELETE_PORT, useClass: MongoDBAdapter },
+    { provide: GIT_CREDENTIAL_UPDATE_PORT, useClass: MongoDBAdapter },
+    { provide: GIT_CREDENTIAL_READ_PORT, useClass: MongoDBAdapter },
+    { provide: GITHUB_ANALYSIS_SAVE_PORT, useClass: MongoDBAdapter },
+    { provide: DOCS_REPORT_SAVE_PORT, useClass: MongoDBAdapter },
+    { provide: CODE_REPORT_SAVE_PORT, useClass: MongoDBAdapter },
+    { provide: SECURITY_REPORT_SAVE_PORT, useClass: MongoDBAdapter },
+    { provide: ADD_REPORTS_TO_ANALYSIS_PORT, useClass: MongoDBAdapter },
+    { provide: GET_DETAILED_ANALYSIS_PORT, useClass: MongoDBAdapter },
+    { provide: GET_ALL_ANALYSES_FOR_USER_PORT, useClass: MongoDBAdapter },
+    { provide: ALL_COLLECTION_GETTER_PORT, useClass: MongoDBAdapter },
+    { provide: COLLECTION_DUPLICATE_PORT, useClass: MongoDBAdapter },
+    { provide: COLLECTION_ADDER_PORT, useClass: MongoDBAdapter },
+    { provide: COLLECTION_GETTER_PORT, useClass: MongoDBAdapter },
+    { provide: COLLECTION_DELETER_PORT, useClass: MongoDBAdapter },
+
+    // External Adapters con Logica di Ambiente
+    { provide: AVAILABILITY_PORT, useClass: GitHubAdapter },
     {
       provide: CLONING_PORT,
-      useClass: GitHubAdapter,
-    },
-    {
-      provide: GITHUB_ANALYSIS_SAVE_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: DOCS_REPORT_SAVE_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: CODE_REPORT_SAVE_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: SECURITY_REPORT_SAVE_PORT,
-      useClass: MongoDBAdapter,
+      useFactory: (configService: ConfigurationService) => {
+        if (configService.isProduction) {
+          return new S3Adapter(configService);
+        }
+        return new GitHubAdapter();
+      },
+      inject: [ConfigurationService],
     },
     {
       provide: CODE_AGENT,
-      useClass: LocalCodeAnalysisAdapter,
+      useFactory: (configService: ConfigurationService) => {
+        if (configService.isProduction) {
+          return new ECSCodeAnalysisAdapter(configService);
+        }
+        return new LocalCodeAnalysisAdapter();
+      },
+      inject: [ConfigurationService],
     },
     {
       provide: DOCS_AGENT,
-      useClass: DocumentationAnalysisAdapter,
+      useFactory: (configService: ConfigurationService) => {
+        if (configService.isProduction) {
+          return new ECSDocumentationAnalysisAdapter(configService);
+        }
+        return new DocumentationAnalysisAdapter();
+      },
+      inject: [ConfigurationService],
     },
     {
       provide: SECURITY_AGENT,
-      useClass: LocalSecurityAnalysisAdapter,
+      useFactory: (configService: ConfigurationService) => {
+        if (configService.isProduction) {
+          return new ECSSecurityAnalysisAdapter(configService);
+        } else return new LocalSecurityAnalysisAdapter();
+      },
+      inject: [ConfigurationService],
     },
-    {
-      provide: DOCS_REPORT_PROVIDER,
-      useClass: ReportEntitiesProvider,
-    },
-    {
-      provide: CODE_REPORT_PROVIDER,
-      useClass: ReportEntitiesProvider,
-    },
-    {
-      provide: SECURITY_REPORT_PROVIDER,
-      useClass: ReportEntitiesProvider,
-    },
-    {
-      provide: ADD_REPORTS_TO_ANALYSIS_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: GET_DETAILED_ANALYSIS_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: GET_ANALYSIS_SERVICE,
-      useClass: GetAnalysisService,
-    },
-    {
-      provide: GET_ALL_ANALYSES_FOR_USER_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: GET_ALL_ANALYSES_FOR_USER_SERVICE,
-      useClass: GetAnalysisService,
-    },
-    {
-      provide: ADD_COLLECTION_SERVICE,
-      useClass: AddRepositoryCollectionService,
-    },
-    {
-      provide: COLLECTION_DUPLICATE_CHECKER,
-      useClass: GitHubCollectionChecker,
-    },
-    {
-      provide: COLLECTION_DUPLICATE_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: COLLECTION_ADDER_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: COLLECTION_GETTER_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: COLLECTION_DELETER_PORT,
-      useClass: MongoDBAdapter,
-    },
-    {
-      provide: GET_COLLECTION_SERVICE,
-      useClass: GitHubCollectionGetter,
-    },
-    {
-      provide: DELETE_COLLECTION_SERVICE,
-      useClass: GitHubCollectionDeleter,
-    },
-    {
-      provide: GET_ALL_COLLECTIONS_SERVICE,
-      useClass: GitHubCollectionGetter,
-    },
-    {
-      provide: ALL_COLLECTION_GETTER_PORT,
-      useClass: MongoDBAdapter,
-    },
+
+    // Domain Services
+    { provide: DOCS_REPORT_PROVIDER, useClass: ReportEntitiesProvider },
+    { provide: CODE_REPORT_PROVIDER, useClass: ReportEntitiesProvider },
+    { provide: SECURITY_REPORT_PROVIDER, useClass: ReportEntitiesProvider },
+
+    // Application Services
+    { provide: GET_ANALYSIS_SERVICE, useClass: GetAnalysisService },
+    { provide: GET_ALL_ANALYSES_FOR_USER_SERVICE, useClass: GetAnalysisService },
+    { provide: ADD_COLLECTION_SERVICE, useClass: AddRepositoryCollectionService },
+    { provide: COLLECTION_DUPLICATE_CHECKER, useClass: GitHubCollectionChecker },
+    { provide: GET_COLLECTION_SERVICE, useClass: GitHubCollectionGetter },
+    { provide: GET_ALL_COLLECTIONS_SERVICE, useClass: GitHubCollectionGetter },
+    { provide: DELETE_COLLECTION_SERVICE, useClass: GitHubCollectionDeleter },
   ],
-  controllers: [AnalysisController, PatController, RepositoriesController],
   exports: [START_ANALYSIS_SERVICE],
 })
 export class AnalysisModule {}

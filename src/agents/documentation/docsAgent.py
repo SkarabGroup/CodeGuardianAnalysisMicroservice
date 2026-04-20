@@ -4,21 +4,18 @@ import json
 import re
 import subprocess
 import tempfile
+import tarfile
 from dotenv import load_dotenv
 from strands import Agent, tool
 from tools.spectral import spectral_analyze_repo
 
 
 def run_repomix(repo_path: str) -> str:
-    """
-    Run repomix on the given repository path and return the XML output content.
-    Writes the output to a temporary file, reads it, then cleans up.
-    """
     with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as tmp:
         tmp_path = tmp.name
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["repomix", "--output", tmp_path, "--style", "xml", repo_path],
             capture_output=True,
             text=True,
@@ -38,10 +35,6 @@ def run_repomix(repo_path: str) -> str:
 
 
 def extract_json(text: str) -> str:
-    """
-    Extract the first valid JSON block from the model response,
-    stripping markdown fences and formatting.
-    """
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if fenced:
         return fenced.group(1).strip()
@@ -63,15 +56,10 @@ def extract_json(text: str) -> str:
 
 
 def get_response_text(response) -> str:
-    """
-    Extract the text content from the response, handling different possible structures known in the SDK.
-    """
     if hasattr(response, "message"):
         msg = response.message
-
         if isinstance(msg, str) and msg.strip():
             return msg
-
         if isinstance(msg, dict):
             parts = msg.get("content", [])
             if isinstance(parts, list):
@@ -82,13 +70,11 @@ def get_response_text(response) -> str:
                 )
                 if text.strip():
                     return text
-
             if isinstance(parts, str) and parts.strip():
                 return parts
 
     if hasattr(response, "content"):
         content = response.content
-
         if isinstance(content, str) and content.strip():
             return content
         if isinstance(content, list):
@@ -106,25 +92,116 @@ def get_response_text(response) -> str:
             if isinstance(val, str) and val.strip():
                 return val
 
-    return str(response)  # fallback
+    return str(response)
 
 
-def run_documentation_analysis():
+def _is_cloud_mode() -> bool:
+    return bool(os.environ.get("ANALYSIS_ID")) and bool(os.environ.get("S3_BUCKET_NAME"))
+
+
+def get_target_dir() -> str:
+    if not _is_cloud_mode():
+        if len(sys.argv) < 2:
+            sys.exit(1)
+        return sys.argv[1]
+
+    import boto3
+
+    bucket    = os.environ["S3_BUCKET_NAME"]
+    job_id    = os.environ["ANALYSIS_ID"]
+    input_key = f"jobs/{job_id}/input.tar.gz"
+    tar_path  = f"/tmp/{job_id}_input.tar.gz"
+    local_dir = f"/tmp/{job_id}"
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "eu-central-1"))
+    s3.download_file(bucket, input_key, tar_path)
+
+    os.makedirs(local_dir, exist_ok=True)
+    with tarfile.open(tar_path, "r:gz") as tf:
+        tf.extractall(local_dir)
+    os.remove(tar_path)
+
+    if not os.path.isdir(local_dir):
+        raise FileNotFoundError(
+            f"Expected directory not found after extraction: {local_dir}."
+        )
+
+    return local_dir
+
+
+def write_result(result: dict) -> None:
+    if not _is_cloud_mode():
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
+    import boto3
+
+    bucket     = os.environ["S3_BUCKET_NAME"]
+    job_id     = os.environ["ANALYSIS_ID"]
+    output_key = f"jobs/{job_id}/docs_report.json"
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "eu-central-1"))
+    s3.put_object(
+        Bucket=bucket,
+        Key=output_key,
+        Body=json.dumps(result).encode("utf-8"),
+        ContentType="application/json",
+    )
+
+
+def write_error(result: dict) -> None:
+    if not _is_cloud_mode():
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
+    import boto3
+
+    bucket = os.environ.get("S3_BUCKET_NAME")
+    job_id = os.environ.get("ANALYSIS_ID")
+    if not bucket or not job_id:
+        return
+
+    output_key = f"jobs/{job_id}/docs_report.json"
+
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "eu-central-1"))
+    s3.put_object(
+        Bucket=bucket,
+        Key=output_key,
+        Body=json.dumps(result).encode("utf-8"),
+        ContentType="application/json",
+    )
+
+
+def main():
     load_dotenv()
-    region = os.getenv("AWS_REGION", "eu-north-1")
+
+    region = os.getenv("AWS_REGION", "eu-central-1")
     os.environ["AWS_DEFAULT_REGION"] = region
     os.environ["AWS_REGION"] = region
 
     model_id = os.getenv("AGENT_MODEL_ID")
-    if not model_id or len(sys.argv) <= 1:
-        print("ERROR: Missing AGENT_MODEL_ID or repo_path", file=sys.stderr)
+    if not model_id:
+        write_error({
+            "analysis_report": {
+                "metadata": { "status": "error" },
+                "AI_standard_violations": [],
+                "docs_discrepancies": [],
+                "missing_files": [],
+                "dependency_audit": {
+                    "readme_defined": [], "config_defined": [],
+                    "missing_in_config": [], "undocumented_in_readme": [],
+                    "version_mismatches": []
+                },
+                "error": "Missing AGENT_MODEL_ID environment variable."
+            }
+        })
         sys.exit(1)
 
-    repo_path = sys.argv[1]
-    xml_content = run_repomix(repo_path)
+    try:
+        repo_path = get_target_dir()
+        xml_content = run_repomix(repo_path)
 
-    
-    optimized_system_prompt = """Expert QA Agent. Compare documentation vs source code.
+        optimized_system_prompt = """Expert QA Agent. Compare documentation vs source code.
     
     CRITICAL WORKFLOW:
     1. Call `spectral_analyze_repo(repo_path="{repo_path}")` to do the study on the API standard violations
@@ -170,16 +247,13 @@ def run_documentation_analysis():
   }
 }""".replace("{repo_path}", repo_path)
 
-    agent = Agent(
-        system_prompt=optimized_system_prompt,
-        model=model_id,
-        tools=[spectral_analyze_repo],
-    )
+        agent = Agent(
+            system_prompt=optimized_system_prompt,
+            model=model_id,
+            tools=[spectral_analyze_repo],
+        )
 
-    # Prompt utente minimale per ridurre i token di input
-    prompt = f"Analyze repository at: {repo_path}\n\n<repomix_xml>\n{xml_content}\n</repomix_xml>"
-
-    try:
+        prompt = f"Analyze repository at: {repo_path}\n\n<repomix_xml>\n{xml_content}\n</repomix_xml>"
         response = agent(prompt)
         raw_text = get_response_text(response)
 
@@ -189,12 +263,25 @@ def run_documentation_analysis():
         clean_json = extract_json(raw_text)
         report_data = json.loads(clean_json)
 
-        print(json.dumps(report_data, indent=2, ensure_ascii=False))
+        write_result(report_data)
 
     except Exception as e:
-        print(f"[ERROR] {str(e)}", file=sys.stderr)
+        write_error({
+            "analysis_report": {
+                "metadata": { "status": "error" },
+                "API_standard_violations": [],
+                "docs_discrepancies": [],
+                "missing_files": [],
+                "dependency_audit": {
+                    "readme_defined": [], "config_defined": [],
+                    "missing_in_config": [], "undocumented_in_readme": [],
+                    "version_mismatches": []
+                },
+                "error": str(e)
+            }
+        })
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    run_documentation_analysis()
+    main()

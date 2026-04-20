@@ -113,7 +113,6 @@ export class GitValidatorService implements IRepositoryValidator {
     commit: CommitHash | null,
   ): Promise<{ branch: BranchName; commit: CommitHash }> {
     const strategy = this.selectStrategy(url, pat, branch, commit);
-    console.log(`Strategy created: ${typeof strategy}`);
     const repoInformation = await strategy.validate();
 
     return {
@@ -129,14 +128,11 @@ export class GitValidatorService implements IRepositoryValidator {
     commit: CommitHash | null,
   ): ValidationStrategy {
     if (commit) {
-      console.log('returned a CommitValidationStrategy');
       return new CommitValidationStrategy(this.githubPort, url, commit, branch, pat);
     }
     if (branch) {
-      console.log('returned a branchValidationStrategy');
       return new BranchValidationStrategy(this.githubPort, url, branch, pat);
     }
-    console.log('returned a strandardValidationStrategy');
     return new DefaultValidationStrategy(this.githubPort, url, pat);
   }
 }
