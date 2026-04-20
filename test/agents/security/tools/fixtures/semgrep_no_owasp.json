@@ -1,0 +1,15 @@
+{
+  "results": [
+    {
+      "check_id": "test.rule",
+      "path": "file.py",
+      "start": { "line": 1 },
+      "extra": {
+        "message": "test",
+        "severity": "ERROR",
+        "metadata": {}
+      }
+    }
+  ],
+  "errors": []
+}

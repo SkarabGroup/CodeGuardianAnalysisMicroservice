@@ -14,10 +14,25 @@ lerna-debug.log*
 
 # OS
 .DS_Store
+Thumbs.db 
 
 # Tests
 /coverage
 /.nyc_output
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Tests/Coverage (Python)
+.coverage
+htmlcov/
 
 # IDEs and editors
 /.idea
@@ -41,6 +56,8 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+.env.*
+*.env.example
 
 # temp directory
 .temp
@@ -51,6 +68,15 @@ pids
 *.pid
 *.seed
 *.pid.lock
+*.tsbuildinfo
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# stryker temp files
+.stryker-tmp
+
+*.xml
+
+docs_analysis_report_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}.json
+code_analysis_report_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}.json

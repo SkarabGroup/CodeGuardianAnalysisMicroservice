@@ -1,11 +1,44 @@
 services:
-  app:
+  analysis_service:
     build:
-      context: ../../
+      context: ../..
       dockerfile: infra/docker/Dockerfile.dev
+    container_name: analysis
+    restart: always
+    depends_on:
+      - mongodb
     ports:
-      - "3000:3000"
+      - '3001:3001'
     volumes:
       - ../../:/app
       - /app/node_modules
-    command: npm run start:dev
+      - /var/run/docker.sock:/var/run/docker.sock
+      - analysis_tmp_data:/tmp
+    env_file:
+      - ../../.env
+    networks:
+      - analysis_network
+
+  mongodb:
+    image: mongo:latest
+    container_name: analysis_mongo
+    restart: always
+    ports:
+      - '27017:27017'
+    environment:
+      - MONGO_INITDB_DATABASE=analysis_db
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - analysis_network
+    logging:
+      driver: 'none'
+
+volumes:
+  mongo_data:
+  analysis_tmp_data:
+    name: analysis_tmp_data
+
+networks:
+  analysis_network:
+    driver: bridge

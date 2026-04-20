@@ -1,8 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ConfigurationService } from './analysis/infrastructure/configuration/configuration.service';
+import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+  app.enableCors();
+  const config = app.get(ConfigurationService);
+  const port = config.port;
+  await app.listen(port);
+  Logger.log(`Analysis Microservice running on: http://localhost:${port}`, 'Bootstrap');
 }
-bootstrap();
+
+void bootstrap();

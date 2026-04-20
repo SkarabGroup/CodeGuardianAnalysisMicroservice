@@ -1,0 +1,17 @@
+{
+  "Results": [
+    {
+      "Target": "app.py",
+      "Class": "secret",
+      "Secrets": [
+        {
+          "RuleID": "jwt-token",
+          "Category": "JWT",
+          "Severity": "MEDIUM",
+          "Title": "JWT token",
+          "StartLine": 5
+        }
+      ]
+    }
+  ]
+}

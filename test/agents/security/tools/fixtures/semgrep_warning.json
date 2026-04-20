@@ -1,0 +1,17 @@
+{
+    "results": [
+        {
+            "check_id": "test.rule",
+            "path": "file.py",
+            "start": {"line": 10},
+            "extra": {
+                "message": "test",
+                "severity": "WARNING",
+                "metadata": {
+                  "owasp": ["A1: Injection"]
+                }
+            }
+        }
+    ],
+    "errors": []
+}

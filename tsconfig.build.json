@@ -1,4 +1,17 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  "compilerOptions": {
+    "declaration": false,
+    "removeComments": true
+  },
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "**/*test.ts",
+    "eslint.config.mjs",
+    "jest.config.ts",
+    "**/__mocks__/*"
+  ]
 }

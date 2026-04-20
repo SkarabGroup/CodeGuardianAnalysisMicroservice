@@ -1,5 +1,11 @@
 node_modules
 dist
 .git
-.gitignore
-infra/docker/*
+.github
+**/*.log
+.dockerignore
+.env
+.env.*
+!.env.example
+.DS_Store
+.vscode

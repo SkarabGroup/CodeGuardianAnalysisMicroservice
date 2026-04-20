@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.git
+.env
+tests/
+node_modules
+dist
+.github
+**/*.log
+.dockerignore
+.env.*
+!.env.example
+.DS_Store
+.vscode
+*.pytest_cache
