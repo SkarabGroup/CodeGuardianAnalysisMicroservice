@@ -150,6 +150,7 @@ export class GitHubAdapter implements IGitHubAvailabilityPort, IGitClonePort {
   }
 
   public async clone(request: CloneRepoRequest): Promise<CloneRepoResponse> {
+    console.log('Inside Local Cloner');
     const tempPath = `/tmp/${request.analysisId.value}`;
 
     try {

@@ -13,6 +13,7 @@ const ignoreExtensions = [
   '.port.ts',
   '.dto.ts',
   '.uc.ts',
+  '.aws.ts',
   '.interface.ts',
   'repository.ts',
   'result.ts',

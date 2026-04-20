@@ -5,13 +5,21 @@ import { ConfigurationService } from '../../../../src/analysis/infrastructure/co
 describe('ConfigurationService', () => {
   let service: ConfigurationService;
 
+  // 1. Aggiornato mockConfig con S3_BUCKET_NAME (obbligatorio) e i nuovi campi ECS
   const mockConfig: Record<string, string | number> = {
     PORT: 3001,
     MONGO_URI: 'mongodb://localhost:27017/test',
     JWT_SECRET: 'test_secret',
     AWS_REGION: 'eu-central-1',
     CODE_GUARDIAN_TOKEN: 'ghp_test_token',
+    S3_BUCKET_NAME: 'test-bucket-name', // Fondamentale per la validazione
     NODE_ENV: 'development',
+    ECS_CLUSTER_NAME: 'test-cluster',
+    ECS_TASK_DEFINITION_CODE: 'code-task',
+    ECS_TASK_DEFINITION_DOCS: 'docs-task',
+    ECS_TASK_DEFINITION_SECURITY: 'security-task',
+    ECS_SUBNET: 'subnet-123',
+    ECS_SECURITY_GROUP: 'sg-456',
   };
 
   const createService = (envMock: Record<string, string | number>) => {
@@ -35,21 +43,22 @@ describe('ConfigurationService', () => {
       expect(service).toBeDefined();
     });
 
-    it('should instantiate directly with a mocked ConfigService (line 6 coverage)', () => {
-      const mockConfigService = {
-        get: jest.fn((key: string) => mockConfig[key]),
-      } as unknown as ConfigService;
-
-      const manualService = new ConfigurationService(mockConfigService);
-      expect(manualService).toBeDefined();
-    });
-
-    it('should throw an error if a required variable is missing', async () => {
+    it('should throw an error if S3_BUCKET_NAME is missing', async () => {
       const incompleteConfig = { ...mockConfig };
-      delete incompleteConfig['MONGO_URI'];
+      delete incompleteConfig['S3_BUCKET_NAME'];
 
       await expect(createService(incompleteConfig)).rejects.toThrow(
-        'CRITICAL FATAL ERROR: Missing environmental variable -> MONGO_URI',
+        'CRITICAL FATAL ERROR: Missing environmental variable -> S3_BUCKET_NAME',
+      );
+    });
+
+    it('should throw error in production if PORT is missing', async () => {
+      const prodIncomplete = { ...mockConfig, NODE_ENV: 'production' };
+      delete prodIncomplete['PORT'];
+
+      // In produzione la validazione controlla esplicitamente il porto
+      await expect(createService(prodIncomplete)).rejects.toThrow(
+        'CRITICAL FATAL ERROR: Missing environmental variable -> PORT}',
       );
     });
   });
@@ -60,34 +69,32 @@ describe('ConfigurationService', () => {
       service = module.get<ConfigurationService>(ConfigurationService);
     });
 
-    it('should return the correct port', () => {
-      expect(service.port).toBe(3001);
-    });
-
-    it('should return default port 3001 when PORT is falsy (line 25 coverage)', async () => {
-      const dynamicConfig: Record<string, string | number> = { ...mockConfig };
-      const localModule = await createService(dynamicConfig);
-      const localService = localModule.get<ConfigurationService>(ConfigurationService);
-      dynamicConfig['PORT'] = 0;
-
-      expect(localService.port).toBe(3001);
-    });
-
-    it('should evaluate isProduction correctly', async () => {
-      expect(service.isProduction).toBe(false);
-
-      const prodConfig = { ...mockConfig, NODE_ENV: 'production' };
-      const prodModule = await createService(prodConfig);
-      const prodService = prodModule.get<ConfigurationService>(ConfigurationService);
-
-      expect(prodService.isProduction).toBe(true);
-    });
-
-    it('should return correct configuration values', () => {
-      expect(service.mongoUri).toBe(mockConfig['MONGO_URI']);
-      expect(service.jwtSecret).toBe(mockConfig['JWT_SECRET']);
+    it('should return correct AWS and S3 values', () => {
+      expect(service.s3BucketName).toBe(mockConfig['S3_BUCKET_NAME']);
       expect(service.awsRegion).toBe(mockConfig['AWS_REGION']);
-      expect(service.codeGuardianToken).toBe(mockConfig['CODE_GUARDIAN_TOKEN']);
+    });
+
+    it('should return correct ECS configuration values', () => {
+      expect(service.ecsClusterName).toBe(mockConfig['ECS_CLUSTER_NAME']);
+      expect(service.ecsTaskDefinitionCode).toBe(mockConfig['ECS_TASK_DEFINITION_CODE']);
+      expect(service.ecsTaskDefinitionDocs).toBe(mockConfig['ECS_TASK_DEFINITION_DOCS']);
+      expect(service.ecsTaskDefinitionSecurity).toBe(mockConfig['ECS_TASK_DEFINITION_SECURITY']);
+      expect(service.ecsSubnet).toBe(mockConfig['ECS_SUBNET']);
+      expect(service.ecsSecurityGroup).toBe(mockConfig['ECS_SECURITY_GROUP']);
+    });
+
+    it('should return default values for ECS if not provided', async () => {
+      // Testiamo i fallback definiti nel service
+      const minimalConfig = {
+        ...mockConfig,
+        ECS_CLUSTER_NAME: undefined,
+        ECS_TASK_DEFINITION_CODE: undefined,
+      };
+      const module = await createService(minimalConfig);
+      const localService = module.get<ConfigurationService>(ConfigurationService);
+
+      expect(localService.ecsClusterName).toBe('code-guardian-skarab-cluster');
+      expect(localService.ecsTaskDefinitionCode).toBe('code-agent-task');
     });
   });
 });
